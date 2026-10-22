@@ -48,7 +48,6 @@ export function createRequestWorkspaceAuthorizer(
       const snapshot = await dependencies.computeWorkspacePermissionSnapshot({
         memberRole,
         organizationId,
-        userId,
       });
       return snapshot.statements;
     })();

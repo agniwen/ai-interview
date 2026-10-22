@@ -282,33 +282,6 @@ function listPlatformMailIngestAccountRows({
   return query;
 }
 
-async function countWorkspaceMailIngestAccountRows({
-  organizationId,
-  textFilters,
-  search,
-  userId,
-}: {
-  organizationId: string;
-  textFilters?: string;
-  search?: string;
-  userId?: string;
-}) {
-  const where = buildWorkspaceMailIngestFilters({ organizationId, search, textFilters, userId });
-  const [result] = await db
-    .select({ count: count() })
-    .from(member)
-    .innerJoin(userTable, eq(userTable.id, member.userId))
-    .leftJoin(
-      mailIngestAccount,
-      and(
-        eq(mailIngestAccount.organizationId, member.organizationId),
-        eq(mailIngestAccount.userId, member.userId),
-      ),
-    )
-    .where(where);
-  return result?.count ?? 0;
-}
-
 async function countPlatformMailIngestAccountRows({
   textFilters,
   search,
@@ -394,46 +367,6 @@ export async function getWorkspaceMailIngestAccount(
   const rows = await listWorkspaceMailIngestAccountRows({ organizationId });
   const row = rows.find((candidate) => candidate.accountId === accountId);
   return row ? toWorkspaceMailIngestAccountRow(row) : null;
-}
-
-export async function queryPaginatedWorkspaceMailIngestAccounts(
-  organizationId: string,
-  options: { textFilters?: string; search?: string | null; userId?: string } = {},
-  pagination?: MailIngestPaginationInput,
-): Promise<PaginatedWorkspaceMailIngestAccountResult> {
-  const { page, pageSize, sortBy, sortOrder } = workspaceMailIngestPaginationSchema.parse(
-    pagination ?? {},
-  );
-  const search = parseWorkspaceMailIngestSearch(options.search);
-  const { textFilters } = options;
-  const offset = (page - 1) * pageSize;
-
-  const [rows, total] = await Promise.all([
-    listWorkspaceMailIngestAccountRows({
-      limit: pageSize,
-      offset,
-      organizationId,
-      search,
-      sortBy,
-      sortOrder,
-      textFilters,
-      userId: options.userId,
-    }),
-    countWorkspaceMailIngestAccountRows({
-      organizationId,
-      search,
-      textFilters,
-      userId: options.userId,
-    }),
-  ]);
-
-  return {
-    page,
-    pageSize,
-    records: rows.map(toWorkspaceMailIngestAccountRow),
-    total,
-    totalPages: calcTotalPages(total, pageSize),
-  };
 }
 
 export async function queryPaginatedPlatformMailIngestAccounts(

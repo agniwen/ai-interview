@@ -1,7 +1,6 @@
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
-import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
-import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 import { serializeDate } from "@app/database/serialize";
 import { startOfBeijingDay } from "@app/shared/beijing-calendar";
 import { FEISHU_PROVIDER_IDS, getPreferredFeishuProviderId } from "@app/feishu/provider";
@@ -9,36 +8,12 @@ import type { FeishuProviderId } from "@app/feishu/provider";
 import {
   account,
   member,
-  recruitingGroup,
-  recruitingGroupMember,
   session,
   user,
+  workspaceMemberDottedManager,
+  workspaceMemberReporting,
 } from "@app/db-schema/schema";
-import { recruitingGroupRoleSchema } from "./schema";
-
-const DEFAULT_RECRUITING_GROUP_NAME = "默认招聘组";
-export const UNGROUPED_RECRUITING_GROUP_ID = "__ungrouped__";
-
-export type RecruitingGroupRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
-
-interface RecruitingGroupMemberRow {
-  id: string;
-  userId: string;
-  name: string;
-  email: string;
-  image: string | null;
-  role: RecruitingGroupRole | null;
-}
-
-export interface RecruitingGroupBoardRow {
-  id: string;
-  name: string;
-  createdAt: string;
-  isDefault: boolean;
-  isVirtual?: boolean;
-  members: RecruitingGroupMemberRow[];
-  memberUserIds: string[];
-}
+import { collectSelfAndReportUserIds } from "@app/resume-processing/review/support/access-recruiting-visibility";
 
 // 给「面试官多选」用的精简 member DTO。
 // Lightweight member DTO for interviewer multi-select pickers.
@@ -110,461 +85,318 @@ export async function listWorkspaceMembers(organizationId: string): Promise<Work
   });
 }
 
-export interface WorkspaceMemberListQuery {
-  page: number;
-  pageSize: number;
-  sortBy: "createdAt" | "lastActiveAt";
-  sortOrder: "asc" | "desc";
-  textFilters?: string;
-}
-
-interface WorkspaceMemberListRecord {
+export interface WorkspaceMemberDirectoryRecord {
   createdAt: string;
   email: string;
   id: string;
   image: string | null;
   lastActiveAt: string | null;
+  managerUserId: string | null;
   name: string;
   role: string;
+  shareWithPeers: boolean;
+  /** 虚线汇报上级。Dotted-line managers. */
+  dottedManagerUserIds: string[];
   userId: string;
-}
-
-export interface PaginatedWorkspaceMembersResult {
-  page: number;
-  pageSize: number;
-  records: WorkspaceMemberListRecord[];
-  total: number;
-  totalPages: number;
 }
 
 const WORKSPACE_MEMBER_LAST_ACTIVE_AT = sql<
   Date | string | null
 >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`;
 
-export async function queryPaginatedWorkspaceMembers(
+/** 工作区全部成员及汇报设置，供成员树一次性渲染。All members with their reporting settings. */
+export async function listWorkspaceMemberDirectory(
   organizationId: string,
-  query: WorkspaceMemberListQuery,
-): Promise<PaginatedWorkspaceMembersResult> {
-  const where = and(
-    eq(member.organizationId, organizationId),
-    buildListTextFilterWhere("members", query.textFilters, {
+): Promise<WorkspaceMemberDirectoryRecord[]> {
+  const rows = await db
+    .select({
+      createdAt: member.createdAt,
       email: user.email,
+      id: member.id,
+      image: user.image,
+      lastActiveAt: WORKSPACE_MEMBER_LAST_ACTIVE_AT.as("last_active_at"),
+      managerUserId: workspaceMemberReporting.managerUserId,
       name: user.name,
-    }),
-  );
-  const offset = (query.page - 1) * query.pageSize;
-  const direction = query.sortOrder === "asc" ? sql`asc` : sql`desc`;
-  const orderBy =
-    query.sortBy === "lastActiveAt"
-      ? [
-          sql`${WORKSPACE_MEMBER_LAST_ACTIVE_AT} ${direction} nulls last`,
-          desc(member.createdAt),
-          desc(member.id),
-        ]
-      : [
-          query.sortOrder === "asc" ? asc(member.createdAt) : desc(member.createdAt),
-          desc(member.id),
-        ];
+      role: member.role,
+      shareWithPeers: workspaceMemberReporting.shareWithPeers,
+      userId: member.userId,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .leftJoin(session, eq(session.userId, user.id))
+    .leftJoin(
+      workspaceMemberReporting,
+      and(
+        eq(workspaceMemberReporting.organizationId, member.organizationId),
+        eq(workspaceMemberReporting.userId, member.userId),
+      ),
+    )
+    .where(eq(member.organizationId, organizationId))
+    .groupBy(
+      member.id,
+      user.id,
+      workspaceMemberReporting.managerUserId,
+      workspaceMemberReporting.shareWithPeers,
+    )
+    .orderBy(asc(member.createdAt), asc(member.id));
 
-  const [rows, [totalRow]] = await Promise.all([
-    db
-      .select({
-        createdAt: member.createdAt,
-        email: user.email,
-        id: member.id,
-        image: user.image,
-        lastActiveAt: WORKSPACE_MEMBER_LAST_ACTIVE_AT.as("last_active_at"),
-        name: user.name,
-        role: member.role,
-        userId: member.userId,
-      })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .leftJoin(session, eq(session.userId, user.id))
-      .where(where)
-      .groupBy(member.id, user.id)
-      .orderBy(...orderBy)
-      .limit(query.pageSize)
-      .offset(offset),
-    db
-      .select({ total: count() })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .where(where),
-  ]);
-  const total = totalRow?.total ?? 0;
+  const dottedEdges = await db
+    .select({
+      managerUserId: workspaceMemberDottedManager.managerUserId,
+      userId: workspaceMemberDottedManager.userId,
+    })
+    .from(workspaceMemberDottedManager)
+    .where(eq(workspaceMemberDottedManager.organizationId, organizationId))
+    .orderBy(asc(workspaceMemberDottedManager.createdAt));
+  const dottedManagersByUser = new Map<string, string[]>();
+  for (const edge of dottedEdges) {
+    const managers = dottedManagersByUser.get(edge.userId) ?? [];
+    managers.push(edge.managerUserId);
+    dottedManagersByUser.set(edge.userId, managers);
+  }
 
-  return {
-    page: query.page,
-    pageSize: query.pageSize,
-    records: rows.map((row) => ({
-      ...row,
-      createdAt: row.createdAt.toISOString(),
-      lastActiveAt: serializeDate(row.lastActiveAt),
-      name: row.name ?? row.email,
-    })),
-    total,
-    totalPages: total === 0 ? 0 : Math.ceil(total / query.pageSize),
-  };
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    dottedManagerUserIds: dottedManagersByUser.get(row.userId) ?? [],
+    lastActiveAt: serializeDate(row.lastActiveAt),
+    name: row.name ?? row.email,
+    shareWithPeers: row.shareWithPeers ?? false,
+  }));
 }
 
-export function ensureDefaultRecruitingGroupForWorkspace({
-  creatorUserId,
-  organizationId,
-}: {
-  creatorUserId: string | null | undefined;
-  organizationId: string;
-}) {
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
+type ReportingGraphExecutor = Pick<typeof db, "select">;
+
+/** 汇报线全图：直属上级与虚线汇报上级。Full reporting graph used for cycle checks. */
+async function loadReportingGraph(executor: ReportingGraphExecutor, organizationId: string) {
+  const [lines, dottedEdges] = await Promise.all([
+    executor
       .select({
-        createdAt: recruitingGroup.createdAt,
-        id: recruitingGroup.id,
-        isDefault: recruitingGroup.isDefault,
-        name: recruitingGroup.name,
+        managerUserId: workspaceMemberReporting.managerUserId,
+        userId: workspaceMemberReporting.userId,
       })
-      .from(recruitingGroup)
-      .where(
-        and(
-          eq(recruitingGroup.organizationId, organizationId),
-          eq(recruitingGroup.isDefault, true),
-        ),
-      )
-      .limit(1);
+      .from(workspaceMemberReporting)
+      .where(eq(workspaceMemberReporting.organizationId, organizationId)),
+    executor
+      .select({
+        managerUserId: workspaceMemberDottedManager.managerUserId,
+        userId: workspaceMemberDottedManager.userId,
+      })
+      .from(workspaceMemberDottedManager)
+      .where(eq(workspaceMemberDottedManager.organizationId, organizationId)),
+  ]);
+  return { dottedEdges, lines };
+}
 
-    const inserted = existing
-      ? []
-      : await tx
-          .insert(recruitingGroup)
-          .values({
-            createdBy: creatorUserId ?? null,
-            id: crypto.randomUUID(),
-            isDefault: true,
-            name: DEFAULT_RECRUITING_GROUP_NAME,
-            organizationId,
-          })
-          .onConflictDoNothing({
-            target: recruitingGroup.organizationId,
-            where: sql`${recruitingGroup.isDefault} = true`,
-          })
-          .returning({
-            createdAt: recruitingGroup.createdAt,
-            id: recruitingGroup.id,
-            isDefault: recruitingGroup.isDefault,
-            name: recruitingGroup.name,
-          });
-    const group = existing ?? inserted[0];
+function lockWorkspaceReporting(executor: Pick<typeof db, "execute">, organizationId: string) {
+  return executor.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${`workspace_member_reporting:${organizationId}`}))`,
+  );
+}
 
-    const fallback = group
-      ? []
-      : await tx
-          .select({
-            createdAt: recruitingGroup.createdAt,
-            id: recruitingGroup.id,
-            isDefault: recruitingGroup.isDefault,
-            name: recruitingGroup.name,
-          })
-          .from(recruitingGroup)
-          .where(
-            and(
-              eq(recruitingGroup.organizationId, organizationId),
-              eq(recruitingGroup.isDefault, true),
-            ),
-          )
-          .limit(1);
-    const resolvedGroup = group ?? fallback[0];
+async function isWorkspaceMember(
+  executor: Pick<typeof db, "select">,
+  organizationId: string,
+  userId: string,
+) {
+  const [row] = await executor
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, userId)))
+    .limit(1);
+  return Boolean(row);
+}
 
-    if (!resolvedGroup) {
-      throw new Error("Failed to ensure default recruiting group.");
-    }
+export type SetWorkspaceMemberManagerResult =
+  | "cycle"
+  | "manager-not-found"
+  | "member-not-found"
+  | "self"
+  | "updated";
 
-    if (!creatorUserId) {
-      return { ...resolvedGroup, createdAt: resolvedGroup.createdAt.toISOString() };
-    }
-
-    const [targetMember] = await tx
+/**
+ * 为一个或多个成员设置或清除同一个直属上级，全部成功或全部不变。同一工作区内串行执行，
+ * 避免并发设置绕过环检测；上级不能是被设置的成员本人或其任一下级。
+ * Sets or clears the same direct manager for one or more members atomically. Serialized per
+ * workspace so concurrent edits cannot slip a cycle past the check.
+ */
+export async function setWorkspaceMemberManager({
+  actorUserId,
+  managerUserId,
+  organizationId,
+  userIds,
+}: {
+  actorUserId: string;
+  managerUserId: string | null;
+  organizationId: string;
+  userIds: readonly string[];
+}): Promise<SetWorkspaceMemberManagerResult> {
+  const targetUserIds = [...new Set(userIds)];
+  if (managerUserId && targetUserIds.includes(managerUserId)) {
+    return "self";
+  }
+  return await db.transaction(async (tx) => {
+    await lockWorkspaceReporting(tx, organizationId);
+    const memberRows = await tx
       .select({ userId: member.userId })
       .from(member)
-      .where(and(eq(member.organizationId, organizationId), eq(member.userId, creatorUserId)))
-      .limit(1);
-
-    if (targetMember) {
-      await tx
-        .insert(recruitingGroupMember)
-        .values({
-          createdBy: creatorUserId,
-          groupId: resolvedGroup.id,
-          id: crypto.randomUUID(),
-          organizationId,
-          role: "recruitingSupervisor",
-          userId: creatorUserId,
-        })
-        .onConflictDoNothing({
-          target: [
-            recruitingGroupMember.organizationId,
-            recruitingGroupMember.groupId,
-            recruitingGroupMember.userId,
-          ],
-        });
+      .where(eq(member.organizationId, organizationId));
+    const memberUserIds = new Set(memberRows.map((row) => row.userId));
+    if (targetUserIds.length === 0 || targetUserIds.some((userId) => !memberUserIds.has(userId))) {
+      return "member-not-found";
     }
-
-    return { ...resolvedGroup, createdAt: resolvedGroup.createdAt.toISOString() };
+    if (managerUserId) {
+      if (!memberUserIds.has(managerUserId)) {
+        return "manager-not-found";
+      }
+      const { dottedEdges, lines } = await loadReportingGraph(tx, organizationId);
+      if (
+        targetUserIds.some((userId) =>
+          collectSelfAndReportUserIds(userId, lines, dottedEdges).includes(managerUserId),
+        )
+      ) {
+        return "cycle";
+      }
+    }
+    await tx
+      .insert(workspaceMemberReporting)
+      .values(
+        targetUserIds.map((userId) => ({
+          createdBy: actorUserId,
+          managerUserId,
+          organizationId,
+          userId,
+        })),
+      )
+      .onConflictDoUpdate({
+        set: { managerUserId, updatedAt: new Date() },
+        target: [workspaceMemberReporting.organizationId, workspaceMemberReporting.userId],
+      });
+    return "updated";
   });
 }
 
-export async function listRecruitingGroupBoard(
-  organizationId: string,
-): Promise<RecruitingGroupBoardRow[]> {
-  const [rows, ungroupedRows] = await Promise.all([
-    db
-      .select({
-        groupCreatedAt: recruitingGroup.createdAt,
-        groupId: recruitingGroup.id,
-        groupIsDefault: recruitingGroup.isDefault,
-        groupName: recruitingGroup.name,
-        memberEmail: user.email,
-        memberId: recruitingGroupMember.id,
-        memberImage: user.image,
-        memberName: user.name,
-        memberRole: recruitingGroupMember.role,
-        memberUserId: recruitingGroupMember.userId,
-      })
-      .from(recruitingGroup)
-      .leftJoin(
-        recruitingGroupMember,
-        and(
-          eq(recruitingGroupMember.organizationId, recruitingGroup.organizationId),
-          eq(recruitingGroupMember.groupId, recruitingGroup.id),
-        ),
-      )
-      .leftJoin(user, eq(user.id, recruitingGroupMember.userId))
-      .where(eq(recruitingGroup.organizationId, organizationId))
-      .orderBy(desc(recruitingGroup.isDefault), asc(recruitingGroup.createdAt), asc(user.name)),
-    db
-      .select({
-        email: user.email,
-        image: user.image,
-        name: user.name,
-        userId: member.userId,
-      })
+/**
+ * 整组替换成员的虚线汇报上级。上级不能是本人或其任一下级（含虚线关系），避免可见关系成环。
+ * Replaces a member's dotted-line managers; none may be the member or any of their reports.
+ */
+export async function setWorkspaceMemberDottedManagers({
+  actorUserId,
+  managerUserIds,
+  organizationId,
+  userId,
+}: {
+  actorUserId: string;
+  managerUserIds: readonly string[];
+  organizationId: string;
+  userId: string;
+}): Promise<SetWorkspaceMemberManagerResult> {
+  const targetManagerUserIds = [...new Set(managerUserIds)];
+  if (targetManagerUserIds.includes(userId)) {
+    return "self";
+  }
+  return await db.transaction(async (tx) => {
+    await lockWorkspaceReporting(tx, organizationId);
+    const memberRows = await tx
+      .select({ userId: member.userId })
       .from(member)
-      .innerJoin(user, eq(user.id, member.userId))
+      .where(eq(member.organizationId, organizationId));
+    const memberUserIds = new Set(memberRows.map((row) => row.userId));
+    if (!memberUserIds.has(userId)) {
+      return "member-not-found";
+    }
+    if (targetManagerUserIds.some((managerUserId) => !memberUserIds.has(managerUserId))) {
+      return "manager-not-found";
+    }
+    const { dottedEdges, lines } = await loadReportingGraph(tx, organizationId);
+    const reportUserIds = new Set(collectSelfAndReportUserIds(userId, lines, dottedEdges));
+    if (targetManagerUserIds.some((managerUserId) => reportUserIds.has(managerUserId))) {
+      return "cycle";
+    }
+    await tx
+      .delete(workspaceMemberDottedManager)
       .where(
         and(
-          eq(member.organizationId, organizationId),
-          notExists(
-            db
-              .select({ id: recruitingGroupMember.id })
-              .from(recruitingGroupMember)
-              .where(
-                and(
-                  eq(recruitingGroupMember.organizationId, member.organizationId),
-                  eq(recruitingGroupMember.userId, member.userId),
-                ),
-              ),
-          ),
+          eq(workspaceMemberDottedManager.organizationId, organizationId),
+          eq(workspaceMemberDottedManager.userId, userId),
+        ),
+      );
+    if (targetManagerUserIds.length > 0) {
+      await tx.insert(workspaceMemberDottedManager).values(
+        targetManagerUserIds.map((managerUserId) => ({
+          createdBy: actorUserId,
+          managerUserId,
+          organizationId,
+          userId,
+        })),
+      );
+    }
+    return "updated";
+  });
+}
+
+/** 设置成员是否把本人创建的招聘数据共享给同级。Toggles sharing the member's own data with peers. */
+export async function setWorkspaceMemberPeerSharing({
+  actorUserId,
+  organizationId,
+  shareWithPeers,
+  userId,
+}: {
+  actorUserId: string;
+  organizationId: string;
+  shareWithPeers: boolean;
+  userId: string;
+}): Promise<"member-not-found" | "updated"> {
+  return await db.transaction(async (tx) => {
+    await lockWorkspaceReporting(tx, organizationId);
+    if (!(await isWorkspaceMember(tx, organizationId, userId))) {
+      return "member-not-found";
+    }
+    await tx
+      .insert(workspaceMemberReporting)
+      .values({ createdBy: actorUserId, organizationId, shareWithPeers, userId })
+      .onConflictDoUpdate({
+        set: { shareWithPeers, updatedAt: new Date() },
+        target: [workspaceMemberReporting.organizationId, workspaceMemberReporting.userId],
+      });
+    return "updated";
+  });
+}
+
+/**
+ * 成员离开前把其直属下级挂到他的上级下（没有上级则成为顶层），保持汇报线连续；下级的共享设置不变。
+ * Before a member leaves, hand their direct reports to their own manager (or make them top-level),
+ * keeping each report's peer-sharing choice.
+ */
+export async function reassignReportsBeforeMemberRemoval({
+  organizationId,
+  userId,
+}: {
+  organizationId: string;
+  userId: string;
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    await lockWorkspaceReporting(tx, organizationId);
+    const [ownLine] = await tx
+      .select({ managerUserId: workspaceMemberReporting.managerUserId })
+      .from(workspaceMemberReporting)
+      .where(
+        and(
+          eq(workspaceMemberReporting.organizationId, organizationId),
+          eq(workspaceMemberReporting.userId, userId),
         ),
       )
-      .orderBy(asc(user.name)),
-  ]);
-
-  const groups = new Map<string, RecruitingGroupBoardRow>();
-  for (const row of rows) {
-    let group = groups.get(row.groupId);
-    if (!group) {
-      group = {
-        createdAt: row.groupCreatedAt.toISOString(),
-        id: row.groupId,
-        isDefault: row.groupIsDefault,
-        memberUserIds: [],
-        members: [],
-        name: row.groupName,
-      };
-      groups.set(row.groupId, group);
-    }
-    if (row.memberId && row.memberUserId && row.memberRole) {
-      const roleResult = recruitingGroupRoleSchema.safeParse(row.memberRole);
-      if (!roleResult.success) {
-        continue;
-      }
-      group.memberUserIds.push(row.memberUserId);
-      group.members.push({
-        email: row.memberEmail ?? "—",
-        id: row.memberId,
-        image: row.memberImage ?? null,
-        name: row.memberName ?? row.memberEmail ?? "未命名",
-        role: roleResult.data,
-        userId: row.memberUserId,
-      });
-    }
-  }
-  return [
-    ...groups.values(),
-    {
-      createdAt: new Date(0).toISOString(),
-      id: UNGROUPED_RECRUITING_GROUP_ID,
-      isDefault: false,
-      isVirtual: true,
-      memberUserIds: ungroupedRows.map((row) => row.userId),
-      members: ungroupedRows.map((row) => ({
-        email: row.email,
-        id: `${UNGROUPED_RECRUITING_GROUP_ID}:${row.userId}`,
-        image: row.image ?? null,
-        name: row.name ?? row.email ?? "未命名",
-        role: null,
-        userId: row.userId,
-      })),
-      name: "未分组",
-    },
-  ];
-}
-
-export async function findRecruitingGroupByName({
-  excludeGroupId,
-  name,
-  organizationId,
-}: {
-  excludeGroupId?: string;
-  name: string;
-  organizationId: string;
-}) {
-  const filters = [
-    eq(recruitingGroup.organizationId, organizationId),
-    eq(recruitingGroup.name, name),
-  ];
-  if (excludeGroupId) {
-    filters.push(sql`${recruitingGroup.id} <> ${excludeGroupId}`);
-  }
-
-  const [row] = await db
-    .select({ id: recruitingGroup.id })
-    .from(recruitingGroup)
-    .where(and(...filters))
-    .limit(1);
-  return row ?? null;
-}
-
-export async function addRecruitingGroupMember({
-  createdBy,
-  groupId,
-  organizationId,
-  role,
-  userId,
-}: {
-  createdBy: string | null | undefined;
-  groupId: string;
-  organizationId: string;
-  role: RecruitingGroupRole;
-  userId: string;
-}) {
-  const [scope] = await db
-    .select({ groupId: recruitingGroup.id, userId: member.userId })
-    .from(recruitingGroup)
-    .innerJoin(
-      member,
-      and(eq(member.organizationId, recruitingGroup.organizationId), eq(member.userId, userId)),
-    )
-    .where(and(eq(recruitingGroup.organizationId, organizationId), eq(recruitingGroup.id, groupId)))
-    .limit(1);
-
-  if (!scope) {
-    return { status: "missing" as const };
-  }
-
-  const [created] = await db
-    .insert(recruitingGroupMember)
-    .values({
-      createdBy: createdBy ?? null,
-      groupId,
-      id: crypto.randomUUID(),
-      organizationId,
-      role,
-      userId,
-    })
-    .onConflictDoNothing({
-      target: [
-        recruitingGroupMember.organizationId,
-        recruitingGroupMember.groupId,
-        recruitingGroupMember.userId,
-      ],
-    })
-    .returning({ id: recruitingGroupMember.id });
-
-  if (created) {
-    return { id: created.id, status: "created" as const };
-  }
-
-  return { status: "duplicate" as const };
-}
-
-export async function addMemberToDefaultRecruitingGroup({
-  createdBy,
-  organizationId,
-  userId,
-}: {
-  createdBy: string | null | undefined;
-  organizationId: string;
-  userId: string;
-}) {
-  const defaultGroup = await ensureDefaultRecruitingGroupForWorkspace({
-    creatorUserId: null,
-    organizationId,
+      .limit(1);
+    await tx
+      .update(workspaceMemberReporting)
+      .set({ managerUserId: ownLine?.managerUserId ?? null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(workspaceMemberReporting.organizationId, organizationId),
+          eq(workspaceMemberReporting.managerUserId, userId),
+        ),
+      );
   });
-
-  return addRecruitingGroupMember({
-    createdBy,
-    groupId: defaultGroup.id,
-    organizationId,
-    role: "hr",
-    userId,
-  });
-}
-
-export async function updateRecruitingGroupMemberRole({
-  groupId,
-  organizationId,
-  role,
-  userId,
-}: {
-  groupId: string;
-  organizationId: string;
-  role: RecruitingGroupRole;
-  userId: string;
-}) {
-  const [updated] = await db
-    .update(recruitingGroupMember)
-    .set({ role, updatedAt: new Date() })
-    .where(
-      and(
-        eq(recruitingGroupMember.organizationId, organizationId),
-        eq(recruitingGroupMember.groupId, groupId),
-        eq(recruitingGroupMember.userId, userId),
-      ),
-    )
-    .returning({ id: recruitingGroupMember.id });
-  return updated ?? null;
-}
-
-export async function removeRecruitingGroupMember({
-  groupId,
-  organizationId,
-  userId,
-}: {
-  groupId: string;
-  organizationId: string;
-  userId: string;
-}) {
-  const rows = await db
-    .delete(recruitingGroupMember)
-    .where(
-      and(
-        eq(recruitingGroupMember.organizationId, organizationId),
-        eq(recruitingGroupMember.groupId, groupId),
-        eq(recruitingGroupMember.userId, userId),
-      ),
-    )
-    .returning({ id: recruitingGroupMember.id });
-  return rows.length > 0;
 }
 
 export interface MemberLastActiveRow {

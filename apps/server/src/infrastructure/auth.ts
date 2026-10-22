@@ -21,14 +21,16 @@ import { enforcePasswordPolicy } from "./password-policy-hook";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
-  isNoAccessWorkspaceRole,
 } from "@app/recruiting/access/workspace-roles";
-import {
-  addMemberToDefaultRecruitingGroup,
-  ensureDefaultRecruitingGroupForWorkspace,
-} from "../routes/studio/routes/workspace/dao";
+import { reassignReportsBeforeMemberRemoval } from "../routes/studio/routes/workspace/dao";
 import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../routes/studio/routes/workspace/utils/workspace-member-joined-notification";
-import { ac, roles } from "@app/shared/permissions";
+import {
+  ac,
+  INTERVIEWER_WORKSPACE_ROLE,
+  NO_ACCESS_WORKSPACE_ROLE,
+  RECRUITING_SUPERVISOR_WORKSPACE_ROLE,
+  roles,
+} from "@app/shared/permissions";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@app/shared/password-policy";
 import { db } from "./db";
 import * as schema from "@app/db-schema/schema";
@@ -77,8 +79,15 @@ function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefine
   return values.find((value): value is string => value !== undefined && value.length > 0);
 }
 
+const BUILT_IN_ADMIN_ASSIGNABLE_ROLES = new Set<string>([
+  RECRUITING_SUPERVISOR_WORKSPACE_ROLE,
+  "member",
+  INTERVIEWER_WORKSPACE_ROLE,
+  NO_ACCESS_WORKSPACE_ROLE,
+]);
+
 function isBuiltInAdminAssignableRole(role: string): boolean {
-  return role === "member" || isNoAccessWorkspaceRole(role);
+  return BUILT_IN_ADMIN_ASSIGNABLE_ROLES.has(role);
 }
 
 function isBuiltInOwnerAssignableRole(role: string): boolean {
@@ -384,23 +393,10 @@ export const auth = betterAuth({
       // separate better-auth flow.
       organizationHooks: {
         afterAcceptInvitation: async ({ invitation, member: acceptedMember, user }) => {
-          if (!isNoAccessWorkspaceRole(acceptedMember.role) && acceptedMember.role === "member") {
-            await addMemberToDefaultRecruitingGroup({
-              createdBy: invitation.inviterId,
-              organizationId: acceptedMember.organizationId,
-              userId: user.id,
-            });
-          }
           await notifyWorkspaceInviteCreatorMemberJoinedSafely({
             creatorUserId: invitation.inviterId,
             joinedUserId: user.id,
             organizationId: acceptedMember.organizationId,
-          });
-        },
-        afterCreateOrganization: async ({ organization: org, user }) => {
-          await ensureDefaultRecruitingGroupForWorkspace({
-            creatorUserId: user.id,
-            organizationId: org.id,
           });
         },
         // Clear only the durable landing preference. The member row remains
@@ -465,6 +461,10 @@ export const auth = betterAuth({
               message: "该成员仍被招聘数据引用，请先移交关联数据或设为无访问权限。",
             });
           }
+          await reassignReportsBeforeMemberRemoval({
+            organizationId: removingMember.organizationId,
+            userId: removingMember.userId,
+          });
         },
         beforeUpdateMemberRole: async ({ member: targetMember, newRole, organization: org }) => {
           // ⚠️ 注意：better-auth 这里的 `user` 参数实际是 **目标用户**（被改的人），
@@ -520,7 +520,7 @@ export const auth = betterAuth({
             }
             if (!(await canAdminSetRole(org.id, nextRole))) {
               throw new APIError("FORBIDDEN", {
-                message: "只能设置为普通成员、空权限用户或自定义角色。",
+                message: "只能设置为招聘主管、招聘专员、面试官、待分配或自定义角色。",
               });
             }
             return;
@@ -528,7 +528,7 @@ export const auth = betterAuth({
 
           if (!(await canOwnerSetRole(org.id, nextRole))) {
             throw new APIError("FORBIDDEN", {
-              message: "只能设置为管理员、普通成员、空权限用户或自定义角色。",
+              message: "只能设置为管理员、招聘主管、招聘专员、面试官、待分配或自定义角色。",
             });
           }
         },

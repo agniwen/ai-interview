@@ -1290,6 +1290,84 @@ export const organizationRole = pgTable(
   ],
 );
 
+// 工作区成员的汇报设置（ADR-0043）：每人最多一个直属上级，构成森林；上级可见全部下级的招聘数据。
+// 勾选共享给同级后，同一直属上级下的同级（顶层成员彼此为同级）也能看到该成员本人创建的数据。
+// Per-member reporting settings: at most one direct manager (managers see all transitive
+// reports) plus an opt-in to share the member's own recruiting data with peers.
+export const workspaceMemberReporting = pgTable(
+  "workspace_member_reporting",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    managerUserId: text("manager_user_id"),
+    organizationId: text("organization_id").notNull(),
+    shareWithPeers: boolean("share_with_peers").default(false).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.userId] }),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_reporting_member_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.managerUserId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_reporting_manager_fk",
+    }).onDelete("cascade"),
+    index("workspace_member_reporting_org_manager_idx").on(
+      table.organizationId,
+      table.managerUserId,
+    ),
+    check(
+      "workspace_member_reporting_not_self_check",
+      sql`${table.userId} <> ${table.managerUserId}`,
+    ),
+  ],
+);
+
+// 虚线汇报上级（ADR-0043）：不改变成员树和同级关系，只让这些上级也能看到该成员及其全部下级的招聘数据。
+// Dotted-line managers: grant extra visibility over a member and their reports without changing
+// the reporting tree or peer groups.
+export const workspaceMemberDottedManager = pgTable(
+  "workspace_member_dotted_manager",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    managerUserId: text("manager_user_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.userId, table.managerUserId] }),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_dotted_manager_member_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.managerUserId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_dotted_manager_manager_fk",
+    }).onDelete("cascade"),
+    index("workspace_member_dotted_manager_org_manager_idx").on(
+      table.organizationId,
+      table.managerUserId,
+    ),
+    check(
+      "workspace_member_dotted_manager_not_self_check",
+      sql`${table.userId} <> ${table.managerUserId}`,
+    ),
+  ],
+);
+
+// 已停用：招聘组功能已移除（ADR-0043），表保留待确认后再删除，运行时代码不再读写。
+// Retired: recruiting groups were removed (ADR-0043); kept until dropping is confirmed.
 export const recruitingGroup = pgTable(
   "recruiting_group",
   {
@@ -1315,6 +1393,7 @@ export const recruitingGroup = pgTable(
   ],
 );
 
+// 已停用（ADR-0043）。Retired (ADR-0043).
 export const recruitingGroupMember = pgTable(
   "recruiting_group_member",
   {

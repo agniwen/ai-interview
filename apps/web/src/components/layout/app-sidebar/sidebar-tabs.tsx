@@ -4,13 +4,14 @@ import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { resolveSidebarTab } from "./sidebar-slot-transition";
 import type { SidebarTabValue } from "./sidebar-slot-transition";
 
 function getSidebarTabTarget(tab: SidebarTabValue, slug: string) {
   return tab === "agent"
     ? ({ params: { slug }, to: "/w/$slug/agent" } as const)
-    : ({ params: { slug }, to: "/w/$slug/studio/resumes" } as const);
+    : ({ params: { slug }, to: "/w/$slug/studio" } as const);
 }
 
 type SidebarTabTarget = ReturnType<typeof getSidebarTabTarget>;
@@ -22,7 +23,14 @@ export interface SidebarTabsDependencies {
   slug: string;
 }
 
-export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDependencies }) {
+export function SidebarTabsView({
+  canUseAgent = true,
+  dependencies,
+}: {
+  /** 没有招聘助手权限时只剩工作台，不再显示标签切换。Hidden when only the studio is available. */
+  canUseAgent?: boolean;
+  dependencies: SidebarTabsDependencies;
+}) {
   const activeTab = resolveSidebarTab(dependencies.pathname);
 
   const handleChange = async (value: string) => {
@@ -51,6 +59,10 @@ export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDep
       // A failed speculative preload must not prevent the later navigation.
     }
   };
+
+  if (!canUseAgent) {
+    return null;
+  }
 
   return (
     <div className="grid grid-rows-[1fr] opacity-100 transition-[grid-template-rows,opacity,transform] duration-180 ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[collapsible=icon]:grid-rows-[0fr] group-data-[collapsible=icon]:-translate-x-2 group-data-[collapsible=icon]:opacity-0 motion-reduce:transition-none">
@@ -107,10 +119,12 @@ export function SidebarTabs() {
   const router = useRouter();
   const slug = useWorkspaceSlug();
   const { isMobile, state } = useSidebar();
+  const canUseAgent = useHasPermission("chat", "read");
 
   return (
     <div inert={!isMobile && state === "collapsed"}>
       <SidebarTabsView
+        canUseAgent={canUseAgent}
         dependencies={{
           navigate,
           pathname,

@@ -2,14 +2,19 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@app/database/context";
 import { organizationRole } from "@app/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
+import type { AppRole } from "@app/shared/permissions";
 
-type BuiltInWorkspaceRole = "owner" | "admin" | "member" | typeof NO_ACCESS_WORKSPACE_ROLE;
+type BuiltInWorkspaceRole = AppRole;
 
+// 拥有者 > 管理员 > 招聘主管 > 招聘专员 > 面试官 > 待分配；只能邀请或指派低于自己的内置角色。
+// Built-in roles can only grant built-in roles ranked below the invoker.
 const WORKSPACE_ROLE_RANK = {
-  admin: 2,
-  member: 1,
+  admin: 4,
+  interviewer: 1,
+  member: 2,
   noAccess: 0,
-  owner: 3,
+  owner: 5,
+  recruitingSupervisor: 3,
 } satisfies Record<BuiltInWorkspaceRole, number>;
 
 export function isNoAccessWorkspaceRole(role: string | null | undefined): boolean {

@@ -19,19 +19,6 @@ export const createMailIngestAccountSchema = z.object({
   username: nonEmptyString,
 });
 
-export const createManagedMailIngestAccountSchema = createMailIngestAccountSchema.extend({
-  userId: nonEmptyString,
-});
-
-export const managedMailIngestAccountListQuerySchema = z.object({
-  page: z.string().optional(),
-  pageSize: z.string().optional(),
-  search: z.string().optional(),
-  sortBy: z.string().optional(),
-  sortOrder: z.string().optional(),
-  textFilters: listTextFiltersSchema("mailAccounts"),
-});
-
 export const updateMailIngestAccountSchema = createMailIngestAccountSchema
   .omit({ password: true })
   .partial()

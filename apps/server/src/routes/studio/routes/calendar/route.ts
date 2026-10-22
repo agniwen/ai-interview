@@ -31,7 +31,7 @@ export function createStudioCalendarRouter(
     .createApp()
     .get(
       "/ai-events/:roundId/evaluation",
-      dependencies.requirePermission("interview", "read"),
+      dependencies.requirePermission("page", "calendar"),
       async (c) => {
         const { activeOrg, member, user } = c.var;
         if (!activeOrg || !user) {
@@ -55,7 +55,7 @@ export function createStudioCalendarRouter(
     )
     .get(
       "/human-events/:roundId/evaluation",
-      dependencies.requirePermission("interview", "read"),
+      dependencies.requirePermission("page", "calendar"),
       async (c) => {
         const { activeOrg, member, user } = c.var;
         if (!activeOrg || !user) {
@@ -80,7 +80,7 @@ export function createStudioCalendarRouter(
     )
     .get(
       "/ai-events/:roundId/preview",
-      dependencies.requirePermission("interview", "read"),
+      dependencies.requirePermission("page", "calendar"),
       zValidator("query", studioAiCalendarPreviewQuerySchema, jsonValidatorError("预览参数无效。")),
       async (c) => {
         const { activeOrg, member, user } = c.var;
@@ -108,7 +108,7 @@ export function createStudioCalendarRouter(
     )
     .get(
       "/",
-      dependencies.requirePermission("interview", "read"),
+      dependencies.requirePermission("page", "calendar"),
       zValidator("query", studioCalendarQuerySchema, jsonValidatorError("日程查询参数无效。")),
       async (c) => {
         const { activeOrg, member, user } = c.var;

@@ -29,18 +29,12 @@ export interface AddUserToWorkspaceDependencies {
     role: PlatformInitialWorkspaceRole;
     userId: string;
   }) => Promise<void>;
-  addToDefaultRecruitingGroup: (input: {
-    actorUserId: string;
-    organizationId: string;
-    userId: string;
-  }) => Promise<void>;
   findWorkspace: (organizationId: string) => Promise<WorkspaceSummary | null>;
   isWorkspaceMember: (input: { organizationId: string; userId: string }) => Promise<boolean>;
   userExists: (userId: string) => Promise<boolean>;
 }
 
 export interface AddUserToWorkspaceInput {
-  actorUserId: string;
   organizationId: string;
   role: PlatformInitialWorkspaceRole;
   userId: string;
@@ -75,15 +69,6 @@ export async function addUserToWorkspace(
     role: input.role,
     userId: input.userId,
   });
-  // 与邀请接受 / 加入链接一致：只有普通成员自动进入默认招聘组。
-  // Matches invitation/join flows: only regular members join the default recruiting group.
-  if (input.role === "member") {
-    await dependencies.addToDefaultRecruitingGroup({
-      actorUserId: input.actorUserId,
-      organizationId: workspace.id,
-      userId: input.userId,
-    });
-  }
 
   return {
     organizationId: workspace.id,

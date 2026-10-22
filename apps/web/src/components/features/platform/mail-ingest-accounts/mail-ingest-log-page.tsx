@@ -1,7 +1,7 @@
 import { listTextQuery } from "@app/shared/list-text-filters";
-import { IconArrowLeft, IconInbox } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { IconArrowLeft, IconInbox, IconRefresh } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -14,8 +14,7 @@ import {
 } from "@/components/features/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/features/data-grid";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
-import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,8 @@ import {
 } from "@/components/ui/empty";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { serializeDateRange } from "./mail-ingest-log-drawer";
+import { serializeDateRange } from "./mail-ingest-date-range";
+import type { MailIngestDateRange } from "./mail-ingest-date-range";
 
 interface MailMessageAttachment {
   fileName: string;
@@ -68,7 +68,6 @@ const STATUS_LABELS = {
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ label, value }));
 const mailMessageStatusSchema = z.enum(["failed", "processing", "queued", "skipped"]);
-const mailIngestRouteParamsSchema = z.object({ id: z.string(), slug: z.string() });
 const JD_BIND_LABELS = {
   ambiguous: "多个匹配",
   bound: "已绑定",
@@ -88,11 +87,6 @@ function isJdBindStatus(value: string): value is keyof typeof JD_BIND_LABELS {
 
 function isPoolSummary(value: string): value is keyof typeof POOL_SUMMARY_LABELS {
   return value in POOL_SUMMARY_LABELS;
-}
-
-interface MailIngestDateRange {
-  receivedFrom?: string;
-  receivedTo?: string;
 }
 
 interface MailIngestMessagesQuery extends MailIngestDateRange {
@@ -115,44 +109,41 @@ function statusVariant(status: MailMessageRecord["status"]) {
   return "default";
 }
 
-export function MailIngestLogPage() {
-  const { id, slug } = mailIngestRouteParamsSchema.parse(useParams({ strict: false }));
-  const navigate = useNavigate();
+/**
+ * 平台后台的单个监听邮箱入库记录：任一工作区的账号都可查看，并可立即触发该工作区轮询。
+ * Platform view of one listener mailbox's ingest log, with an immediate poll for its workspace.
+ */
+export function MailIngestLogPage({
+  accountId: id,
+  organizationId,
+}: {
+  accountId: string;
+  organizationId: string;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const headerOverride = useMemo(
-    () => (
-      <div className="flex min-w-0 items-center gap-2">
-        <Button
-          className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
-          onClick={async () => {
-            try {
-              await navigate({ params: { slug }, to: "/w/$slug/studio/mail-ingest-accounts" });
-            } catch {
-              toast.error("返回邮箱监听失败");
-            }
-          }}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <IconArrowLeft />
-          <span className="hidden sm:inline">返回邮箱监听</span>
-        </Button>
-      </div>
-    ),
-    [navigate, slug],
-  );
-  useStudioHeaderOverride(headerOverride);
+  const pollNow = useMutation({
+    mutationFn: () =>
+      rpcFetch(
+        rpc.api.platform["mail-ingest-accounts"][":id"]["poll-now"].$post({
+          json: { organizationId },
+          param: { id },
+        }),
+        "立即轮询触发失败",
+      ),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "立即轮询触发失败"),
+    onSuccess: () => toast.success("已开始立即轮询，下次轮训将在 15 分钟后进行"),
+  });
 
   const accountQuery = useQuery({
     queryFn: () =>
       rpcFetch(
-        rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].$get({
-          param: { id, slug },
+        rpc.api.platform["mail-ingest-accounts"][":id"].$get({
+          param: { id },
+          query: { organizationId },
         }),
         "加载邮箱监听配置失败",
       ),
-    queryKey: ["managed-mail-ingest-account", slug, id],
+    queryKey: ["platform-mail-ingest-account", organizationId, id],
   });
 
   async function fetchMessages(
@@ -176,9 +167,9 @@ export function MailIngestLogPage() {
       query.status = status.data;
     }
     const result = await rpcFetch(
-      rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
-        param: { id, slug },
-        query,
+      rpc.api.platform["mail-ingest-accounts"][":id"].messages.$get({
+        param: { id },
+        query: { ...query, organizationId },
       }),
       "加载入库记录失败",
     );
@@ -192,7 +183,7 @@ export function MailIngestLogPage() {
     defaultPageSize: 20,
     initialFilters: { receivedFrom: "", receivedTo: "", status: "" },
     queryFn: fetchMessages,
-    queryKeyBase: ["mail-ingest-messages", slug, id],
+    queryKeyBase: ["platform-mail-ingest-messages", organizationId, id],
   });
 
   function applyDate(key: "receivedFrom" | "receivedTo", value: string) {
@@ -302,12 +293,32 @@ export function MailIngestLogPage() {
 
   const account = accountQuery.data;
   if (accountQuery.isLoading) {
-    return <StudioTablePageSkeleton columnCount={6} filterCount={4} label="入库记录" />;
+    return (
+      <output aria-label="入库记录加载中" className="block space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </output>
+    );
   }
 
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
+      <Button
+        className="-ml-2 w-fit text-muted-foreground hover:text-foreground"
+        render={<Link to="/platform/mail-ingest-accounts" />}
+        size="sm"
+        variant="ghost"
+      >
+        <IconArrowLeft />
+        返回邮箱监听
+      </Button>
       <PageHeader
+        actionRender={
+          <Button disabled={pollNow.isPending} onClick={() => pollNow.mutate()} type="button">
+            <IconRefresh className={pollNow.isPending ? "animate-spin" : undefined} />
+            {pollNow.isPending ? "触发中…" : "立即轮询"}
+          </Button>
+        }
         description={account?.account.emailAddress ?? "查看邮件入库与解析结果"}
         title="入库记录"
       />

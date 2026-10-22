@@ -9,7 +9,6 @@ import {
   IconFileText,
   IconLayoutGrid,
   IconListCheck,
-  IconMailCheck,
   IconMessageChatbot,
   IconRobot,
   IconShieldCheck,
@@ -92,7 +91,7 @@ const navGroups: NavGroup[] = [
         title: "AI初面",
       },
       {
-        action: "interviews",
+        action: "calendar",
         icon: IconCalendarEvent,
         path: "/studio/calendar",
         resource: "page",
@@ -184,13 +183,6 @@ const navGroups: NavGroup[] = [
         title: "工作区管理",
       },
       {
-        action: "mailIngestAccounts",
-        icon: IconMailCheck,
-        path: "/studio/mail-ingest-accounts",
-        resource: "page",
-        title: "邮箱监听",
-      },
-      {
         action: "permissions",
         icon: IconShieldCheck,
         path: "/studio/permissions",
@@ -198,7 +190,7 @@ const navGroups: NavGroup[] = [
         title: "权限管理",
       },
       {
-        action: "offerApprovals",
+        action: "offerApprovalTemplates",
         icon: IconSitemap,
         offerApprovalManageOnly: true,
         path: "/studio/offer-approval-templates",

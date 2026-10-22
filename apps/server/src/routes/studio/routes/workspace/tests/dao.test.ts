@@ -1,22 +1,15 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../../../infrastructure/db/index";
+import { account, member, organization, user } from "@app/db-schema/schema";
 import {
-  account,
-  member,
-  organization,
-  recruitingGroup,
-  recruitingGroupMember,
-  user,
-} from "@app/db-schema/schema";
-import {
-  addMemberToDefaultRecruitingGroup,
-  ensureDefaultRecruitingGroupForWorkspace,
   listWorkspaceMembers,
   listWorkspaceMemberLastActives,
-  listRecruitingGroupBoard,
-  queryPaginatedWorkspaceMembers,
-  UNGROUPED_RECRUITING_GROUP_ID,
+  listWorkspaceMemberDirectory,
+  reassignReportsBeforeMemberRemoval,
+  setWorkspaceMemberDottedManagers,
+  setWorkspaceMemberManager,
+  setWorkspaceMemberPeerSharing,
 } from "../dao";
 
 const ORG = "test_workspace_groups_org";
@@ -24,15 +17,13 @@ const CREATOR = "test_workspace_groups_creator";
 const MEMBER = "test_workspace_groups_member";
 
 async function clean() {
-  await db.delete(recruitingGroupMember).where(eq(recruitingGroupMember.organizationId, ORG));
-  await db.delete(recruitingGroup).where(eq(recruitingGroup.organizationId, ORG));
   await db.delete(member).where(eq(member.organizationId, ORG));
   await db.delete(organization).where(eq(organization.id, ORG));
   await db.delete(user).where(eq(user.id, CREATOR));
   await db.delete(user).where(eq(user.id, MEMBER));
 }
 
-describe("workspace recruiting group dao", () => {
+describe("workspace member dao", () => {
   beforeEach(async () => {
     await clean();
     await db.insert(user).values({
@@ -74,116 +65,6 @@ describe("workspace recruiting group dao", () => {
   }, 30_000);
 
   afterEach(clean, 30_000);
-
-  it("creates one default recruiting group and adds the creator as supervisor", async () => {
-    const group = await ensureDefaultRecruitingGroupForWorkspace({
-      creatorUserId: CREATOR,
-      organizationId: ORG,
-    });
-
-    expect(group.name).toBe("默认招聘组");
-    expect(group.isDefault).toBe(true);
-
-    const memberships = await db
-      .select({
-        groupId: recruitingGroupMember.groupId,
-        role: recruitingGroupMember.role,
-        userId: recruitingGroupMember.userId,
-      })
-      .from(recruitingGroupMember)
-      .where(eq(recruitingGroupMember.organizationId, ORG));
-
-    expect(memberships).toEqual([
-      { groupId: group.id, role: "recruitingSupervisor", userId: CREATOR },
-    ]);
-  }, 30_000);
-
-  it("is idempotent for repeated workspace initialization", async () => {
-    const first = await ensureDefaultRecruitingGroupForWorkspace({
-      creatorUserId: CREATOR,
-      organizationId: ORG,
-    });
-    const second = await ensureDefaultRecruitingGroupForWorkspace({
-      creatorUserId: CREATOR,
-      organizationId: ORG,
-    });
-
-    expect(second.id).toBe(first.id);
-
-    const groups = await db
-      .select({ id: recruitingGroup.id })
-      .from(recruitingGroup)
-      .where(and(eq(recruitingGroup.organizationId, ORG), eq(recruitingGroup.isDefault, true)));
-    const memberships = await db
-      .select({ userId: recruitingGroupMember.userId })
-      .from(recruitingGroupMember)
-      .where(eq(recruitingGroupMember.organizationId, ORG));
-
-    expect(groups).toHaveLength(1);
-    expect(memberships).toHaveLength(1);
-  }, 30_000);
-
-  it("adds a workspace member to the default recruiting group as HR", async () => {
-    const defaultGroup = await ensureDefaultRecruitingGroupForWorkspace({
-      creatorUserId: CREATOR,
-      organizationId: ORG,
-    });
-
-    const first = await addMemberToDefaultRecruitingGroup({
-      createdBy: CREATOR,
-      organizationId: ORG,
-      userId: MEMBER,
-    });
-    const second = await addMemberToDefaultRecruitingGroup({
-      createdBy: CREATOR,
-      organizationId: ORG,
-      userId: MEMBER,
-    });
-
-    expect(first.status).toBe("created");
-    expect(second.status).toBe("duplicate");
-
-    const rows = await db
-      .select({
-        groupId: recruitingGroupMember.groupId,
-        role: recruitingGroupMember.role,
-        userId: recruitingGroupMember.userId,
-      })
-      .from(recruitingGroupMember)
-      .where(eq(recruitingGroupMember.organizationId, ORG))
-      .orderBy(recruitingGroupMember.userId);
-
-    expect(rows).toEqual([
-      { groupId: defaultGroup.id, role: "recruitingSupervisor", userId: CREATOR },
-      { groupId: defaultGroup.id, role: "hr", userId: MEMBER },
-    ]);
-  }, 30_000);
-
-  it("appends an ungrouped column for workspace members without group memberships", async () => {
-    const defaultGroup = await ensureDefaultRecruitingGroupForWorkspace({
-      creatorUserId: CREATOR,
-      organizationId: ORG,
-    });
-
-    const groups = await listRecruitingGroupBoard(ORG);
-
-    expect(groups.map((group) => group.id)).toEqual([
-      defaultGroup.id,
-      UNGROUPED_RECRUITING_GROUP_ID,
-    ]);
-    expect(groups[0]).toMatchObject({
-      id: defaultGroup.id,
-      isDefault: true,
-      memberUserIds: [CREATOR],
-    });
-    expect(groups[1]).toMatchObject({
-      id: UNGROUPED_RECRUITING_GROUP_ID,
-      isVirtual: true,
-      memberUserIds: [MEMBER],
-      name: "未分组",
-    });
-    expect(groups[1]?.members).toEqual([expect.objectContaining({ role: null, userId: MEMBER })]);
-  }, 30_000);
 
   it("lists each member's available Feishu app sources", async () => {
     const now = new Date();
@@ -238,78 +119,151 @@ describe("workspace recruiting group dao", () => {
     });
   }, 30_000);
 
-  it("paginates members by newest join time and supports last-active sorting", async () => {
-    await db
-      .update(member)
-      .set({ createdAt: new Date("2026-08-01T00:00:00.000Z") })
-      .where(eq(member.userId, CREATOR));
-    await db
-      .update(member)
-      .set({ createdAt: new Date("2026-08-20T00:00:00.000Z") })
-      .where(eq(member.userId, MEMBER));
+  it("lists every member with last activity and direct manager", async () => {
     await db
       .update(user)
       .set({ lastActiveAt: new Date("2026-08-30T00:00:00.000Z") })
       .where(eq(user.id, CREATOR));
-    await db
-      .update(user)
-      .set({ lastActiveAt: new Date("2026-08-10T00:00:00.000Z") })
-      .where(eq(user.id, MEMBER));
-
-    const firstPage = await queryPaginatedWorkspaceMembers(ORG, {
-      page: 1,
-      pageSize: 1,
-      sortBy: "createdAt",
-      sortOrder: "desc",
-    });
-    const byLastActive = await queryPaginatedWorkspaceMembers(ORG, {
-      page: 1,
-      pageSize: 10,
-      sortBy: "lastActiveAt",
-      sortOrder: "desc",
+    await setWorkspaceMemberManager({
+      actorUserId: CREATOR,
+      managerUserId: CREATOR,
+      organizationId: ORG,
+      userIds: [MEMBER],
     });
 
-    expect(firstPage).toMatchObject({
-      page: 1,
-      pageSize: 1,
-      total: 2,
-      totalPages: 2,
-    });
-    expect(firstPage.records.map((row) => row.userId)).toEqual([MEMBER]);
-    expect(byLastActive.records.map((row) => row.userId)).toEqual([CREATOR, MEMBER]);
+    const records = await listWorkspaceMemberDirectory(ORG);
+
+    expect(records).toEqual([
+      expect.objectContaining({
+        lastActiveAt: "2026-08-30T00:00:00.000Z",
+        managerUserId: null,
+        shareWithPeers: false,
+        userId: CREATOR,
+      }),
+      expect.objectContaining({ lastActiveAt: null, managerUserId: CREATOR, userId: MEMBER }),
+    ]);
   }, 30_000);
 
-  it("keeps tied and never-active member pagination stable and filters before counting", async () => {
-    const joinedAt = new Date("2026-08-01T00:00:00.000Z");
-    await db.update(member).set({ createdAt: joinedAt }).where(eq(member.organizationId, ORG));
+  it("rejects self and cyclic managers and clears a manager with null", async () => {
+    await expect(
+      setWorkspaceMemberManager({
+        actorUserId: CREATOR,
+        managerUserId: MEMBER,
+        organizationId: ORG,
+        userIds: [MEMBER],
+      }),
+    ).resolves.toBe("self");
+    await setWorkspaceMemberManager({
+      actorUserId: CREATOR,
+      managerUserId: CREATOR,
+      organizationId: ORG,
+      userIds: [MEMBER],
+    });
+    await expect(
+      setWorkspaceMemberManager({
+        actorUserId: CREATOR,
+        managerUserId: MEMBER,
+        organizationId: ORG,
+        userIds: [CREATOR],
+      }),
+    ).resolves.toBe("cycle");
 
-    const firstPage = await queryPaginatedWorkspaceMembers(ORG, {
-      page: 1,
-      pageSize: 1,
-      sortBy: "lastActiveAt",
-      sortOrder: "desc",
+    await setWorkspaceMemberManager({
+      actorUserId: CREATOR,
+      managerUserId: null,
+      organizationId: ORG,
+      userIds: [MEMBER],
     });
-    const secondPage = await queryPaginatedWorkspaceMembers(ORG, {
-      page: 2,
-      pageSize: 1,
-      sortBy: "lastActiveAt",
-      sortOrder: "desc",
-    });
-    const filtered = await queryPaginatedWorkspaceMembers(ORG, {
-      page: 1,
-      pageSize: 10,
-      sortBy: "createdAt",
-      sortOrder: "desc",
-      textFilters: '{"name":"Creator"}',
+    const records = await listWorkspaceMemberDirectory(ORG);
+    expect(records.every((record) => record.managerUserId === null)).toBe(true);
+  }, 30_000);
+
+  it("hands a leaving manager's reports to their own manager", async () => {
+    await setWorkspaceMemberManager({
+      actorUserId: CREATOR,
+      managerUserId: CREATOR,
+      organizationId: ORG,
+      userIds: [MEMBER],
     });
 
-    expect([...firstPage.records, ...secondPage.records].map((row) => row.id)).toEqual([
-      "m_workspace_groups_member",
-      "m_workspace_groups_creator",
+    await reassignReportsBeforeMemberRemoval({ organizationId: ORG, userId: CREATOR });
+
+    const records = await listWorkspaceMemberDirectory(ORG);
+    expect(records.find((record) => record.userId === MEMBER)?.managerUserId).toBeNull();
+  }, 30_000);
+
+  it("keeps the manager when peer sharing is toggled and vice versa", async () => {
+    await setWorkspaceMemberManager({
+      actorUserId: CREATOR,
+      managerUserId: CREATOR,
+      organizationId: ORG,
+      userIds: [MEMBER],
+    });
+    await expect(
+      setWorkspaceMemberPeerSharing({
+        actorUserId: CREATOR,
+        organizationId: ORG,
+        shareWithPeers: true,
+        userId: MEMBER,
+      }),
+    ).resolves.toBe("updated");
+    await setWorkspaceMemberManager({
+      actorUserId: CREATOR,
+      managerUserId: null,
+      organizationId: ORG,
+      userIds: [MEMBER],
+    });
+
+    const records = await listWorkspaceMemberDirectory(ORG);
+    expect(records.find((record) => record.userId === MEMBER)).toMatchObject({
+      managerUserId: null,
+      shareWithPeers: true,
+    });
+  }, 30_000);
+
+  it("sets one manager for several members atomically and rejects selected managers", async () => {
+    await expect(
+      setWorkspaceMemberManager({
+        actorUserId: CREATOR,
+        managerUserId: MEMBER,
+        organizationId: ORG,
+        userIds: [CREATOR, MEMBER],
+      }),
+    ).resolves.toBe("self");
+    await expect(
+      setWorkspaceMemberManager({
+        actorUserId: CREATOR,
+        managerUserId: CREATOR,
+        organizationId: ORG,
+        userIds: [MEMBER, "test_workspace_groups_missing"],
+      }),
+    ).resolves.toBe("member-not-found");
+
+    const records = await listWorkspaceMemberDirectory(ORG);
+    expect(records.every((record) => record.managerUserId === null)).toBe(true);
+  }, 30_000);
+
+  it("stores dotted-line managers and blocks cycles through them", async () => {
+    await expect(
+      setWorkspaceMemberDottedManagers({
+        actorUserId: CREATOR,
+        managerUserIds: [CREATOR],
+        organizationId: ORG,
+        userId: MEMBER,
+      }),
+    ).resolves.toBe("updated");
+    await expect(
+      setWorkspaceMemberManager({
+        actorUserId: CREATOR,
+        managerUserId: MEMBER,
+        organizationId: ORG,
+        userIds: [CREATOR],
+      }),
+    ).resolves.toBe("cycle");
+
+    const records = await listWorkspaceMemberDirectory(ORG);
+    expect(records.find((record) => record.userId === MEMBER)?.dottedManagerUserIds).toEqual([
+      CREATOR,
     ]);
-    expect(firstPage.records[0]?.lastActiveAt).toBeNull();
-    expect(secondPage.records[0]?.lastActiveAt).toBeNull();
-    expect(filtered).toMatchObject({ total: 1, totalPages: 1 });
-    expect(filtered.records.map((row) => row.userId)).toEqual([CREATOR]);
   }, 30_000);
 });

@@ -8,7 +8,7 @@ export const STUDIO_PAGE_PATHS = [
   { action: "resumes", path: "/resumes" },
   { action: "resumePool", path: "/resume-pool" },
   { action: "interviews", path: "/interviews" },
-  { action: "interviews", path: "/calendar" },
+  { action: "calendar", path: "/calendar" },
   { action: "dashboard", path: "/dashboard" },
   { action: "recruitingLedger", path: "/recruiting-ledger" },
   { action: "offerApprovals", path: "/offer-approvals" },
@@ -19,9 +19,8 @@ export const STUDIO_PAGE_PATHS = [
   { action: "interviewQuestions", path: "/interview-questions" },
   { action: "me", path: "/me" },
   { action: "members", path: "/members" },
-  { action: "mailIngestAccounts", path: "/mail-ingest-accounts" },
   { action: "permissions", path: "/permissions" },
-  { action: "offerApprovals", path: "/offer-approval-templates" },
+  { action: "offerApprovalTemplates", path: "/offer-approval-templates" },
   { action: "globalConfig", path: "/global-config" },
 ] as const satisfies readonly {
   action: StudioPagePermissionAction;

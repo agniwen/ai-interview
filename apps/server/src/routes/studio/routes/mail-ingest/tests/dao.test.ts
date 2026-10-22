@@ -19,7 +19,6 @@ import {
   mailIngestAccountExistsInOrg,
   markMailIngestMessageSkipped,
   queryPaginatedPlatformMailIngestAccounts,
-  queryPaginatedWorkspaceMailIngestAccounts,
   updateMailIngestMessageResult,
   updateMailIngestAccount,
 } from "../dao";
@@ -173,44 +172,6 @@ describe("mail ingest workspace administration dao", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.user.id).toBe(MEMBER);
     expect(rows[0]?.account).toBeNull();
-  }, 30_000);
-
-  it("paginates workspace mail ingest rows", async () => {
-    const result = await queryPaginatedWorkspaceMailIngestAccounts(
-      ORG,
-      {},
-      { page: "2", pageSize: "1" },
-    );
-
-    expect(result).toMatchObject({
-      page: 2,
-      pageSize: 1,
-      total: 2,
-      totalPages: 2,
-    });
-    expect(result.records).toHaveLength(1);
-    expect(result.records[0]?.user.email).toBe("member@mail-ingest.test");
-    expect(result.records[0]?.account).toBeNull();
-  }, 30_000);
-
-  it("searches workspace mail ingest account fields", async () => {
-    const result = await queryPaginatedWorkspaceMailIngestAccounts(ORG, {
-      search: "owner-listener",
-    });
-
-    expect(result.total).toBe(1);
-    expect(result.records[0]?.user.id).toBe(OWNER);
-    expect(result.records[0]?.account?.emailAddress).toBe("owner-listener@mail-ingest.test");
-  }, 30_000);
-
-  it("searches workspace member fields for unconfigured accounts", async () => {
-    const result = await queryPaginatedWorkspaceMailIngestAccounts(ORG, {
-      search: "member@mail-ingest.test",
-    });
-
-    expect(result.total).toBe(1);
-    expect(result.records[0]?.user.id).toBe(MEMBER);
-    expect(result.records[0]?.account).toBeNull();
   }, 30_000);
 
   it("lists mail ingest rows across all organizations for platform administration", async () => {
@@ -532,7 +493,7 @@ describe("mail ingest observability writers", () => {
       },
     ]);
 
-    const { records } = await queryPaginatedWorkspaceMailIngestAccounts(OBS_ORG);
+    const records = await listWorkspaceMailIngestAccounts(OBS_ORG);
     const row = records.find((r) => r.account?.id === accountId);
 
     expect(row?.messageCount).toBe(4);
@@ -561,7 +522,7 @@ describe("mail ingest observability writers", () => {
       userId: "obs_noacct_user",
     });
 
-    const { records } = await queryPaginatedWorkspaceMailIngestAccounts(OBS_ORG);
+    const records = await listWorkspaceMailIngestAccounts(OBS_ORG);
     const noAcct = records.find((r) => r.user.id === "obs_noacct_user");
 
     expect(noAcct?.account).toBeNull();

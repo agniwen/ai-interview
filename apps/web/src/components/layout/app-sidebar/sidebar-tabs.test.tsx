@@ -51,7 +51,7 @@ describe("SidebarTabs", () => {
 
     expect(routerMocks.preloadRoute).toHaveBeenCalledWith({
       params: { slug: "acme" },
-      to: "/w/$slug/studio/resumes",
+      to: "/w/$slug/studio",
     });
 
     act(() => studioTab?.click());
@@ -59,7 +59,7 @@ describe("SidebarTabs", () => {
     expect(routerMocks.navigate).toHaveBeenCalledOnce();
     expect(routerMocks.navigate).toHaveBeenCalledWith({
       params: { slug: "acme" },
-      to: "/w/$slug/studio/resumes",
+      to: "/w/$slug/studio",
     });
   });
 
@@ -134,7 +134,7 @@ describe("SidebarTabs", () => {
 
     expect(routerMocks.navigate).toHaveBeenCalledWith({
       params: { slug: "acme" },
-      to: "/w/$slug/studio/resumes",
+      to: "/w/$slug/studio",
     });
   });
 });

@@ -177,7 +177,6 @@ export function MembersPageSkeleton() {
   return (
     <PageShell label="工作区管理">
       <HeaderSkeleton />
-      <TabsSkeleton count={2} />
       <ToolbarSkeleton filterCount={2} />
       <DataGridContentSkeleton columnCount={5} rowCount={4} />
     </PageShell>

@@ -2,7 +2,7 @@ import { lockRecruitingRecord } from "@app/recruiting/records";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../infrastructure/db/index";
-import { resolveRecruitingVisibilityScopeFromRows } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import { collectVisibleCreatorUserIds } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   hasPermissionInStatements,
@@ -19,7 +19,8 @@ import {
   meetingSession,
   member,
   organizationRole,
-  recruitingGroupMember,
+  workspaceMemberDottedManager,
+  workspaceMemberReporting,
 } from "@app/db-schema/schema";
 import type {
   MeetingRecruitingContextLink,
@@ -44,14 +45,10 @@ function isBuiltInRole(role: string): role is BuiltInRole {
 async function canReadRecruitingRecords(
   tx: MeetingTransaction,
   input: {
-    currentMemberships: { groupId: string; role: string }[];
     memberRole: string;
     organizationId: string;
   },
 ): Promise<boolean> {
-  if (input.memberRole === "member") {
-    return input.currentMemberships.length > 0;
-  }
   if (isBuiltInRole(input.memberRole)) {
     return hasPermissionInStatements(
       normalizePermissionStatements(permissionJsonSchema.parse(roles[input.memberRole].statements)),
@@ -259,24 +256,8 @@ async function canActorLinkRecruitingRecord(
     recruitingRecordId: string;
   },
 ): Promise<boolean> {
-  const currentMemberships = input.isAdministrator
-    ? []
-    : await tx
-        .select({
-          groupId: recruitingGroupMember.groupId,
-          role: recruitingGroupMember.role,
-        })
-        .from(recruitingGroupMember)
-        .where(
-          and(
-            eq(recruitingGroupMember.organizationId, input.organizationId),
-            eq(recruitingGroupMember.userId, input.actorId),
-          ),
-        )
-        .for("share");
   if (
     !(await canReadRecruitingRecords(tx, {
-      currentMemberships,
       memberRole: input.memberRole,
       organizationId: input.organizationId,
     }))
@@ -297,36 +278,31 @@ async function canActorLinkRecruitingRecord(
   if (!candidate) {
     return false;
   }
-  const groupRows =
-    currentMemberships.length === 0
-      ? []
-      : await tx
-          .select({
-            groupId: recruitingGroupMember.groupId,
-            role: recruitingGroupMember.role,
-            userId: recruitingGroupMember.userId,
-          })
-          .from(recruitingGroupMember)
-          .where(
-            and(
-              eq(recruitingGroupMember.organizationId, input.organizationId),
-              inArray(
-                recruitingGroupMember.groupId,
-                currentMemberships.map((row) => row.groupId),
-              ),
-            ),
-          )
-          .for("share");
-  const visibilityScope = resolveRecruitingVisibilityScopeFromRows({
-    currentMemberships,
-    groupRows,
-    memberRole: input.memberRole,
-    userId: input.actorId,
-  });
-  return (
-    visibilityScope.kind === "all" ||
-    (visibilityScope.kind === "restricted" &&
-      Boolean(candidate.createdBy && visibilityScope.userIds.includes(candidate.createdBy)))
+  if (input.isAdministrator) {
+    return true;
+  }
+  const reportingLines = await tx
+    .select({
+      managerUserId: workspaceMemberReporting.managerUserId,
+      shareWithPeers: workspaceMemberReporting.shareWithPeers,
+      userId: workspaceMemberReporting.userId,
+    })
+    .from(workspaceMemberReporting)
+    .where(eq(workspaceMemberReporting.organizationId, input.organizationId))
+    .for("share");
+  const dottedEdges = await tx
+    .select({
+      managerUserId: workspaceMemberDottedManager.managerUserId,
+      userId: workspaceMemberDottedManager.userId,
+    })
+    .from(workspaceMemberDottedManager)
+    .where(eq(workspaceMemberDottedManager.organizationId, input.organizationId))
+    .for("share");
+  return Boolean(
+    candidate.createdBy &&
+    collectVisibleCreatorUserIds(input.actorId, reportingLines, dottedEdges).includes(
+      candidate.createdBy,
+    ),
   );
 }
 

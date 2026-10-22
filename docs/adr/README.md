@@ -54,6 +54,8 @@
 | [Use optional private job internal criteria](0040-use-private-job-internal-criteria.md)                                                 | accepted               | 2026-09-14 |
 | [在候选人详情使用原地展开的操作 Dock](0041-use-inline-candidate-action-dock.md)                                                         | accepted               | 2026-09-17 |
 | [Keep independent interviewer evaluations](0042-keep-independent-interviewer-evaluations.md)                                            | accepted               | 2026-10-08 |
+| [Replace recruiting groups with reporting-line visibility](0043-replace-recruiting-groups-with-reporting-line-visibility.md)            | accepted               | 2026-10-22 |
+| [Define built-in recruiting workspace roles](0044-define-built-in-recruiting-workspace-roles.md)                                        | accepted               | 2026-10-22 |
 
 ## 当前适用范围
 

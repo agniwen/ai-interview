@@ -19,6 +19,8 @@ interface RouteMeta {
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "审批流配置" }, prefix: "/studio/offer-approval-templates" },
+  { meta: { title: "Offer 审批" }, prefix: "/studio/offer-approvals" },
+  { meta: { title: "招聘台账" }, prefix: "/studio/recruiting-ledger" },
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
   { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
   { meta: { title: "AI初面" }, prefix: "/studio/interviews" },
@@ -31,7 +33,6 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "沟通题" }, prefix: "/studio/interview-questions" },
   { meta: { title: "个人中心" }, prefix: "/studio/me" },
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
-  { meta: { title: "邮箱监听" }, prefix: "/studio/mail-ingest-accounts" },
   { meta: { title: "上下文设置" }, prefix: "/studio/global-config" },
   { meta: { title: "权限管理" }, prefix: "/studio/permissions" },
 ];

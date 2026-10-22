@@ -10,9 +10,8 @@ import {
   meetingSession,
   member,
   organization,
-  recruitingGroup,
-  recruitingGroupMember,
   user,
+  workspaceMemberReporting,
 } from "@app/db-schema/schema";
 import {
   listMeetingRecruitingRecordCandidates,
@@ -245,7 +244,7 @@ describe("Meeting Recruiting Context Link", () => {
     await expect(mutation).resolves.toBe("forbidden");
   });
 
-  it("rechecks recruiting visibility before writing after waiting for the meeting lock", async () => {
+  it("rechecks recruiting read permission before writing after waiting for the meeting lock", async () => {
     const { promise: locked, resolve: reportLocked } = Promise.withResolvers<true>();
     const { promise: released, resolve: releaseLock } = Promise.withResolvers<true>();
     const blocker = db.transaction(async (tx) => {
@@ -256,7 +255,7 @@ describe("Meeting Recruiting Context Link", () => {
         .for("update");
       await tx
         .update(member)
-        .set({ role: "member" })
+        .set({ role: "noAccess" })
         .where(and(eq(member.organizationId, ORG_A), eq(member.userId, OWNER_ID)));
       reportLocked(true);
       await released;
@@ -275,51 +274,35 @@ describe("Meeting Recruiting Context Link", () => {
     await expect(mutation).resolves.toBe("invalid-record");
   });
 
-  it("rechecks recruiting read permission when the final group membership is revoked", async () => {
-    const groupId = "meeting_recruiting_context_group";
-    const groupMemberId = "meeting_recruiting_context_group_member";
+  it("lets a regular member link only records created by themselves or their reports", async () => {
     await db
       .update(member)
       .set({ role: "member" })
       .where(and(eq(member.organizationId, ORG_A), eq(member.userId, OWNER_ID)));
-    await db.insert(recruitingGroup).values({
-      id: groupId,
-      isDefault: true,
-      name: "Meeting context group",
+    const linkRecruiterRecord = () =>
+      replaceMeetingRecruitingContext({
+        actorId: OWNER_ID,
+        meetingId: MEETING_ID,
+        organizationId: ORG_A,
+        recruitingRecordId: CANDIDATE_A,
+      });
+
+    await expect(linkRecruiterRecord()).resolves.toBe("invalid-record");
+
+    await db.insert(member).values({
+      createdAt: new Date(),
+      id: "meeting_recruiting_context_recruiter_member",
       organizationId: ORG_A,
+      role: "member",
+      userId: RECRUITER_ID,
     });
-    await db.insert(recruitingGroupMember).values({
-      groupId,
-      id: groupMemberId,
+    await db.insert(workspaceMemberReporting).values({
+      managerUserId: OWNER_ID,
       organizationId: ORG_A,
-      role: "hr",
-      userId: OWNER_ID,
+      userId: RECRUITER_ID,
     });
 
-    const { promise: locked, resolve: reportLocked } = Promise.withResolvers<true>();
-    const { promise: released, resolve: releaseLock } = Promise.withResolvers<true>();
-    const blocker = db.transaction(async (tx) => {
-      await tx
-        .select({ id: meetingSession.id })
-        .from(meetingSession)
-        .where(eq(meetingSession.id, MEETING_ID))
-        .for("update");
-      await tx.delete(recruitingGroupMember).where(eq(recruitingGroupMember.id, groupMemberId));
-      reportLocked(true);
-      await released;
-    });
-    await locked;
-
-    const mutation = replaceMeetingRecruitingContext({
-      actorId: OWNER_ID,
-      meetingId: MEETING_ID,
-      organizationId: ORG_A,
-      recruitingRecordId: CANDIDATE_A2,
-    });
-    releaseLock(true);
-    await blocker;
-
-    await expect(mutation).resolves.toBe("invalid-record");
+    await expect(linkRecruiterRecord()).resolves.toBe("updated");
   });
 
   it("removes the link without deleting either business record", async () => {

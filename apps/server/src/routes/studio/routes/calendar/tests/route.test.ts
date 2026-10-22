@@ -96,7 +96,7 @@ describe("studioCalendarRouter AI event preview", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(preview);
-    expect(mocks.permissionChecks).toContainEqual(["interview", "read"]);
+    expect(mocks.permissionChecks).toContainEqual(["page", "calendar"]);
     expect(mocks.loadAiCalendarEventPreview).toHaveBeenCalledWith({
       conversationId: "conversation-1",
       organizationId: ORGANIZATION_ID,

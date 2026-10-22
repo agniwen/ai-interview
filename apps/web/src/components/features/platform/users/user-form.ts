@@ -98,7 +98,7 @@ export interface UserFormValues {
 }
 
 /**
- * 切换初始工作区时的角色：首次选中回落到默认的普通成员；换成另一个工作区或清空时清空角色，
+ * 切换初始工作区时的角色：首次选中回落到默认的招聘专员；换成另一个工作区或清空时清空角色，
  * 需要重新选择。Role after a workspace change: first pick defaults to member; switching to
  * another workspace or clearing it empties the role so it must be chosen again.
  */

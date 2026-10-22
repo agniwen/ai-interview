@@ -10,8 +10,9 @@ describe("workspace role display", () => {
 
     expect(options).toEqual([
       {
-        description: "可进入工作区；具体招聘权限由所在招聘组内的角色决定。",
-        label: "普通成员",
+        description:
+          "负责日常招聘，可维护岗位、部门、面试官 Agent、沟通题和表单题；不能删除数据，能看到自己和全部下级的招聘数据。",
+        label: "招聘专员",
         value: "member",
       },
       {

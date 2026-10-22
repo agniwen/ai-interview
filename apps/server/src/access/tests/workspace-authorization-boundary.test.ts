@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 const repoRoot = path.resolve(import.meta.dirname, "../../../../..");
 const backendRoot = path.join(repoRoot, "apps/server/src");
 const webRoot = path.join(repoRoot, "apps/web/src");
-const recruitingAccessRoot = path.join(repoRoot, "packages/recruiting/src");
 
 function listSourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -42,19 +41,6 @@ describe("request-scoped workspace authorization boundary", () => {
     const helper = readFileSync(path.join(backendRoot, "access/workspace-permissions.ts"), "utf-8");
     expect(helper).toContain("organizationId");
     expect(helper).toContain("auth.api.hasPermission");
-  });
-
-  it("keeps recruiting group resource and role policy in one access package", () => {
-    const policyPattern = /RECRUITING_GROUP_RESOURCES|groupRoleAllows/u;
-
-    expect(filesContaining(recruitingAccessRoot, policyPattern).toSorted()).toEqual(
-      [
-        "packages/recruiting/src/access/recruiting-group-access.ts",
-        "packages/recruiting/src/access/workspace-permission-snapshot.ts",
-      ].toSorted(),
-    );
-    expect(filesContaining(backendRoot, policyPattern)).toEqual([]);
-    expect(filesContaining(webRoot, policyPattern)).toEqual([]);
   });
 
   it("routes API authorization through the shared permission snapshot", () => {

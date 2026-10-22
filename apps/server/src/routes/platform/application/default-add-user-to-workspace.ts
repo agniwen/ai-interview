@@ -1,7 +1,6 @@
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { auth } from "../../../infrastructure/auth";
-import { addMemberToDefaultRecruitingGroup } from "../../studio/routes/workspace/dao";
 import { findPlatformWorkspace, isPlatformWorkspaceMember, platformUserExists } from "../dao";
 import { AddUserToWorkspaceError } from "./add-user-to-workspace";
 import type { AddUserToWorkspaceDependencies } from "./add-user-to-workspace";
@@ -31,9 +30,6 @@ export const defaultAddUserToWorkspaceDependencies: AddUserToWorkspaceDependenci
       }
       throw error;
     }
-  },
-  async addToDefaultRecruitingGroup({ actorUserId, organizationId, userId }) {
-    await addMemberToDefaultRecruitingGroup({ createdBy: actorUserId, organizationId, userId });
   },
   findWorkspace: findPlatformWorkspace,
   isWorkspaceMember: isPlatformWorkspaceMember,

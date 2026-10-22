@@ -40,9 +40,11 @@ const AUTOSAVE_DEBOUNCE_MS = 1000;
 
 const ROLE_BADGE_VARIANT = {
   admin: "default",
+  interviewer: "secondary",
   member: "secondary",
   noAccess: "outline",
   owner: "default",
+  recruitingSupervisor: "default",
 } as const satisfies Record<WorkspaceRole, "default" | "secondary" | "outline">;
 
 const sessionUserProfileSchema = z.object({

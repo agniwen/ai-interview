@@ -415,7 +415,7 @@ describe("platform user form dialog", () => {
       await openWorkspacePicker();
       await waitForUi(() => expect(optionLabels()).toHaveLength(10));
       await chooseOption("工作区 3");
-      await waitForUi(() => expect(roleTrigger()?.textContent).toContain("普通成员"));
+      await waitForUi(() => expect(roleTrigger()?.textContent).toContain("招聘专员"));
 
       await chooseRole("管理员");
       await waitForUi(() => expect(roleTrigger()?.textContent).toContain("管理员"));

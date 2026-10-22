@@ -1,6 +1,5 @@
 import { nanoid } from "nanoid";
 import { db } from "../../infrastructure/db/index";
-import { addMemberToDefaultRecruitingGroup } from "../studio/routes/workspace/dao";
 import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../studio/routes/workspace/utils/workspace-member-joined-notification";
 import { member } from "@app/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
@@ -132,13 +131,6 @@ export async function acceptInviteLink(input: {
     };
   });
 
-  if (result.status === "joined" && result.role === "member") {
-    await addMemberToDefaultRecruitingGroup({
-      createdBy: inviteLinkCreatorId,
-      organizationId: result.organizationId,
-      userId: input.userId,
-    });
-  }
   if (result.status === "joined") {
     await notifyWorkspaceInviteCreatorMemberJoinedSafely({
       creatorUserId: inviteLinkCreatorId,

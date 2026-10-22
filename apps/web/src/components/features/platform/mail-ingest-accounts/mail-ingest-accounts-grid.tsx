@@ -4,6 +4,8 @@ import { listTextQuery } from "@app/shared/list-text-filters";
 
 import { IconBuilding, IconInbox } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { getWorkspaceRoleLabel } from "@/components/features/studio/members/role-display";
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -168,16 +170,7 @@ function buildNewForm(user: PlatformMailIngestAccountRow["user"]): MailIngestFor
 }
 
 function roleLabel(role: string) {
-  if (role === "owner") {
-    return "所有者";
-  }
-  if (role === "admin") {
-    return "管理员";
-  }
-  if (role === "member") {
-    return "成员";
-  }
-  return role;
+  return getWorkspaceRoleLabel(role);
 }
 
 function buildInitialForm(row: PlatformMailIngestAccountRow): MailIngestFormState {
@@ -477,6 +470,7 @@ function PlatformMailIngestAccountDialog({
 }
 
 export function PlatformMailIngestAccountsGrid() {
+  const navigate = useNavigate();
   const [editingRow, setEditingRow] = useState<PlatformMailIngestAccountRow | null>(null);
 
   function normalizeSortBy(sortBy: string | undefined): PlatformMailIngestSortBy | undefined {
@@ -634,11 +628,25 @@ export function PlatformMailIngestAccountsGrid() {
             show: (row) => !row.account,
           },
         ],
-        // “编辑”和“新建”互斥显示，按单个最长按钮计算列宽。
-        size: 68,
+        menu: [
+          {
+            label: "入库记录",
+            onClick: (row) => {
+              if (!row.account) {
+                return;
+              }
+              void navigate({
+                params: { id: row.account.id },
+                search: { organizationId: row.organization.id },
+                to: "/platform/mail-ingest-accounts/$id",
+              });
+            },
+            show: (row) => Boolean(row.account),
+          },
+        ],
       }),
     ],
-    [],
+    [navigate],
   );
 
   return (

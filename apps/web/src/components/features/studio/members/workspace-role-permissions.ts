@@ -26,7 +26,10 @@ interface DynamicWorkspaceRoleOrderKey {
 export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set([
   "owner",
   "admin",
+  "recruitingSupervisor",
+  "recruitingsupervisor",
   "member",
+  "interviewer",
   "noAccess",
   "noaccess",
 ]);
@@ -161,11 +164,6 @@ const WORKSPACE_PERMISSION_GROUPS = [
         key: "resumeEmailIngest",
         label: "简历邮箱采集",
       },
-      {
-        actions: ["create", "read", "update", "delete", "manage"] as const,
-        key: "mailIngestAccount",
-        label: "邮箱监听",
-      },
     ],
     title: "系统能力",
   },
@@ -197,6 +195,8 @@ const PERMISSION_ITEM_ACTION_LABELS = {
 } satisfies PermissionActionLabels;
 
 const PAGE_PERMISSION_DESCRIPTIONS = {
+  calendar:
+    "控制是否能在侧边栏看到并访问「面试管理」页面；只显示可见范围内的面试，以及分派给本人的面试轮次。",
   dashboard: "控制是否能在侧边栏看到并访问「数据看板」页面；未勾选时直接访问会进入 404。",
   departments:
     "控制是否能在侧边栏看到并访问「部门管理」页面；页面内部门列表、详情和增删改仍受「部门」相关权限控制。",
@@ -209,14 +209,14 @@ const PAGE_PERMISSION_DESCRIPTIONS = {
   interviewers:
     "控制是否能在侧边栏看到并访问「面试官 Agent 管理」页面；面试官 Agent 列表、详情和增删改仍受「面试官 Agent」相关权限控制。",
   interviews:
-    "控制是否能在侧边栏看到并访问「AI 面试」页面；列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「AI 初面」页面；列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制。",
   jobDescriptions:
     "控制是否能在侧边栏看到并访问「岗位设置」页面；岗位列表、详情和增删改仍受「在招岗位」相关权限控制，推荐候选人还需要「招聘台」查看权限。",
-  mailIngestAccounts:
-    "控制是否能在侧边栏看到并访问「邮箱监听」页面；邮箱解析入库到人才库的后续查看/导入仍受「招聘台」相关权限控制。",
   me: "控制是否能访问「个人中心」页面；页面里的工作区成员资料调整仍受「成员管理」相关权限控制。",
   members:
-    "控制是否能在侧边栏看到并访问「工作区管理」页面；成员角色、招聘组、邀请链接和工作区设置仍分别受成员、邀请和工作区设置权限控制。",
+    "控制是否能在侧边栏看到并访问「工作区管理」页面；成员角色、邀请链接和工作区设置仍分别受成员、邀请和工作区设置权限控制。",
+  offerApprovalTemplates:
+    "控制是否能在侧边栏看到并访问「审批流配置」页面；新建、编辑和设为默认仍需要「Offer 审批 · 管理」权限。",
   permissions:
     "控制是否能在侧边栏看到并访问「权限管理」页面；实际修改角色权限仅工作区拥有者和管理员可执行。",
   resumePool:
@@ -279,19 +279,10 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     read: "允许加载岗位列表、全部岗位选项、岗位详情、岗位编码生成和推荐链接；推荐候选人接口还同时需要「招聘台」查看权限。",
     update: "允许编辑岗位描述、招聘要求、关联配置和发布状态。",
   },
-  mailIngestAccount: {
-    create: "允许在「邮箱监听」页面新增监听邮箱账号。",
-    delete: "允许删除监听邮箱账号。",
-    manage:
-      "允许查看和管理工作区内所有成员的监听邮箱账号；没有该权限时只能按接口限制访问自己的账号。",
-    read: "允许加载邮箱监听账号列表和详情。",
-    update: "允许编辑监听邮箱账号配置。",
-  },
   member: {
     create: "允许新增工作区成员，或处理会创建成员的加入流程。",
     delete: "允许从工作区移除成员。",
-    update:
-      "允许调整成员角色，并管理招聘组、组成员、组内角色和成员所属组；实际可调整范围仍受服务端角色规则限制。",
+    update: "允许调整成员角色；实际可调整范围仍受服务端角色规则限制。",
   },
   offer: {
     create: "允许将候选人推进到 Offer，并创建 Offer 草稿。",

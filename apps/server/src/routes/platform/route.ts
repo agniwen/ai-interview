@@ -4,7 +4,8 @@ import { z } from "zod";
 import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "../../factory";
-import { createInternalErrorResponse } from "../../error-handler";
+import { createPlatformMailIngestAccounts } from "./mail-ingest-route";
+import type { PlatformMailIngestDependencies } from "./mail-ingest-route";
 import { adminMiddleware } from "../../middlewares/admin";
 import { db } from "../../infrastructure/db/index";
 import { organization, member, session, user } from "@app/db-schema/schema";
@@ -21,22 +22,6 @@ import {
   listResumeReviewGenerationQueueJobs,
   RESUME_REVIEW_GENERATION_QUEUE_NAME,
 } from "@app/job-queues/resume-review-generation";
-import {
-  createMailIngestAccount,
-  getMailIngestAccountLoginConfig,
-  isWorkspaceMember,
-  queryPaginatedPlatformMailIngestAccounts,
-  updateWorkspaceMailIngestAccount,
-} from "../studio/routes/mail-ingest/dao";
-import {
-  createMailIngestAccountSchema,
-  updateMailIngestAccountSchema,
-} from "../studio/routes/mail-ingest/schema";
-import {
-  MailIngestValidationError,
-  mergeMailIngestLoginConfig,
-  validateMailIngestAccountLogin,
-} from "../studio/routes/mail-ingest/validation";
 import {
   enrichResumeParseQueueJobs,
   filterEnrichedResumeParseQueueJobRecords,
@@ -388,7 +373,6 @@ const platformUsers = factory
       try {
         const membership = await addUserToWorkspace(
           {
-            actorUserId: actor.id,
             organizationId,
             role,
             userId: c.req.param("userId"),
@@ -451,144 +435,6 @@ const platformUsers = factory
       200,
     );
   });
-
-const mailIngestAccountsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  search: z.string().optional(),
-  sortBy: z.enum(["userName", "userEmail", "emailAddress", "lastCheckedAt"]).default("userName"),
-  sortOrder: z.enum(["asc", "desc"]).default("asc"),
-  textFilters: listTextFiltersSchema("platformMailAccounts"),
-});
-
-const createPlatformMailIngestAccountSchema = createMailIngestAccountSchema.extend({
-  organizationId: z.string().trim().min(1),
-  userId: z.string().trim().min(1),
-});
-
-const updatePlatformMailIngestAccountSchema = updateMailIngestAccountSchema.extend({
-  organizationId: z.string().trim().min(1),
-});
-
-export interface PlatformMailIngestDependencies {
-  createMailIngestAccount: typeof createMailIngestAccount;
-  getMailIngestAccountLoginConfig: typeof getMailIngestAccountLoginConfig;
-  isWorkspaceMember: typeof isWorkspaceMember;
-  queryPaginatedPlatformMailIngestAccounts: typeof queryPaginatedPlatformMailIngestAccounts;
-  updateWorkspaceMailIngestAccount: typeof updateWorkspaceMailIngestAccount;
-  validateMailIngestAccountLogin: typeof validateMailIngestAccountLogin;
-}
-
-const defaultPlatformMailIngestDependencies: PlatformMailIngestDependencies = {
-  createMailIngestAccount,
-  getMailIngestAccountLoginConfig,
-  isWorkspaceMember,
-  queryPaginatedPlatformMailIngestAccounts,
-  updateWorkspaceMailIngestAccount,
-  validateMailIngestAccountLogin,
-};
-
-function createPlatformMailIngestAccounts(
-  dependencies: PlatformMailIngestDependencies = defaultPlatformMailIngestDependencies,
-) {
-  return factory
-    .createApp()
-    .get(
-      "/mail-ingest-accounts",
-      zValidator("query", mailIngestAccountsQuerySchema, jsonValidatorError("参数校验失败")),
-      async (c) => {
-        const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
-        const result = await dependencies.queryPaginatedPlatformMailIngestAccounts(
-          { search, textFilters },
-          { page, pageSize, sortBy, sortOrder },
-        );
-        return c.json(result, 200);
-      },
-    )
-    .post(
-      "/mail-ingest-accounts",
-      zValidator(
-        "json",
-        createPlatformMailIngestAccountSchema,
-        jsonValidatorError("邮箱配置无效。"),
-      ),
-      async (c) => {
-        const { organizationId, userId, ...input } = c.req.valid("json");
-        const memberExists = await dependencies.isWorkspaceMember({ organizationId, userId });
-        if (!memberExists) {
-          return c.json({ error: "目标成员不存在。" }, 404);
-        }
-        try {
-          await dependencies.validateMailIngestAccountLogin(input);
-          const account = await dependencies.createMailIngestAccount({
-            input,
-            organizationId,
-            userId,
-          });
-          return c.json(account, 201);
-        } catch (error) {
-          if (error instanceof MailIngestValidationError) {
-            return c.json({ error: error.message }, 400);
-          }
-          return c.json(
-            createInternalErrorResponse({
-              context: { organizationId, userId },
-              error,
-              operation: "platform-mail-ingest-create",
-              publicMessage: "邮箱配置保存失败。",
-            }),
-            500,
-          );
-        }
-      },
-    )
-    .patch(
-      "/mail-ingest-accounts/:id",
-      zValidator(
-        "json",
-        updatePlatformMailIngestAccountSchema,
-        jsonValidatorError("邮箱配置无效。"),
-      ),
-      async (c) => {
-        const { organizationId, ...input } = c.req.valid("json");
-        try {
-          const accountId = c.req.param("id");
-          const existing = await dependencies.getMailIngestAccountLoginConfig({
-            id: accountId,
-            organizationId,
-          });
-          if (!existing) {
-            return c.json({ error: "邮箱配置不存在。" }, 404);
-          }
-          await dependencies.validateMailIngestAccountLogin(
-            mergeMailIngestLoginConfig(existing, input),
-          );
-          const account = await dependencies.updateWorkspaceMailIngestAccount({
-            id: accountId,
-            input,
-            organizationId,
-          });
-          if (!account) {
-            return c.json({ error: "邮箱配置不存在。" }, 404);
-          }
-          return c.json(account, 200);
-        } catch (error) {
-          if (error instanceof MailIngestValidationError) {
-            return c.json({ error: error.message }, 400);
-          }
-          return c.json(
-            createInternalErrorResponse({
-              context: { accountId: c.req.param("id"), organizationId },
-              error,
-              operation: "platform-mail-ingest-update",
-              publicMessage: "邮箱配置更新失败。",
-            }),
-            500,
-          );
-        }
-      },
-    );
-}
 
 const resumeUploadBatchItemStatusValues = [
   "pending",
@@ -703,7 +549,7 @@ const platformQueues = factory
   );
 
 export function createPlatformRouter({
-  mailIngest = defaultPlatformMailIngestDependencies,
+  mailIngest,
   notifications,
 }: {
   mailIngest?: PlatformMailIngestDependencies;

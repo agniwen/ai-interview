@@ -49,7 +49,6 @@ export async function approvalMember(executor: RecruitingExecutor, actor: Actor)
     throw new OfferApprovalError("当前成员没有审批访问权限", 403);
   const { statements } = await computeWorkspacePermissionSnapshot({
     organizationId: actor.organizationId,
-    userId: actor.userId,
     memberRole: person.role,
   });
   return { ...person, statements };

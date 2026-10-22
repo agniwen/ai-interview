@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "../../../../../factory";
 import { createPlatformRouter } from "../../../../platform/route";
-import type { PlatformMailIngestDependencies } from "../../../../platform/route";
+import type { PlatformMailIngestDependencies } from "../../../../platform/mail-ingest-route";
 import type { MailIngestAccountDto, WorkspaceMailIngestAccountRow } from "../dao";
 import type { MailMessageLogRecord } from "../dao/messages";
 import { MailIngestValidationError } from "../validation";
@@ -11,37 +11,33 @@ import type { MailIngestRouteDependencies } from "../route";
 const mocks = {
   createMailIngestAccount: vi.fn<MailIngestRouteDependencies["createMailIngestAccount"]>(),
   deleteMailIngestAccount: vi.fn<MailIngestRouteDependencies["deleteMailIngestAccount"]>(),
-  enqueueMailIngestTrigger: vi.fn(),
+  enqueueMailIngestTrigger: vi.fn<PlatformMailIngestDependencies["enqueueMailIngestTrigger"]>(),
   getMailIngestAccountLoginConfig:
     vi.fn<MailIngestRouteDependencies["getMailIngestAccountLoginConfig"]>(),
   getWorkspaceMailIngestAccount:
-    vi.fn<MailIngestRouteDependencies["getWorkspaceMailIngestAccount"]>(),
-  isMailIngestTriggerQueueConfigured: vi.fn(() => true),
-  isWorkspaceMember: vi.fn<MailIngestRouteDependencies["isWorkspaceMember"]>(),
+    vi.fn<PlatformMailIngestDependencies["getWorkspaceMailIngestAccount"]>(),
+  isMailIngestTriggerQueueConfigured:
+    vi.fn<PlatformMailIngestDependencies["isMailIngestTriggerQueueConfigured"]>(),
+  isWorkspaceMember: vi.fn<PlatformMailIngestDependencies["isWorkspaceMember"]>(),
   listAccountMailMessages: vi.fn<MailIngestRouteDependencies["listAccountMailMessages"]>(),
   listMailIngestAccounts: vi.fn<MailIngestRouteDependencies["listMailIngestAccounts"]>(),
   mailIngestAccountExistsInOrg:
-    vi.fn<MailIngestRouteDependencies["mailIngestAccountExistsInOrg"]>(),
+    vi.fn<PlatformMailIngestDependencies["mailIngestAccountExistsInOrg"]>(),
   queryPaginatedPlatformMailIngestAccounts:
     vi.fn<PlatformMailIngestDependencies["queryPaginatedPlatformMailIngestAccounts"]>(),
-  queryPaginatedWorkspaceMailIngestAccounts:
-    vi.fn<MailIngestRouteDependencies["queryPaginatedWorkspaceMailIngestAccounts"]>(),
   updateMailIngestAccount: vi.fn<MailIngestRouteDependencies["updateMailIngestAccount"]>(),
   updateWorkspaceMailIngestAccount:
-    vi.fn<MailIngestRouteDependencies["updateWorkspaceMailIngestAccount"]>(),
+    vi.fn<PlatformMailIngestDependencies["updateWorkspaceMailIngestAccount"]>(),
   validateMailIngestAccountLogin:
     vi.fn<MailIngestRouteDependencies["validateMailIngestAccountLogin"]>(),
 };
 
 const dependencies: MailIngestRouteDependencies = {
-  ...mocks,
-  requireMailIngestPermission: () =>
-    factory.createMiddleware(async (c, next) => {
-      if (c.req.header("x-test-permission") === "deny") {
-        return c.json({ message: "Forbidden" }, 403);
-      }
-      return await next();
-    }),
+  createMailIngestAccount: mocks.createMailIngestAccount,
+  deleteMailIngestAccount: mocks.deleteMailIngestAccount,
+  getMailIngestAccountLoginConfig: mocks.getMailIngestAccountLoginConfig,
+  listAccountMailMessages: mocks.listAccountMailMessages,
+  listMailIngestAccounts: mocks.listMailIngestAccounts,
   requireResumeEmailIngestPermission: () =>
     factory.createMiddleware(async (c, next) => {
       if (c.req.header("x-test-permission") === "deny") {
@@ -49,12 +45,19 @@ const dependencies: MailIngestRouteDependencies = {
       }
       return await next();
     }),
+  updateMailIngestAccount: mocks.updateMailIngestAccount,
+  validateMailIngestAccountLogin: mocks.validateMailIngestAccountLogin,
 };
 
 const platformDependencies: PlatformMailIngestDependencies = {
   createMailIngestAccount: mocks.createMailIngestAccount,
+  enqueueMailIngestTrigger: mocks.enqueueMailIngestTrigger,
   getMailIngestAccountLoginConfig: mocks.getMailIngestAccountLoginConfig,
+  getWorkspaceMailIngestAccount: mocks.getWorkspaceMailIngestAccount,
+  isMailIngestTriggerQueueConfigured: mocks.isMailIngestTriggerQueueConfigured,
   isWorkspaceMember: mocks.isWorkspaceMember,
+  listAccountMailMessages: mocks.listAccountMailMessages,
+  mailIngestAccountExistsInOrg: mocks.mailIngestAccountExistsInOrg,
   queryPaginatedPlatformMailIngestAccounts: mocks.queryPaginatedPlatformMailIngestAccounts,
   updateWorkspaceMailIngestAccount: mocks.updateWorkspaceMailIngestAccount,
   validateMailIngestAccountLogin: mocks.validateMailIngestAccountLogin,
@@ -180,8 +183,10 @@ describe("mailIngestRouter", () => {
     );
   });
 
-  it("queues an immediate workspace poll for an administrator", async () => {
-    const res = await app.request("/mail-ingest-accounts/managed/poll-now", {
+  it("queues an immediate poll of the account's workspace from the platform", async () => {
+    const res = await platformApp.request("/platform/mail-ingest-accounts/account_1/poll-now", {
+      body: JSON.stringify({ organizationId: "org_1" }),
+      headers: { "content-type": "application/json" },
       method: "POST",
     });
 
@@ -195,46 +200,14 @@ describe("mailIngestRouter", () => {
   it("reports an unavailable immediate poll queue", async () => {
     mocks.isMailIngestTriggerQueueConfigured.mockReturnValue(false);
 
-    const res = await app.request("/mail-ingest-accounts/managed/poll-now", {
+    const res = await platformApp.request("/platform/mail-ingest-accounts/account_1/poll-now", {
+      body: JSON.stringify({ organizationId: "org_1" }),
+      headers: { "content-type": "application/json" },
       method: "POST",
     });
 
     expect(res.status).toBe(503);
     expect(mocks.enqueueMailIngestTrigger).not.toHaveBeenCalled();
-  });
-
-  it("rejects managed create when the IMAP login cannot be validated", async () => {
-    const res = await app.request("/mail-ingest-accounts/managed", {
-      body: JSON.stringify(makePayload()),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain("邮箱登录校验失败");
-    expect(mocks.createMailIngestAccount).not.toHaveBeenCalled();
-  });
-
-  it("rejects managed update when the IMAP login cannot be validated", async () => {
-    const res = await app.request("/mail-ingest-accounts/managed/account_1", {
-      body: JSON.stringify({
-        imapHost: "imap.changed.example.com",
-      }),
-      headers: { "content-type": "application/json" },
-      method: "PATCH",
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toContain("邮箱登录校验失败");
-    expect(mocks.validateMailIngestAccountLogin).toHaveBeenCalledWith(
-      expect.objectContaining({
-        imapHost: "imap.changed.example.com",
-        password: "old-secret",
-      }),
-    );
-    expect(mocks.updateWorkspaceMailIngestAccount).not.toHaveBeenCalled();
   });
 
   it("rejects platform create when the IMAP login cannot be validated", async () => {
@@ -310,10 +283,12 @@ describe("mailIngestRouter", () => {
     expect(mocks.listAccountMailMessages).not.toHaveBeenCalled();
   });
 
-  it("managed messages: manage user drills into any org account (org-scoped, no userId)", async () => {
+  it("lists any workspace account's mail messages from the platform", async () => {
     mocks.listAccountMailMessages.mockResolvedValue({ records: [mailMessage], total: 1 });
 
-    const res = await app.request("/mail-ingest-accounts/managed/account_9/messages");
+    const res = await platformApp.request(
+      "/platform/mail-ingest-accounts/account_9/messages?organizationId=org_1",
+    );
 
     expect(res.status).toBe(200);
     expect(mocks.mailIngestAccountExistsInOrg).toHaveBeenCalledWith({
@@ -330,26 +305,32 @@ describe("mailIngestRouter", () => {
     );
   });
 
-  it("returns the managed account detail used by the log page", async () => {
-    const res = await app.request("/mail-ingest-accounts/managed/account_1");
+  it("returns the platform account detail used by the log page", async () => {
+    const res = await platformApp.request(
+      "/platform/mail-ingest-accounts/account_1?organizationId=org_1",
+    );
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(workspaceAccount);
     expect(mocks.getWorkspaceMailIngestAccount).toHaveBeenCalledWith("org_1", "account_1");
   });
 
-  it("returns 404 when the managed account detail is outside the workspace", async () => {
+  it("returns 404 when the platform account detail is outside the workspace", async () => {
     mocks.getWorkspaceMailIngestAccount.mockResolvedValue(null);
 
-    const res = await app.request("/mail-ingest-accounts/managed/account_x");
+    const res = await platformApp.request(
+      "/platform/mail-ingest-accounts/account_x?organizationId=org_1",
+    );
 
     expect(res.status).toBe(404);
   });
 
-  it("managed messages: 404 when account not in org", async () => {
+  it("returns 404 for platform mail messages when the account is not in the workspace", async () => {
     mocks.mailIngestAccountExistsInOrg.mockResolvedValue(false);
 
-    const res = await app.request("/mail-ingest-accounts/managed/account_x/messages");
+    const res = await platformApp.request(
+      "/platform/mail-ingest-accounts/account_x/messages?organizationId=org_1",
+    );
 
     expect(res.status).toBe(404);
     expect(mocks.listAccountMailMessages).not.toHaveBeenCalled();

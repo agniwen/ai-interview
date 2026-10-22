@@ -35,7 +35,7 @@ export async function loadWorkspaceRoute(
     throw redirect({ href: "/wait" });
   }
   if (location.pathname === `/w/${params.slug}`) {
-    throw redirect({ href: `/w/${params.slug}/studio/resumes` });
+    throw redirect({ href: `/w/${params.slug}/studio` });
   }
   return state;
 }

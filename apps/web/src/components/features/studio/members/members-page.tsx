@@ -1,34 +1,36 @@
-import { IconSettings, IconUserPlus, IconUsers } from "@tabler/icons-react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import {
+  IconFoldUp,
+  IconFoldDown,
+  IconInfoCircle,
+  IconSearch,
+  IconSettings,
+  IconUserPlus,
+  IconUsers,
+} from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
-import {
-  actionsColumn,
-  customColumn,
-  DataGrid,
-  useDataGridState,
-} from "@/components/features/data-grid";
+import { ListLoadError } from "@/components/features/data-grid/list-load-error";
 import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -41,11 +43,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
-import { runAsyncAction } from "@/lib/client/async-control";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import {
   useWorkspaceId,
@@ -62,48 +62,58 @@ import {
 import { WorkspaceSettingsDialog } from "@/components/features/studio/members/workspace-settings-dialog";
 
 import {
-  DEFAULT_PAGE_SIZE,
-  WORKSPACE_MEMBER_DEFAULT_SORTING,
-  WORKSPACE_MEMBER_SORT_IDS,
   buildAssignableWorkspaceRoles,
-  buildWorkspaceMemberListQuery,
   canEditMemberWorkspaceRole,
   getWorkspaceRoleBadgeVariant,
-  getPageAfterMemberRemoval,
-  reconcileGroupNameDraftState,
-  resolveGroupNameDrafts,
   useDynamicWorkspaceRoles,
-  EMPTY_RECRUITING_GROUPS,
 } from "@/components/features/studio/members/members-page-model";
-import type {
-  MemberRow,
-  RecruitingGroupMemberRow,
-  RecruitingGroupRole,
-  RecruitingGroupRow,
-} from "@/components/features/studio/members/members-page-model";
+import type { MemberRow } from "@/components/features/studio/members/members-page-model";
 import {
-  buildWorkspaceManagementSearch,
-  parseWorkspaceManagementTab,
-} from "@/components/features/studio/members/workspace-management-search";
-import type { WorkspaceManagementSearch } from "@/components/features/studio/members/workspace-management-search";
-import {
-  DEFAULT_NEW_GROUP_MEMBER_ROLE,
-  RecruitingGroupsPanel,
-  hasDuplicateGroupName,
-  normalizeGroupName,
-  readErrorMessage,
-} from "@/components/features/studio/members/members-groups";
+  flattenMemberTree,
+  listManagerCandidates,
+  listMembersWithReports,
+} from "@/components/features/studio/members/members-tree-model";
+import { MembersFloatingActionBar } from "@/components/features/studio/members/members-floating-action-bar";
+import { MembersTreeTable } from "@/components/features/studio/members/members-tree-table";
+import type { MembersTreeTableColumn } from "@/components/features/studio/members/members-tree-table";
 
-const INITIAL_MEMBER_FILTERS = { textFilters: "" };
+const EMPTY_MEMBERS: MemberRow[] = [];
+
+const MANAGER_HEADER_DESCRIPTION =
+  "AI 面试、招聘台和面试管理的数据按汇报线可见：上级能看到所有直接、间接下级创建的数据，同级之间默认互不可见，下级看不到上级的数据。拥有者和管理员能看到全部数据。";
+const DOTTED_MANAGER_HEADER_DESCRIPTION =
+  "虚线汇报：这里选择的上级也能看到该成员及其全部下级的数据，但不改变成员树和同级关系。不能选择该成员本人或其下级。";
+const PEER_SHARING_HEADER_DESCRIPTION =
+  "勾选后，与该成员同一直属上级的同级（没有上级的顶层成员互为同级）能看到该成员本人创建的数据，不包括其下级的数据。";
+
+function ColumnHeaderWithInfo({ description, label }: { description: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              aria-label={`${label}说明`}
+              className="inline-flex size-4 shrink-0 items-center justify-center rounded-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              type="button"
+            >
+              <IconInfoCircle aria-hidden className="size-3.5" />
+            </button>
+          }
+        />
+        <TooltipContent className="max-w-xs text-left font-normal leading-relaxed" side="bottom">
+          {description}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
 
 export function MembersManagementPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
   const workspaceMemberRole = useWorkspaceMemberRole();
-  const routeSearch = useSearch({ from: "/w/$slug/studio/members" });
-  const navigate = useNavigate({ from: "/w/$slug/studio/members" });
-  const queryClient = useQueryClient();
-  const activeTab = parseWorkspaceManagementTab(routeSearch.tab);
   const { data: org, refetch: refetchOrganization } = useQuery({
     queryFn: async () => {
       const { data, error } = await authClient.organization.getFullOrganization({
@@ -119,64 +129,12 @@ export function MembersManagementPage() {
     },
     queryKey: ["workspace-organization", workspaceId],
   });
-  const memberOptionsQueryKey = ["workspace-member-options", slug, workspaceId] as const;
-  const { data: memberOptions } = useQuery({
-    enabled: activeTab === "groups",
-    queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
-        "加载工作区成员失败",
-      ),
-    queryKey: memberOptionsQueryKey,
-    refetchOnWindowFocus: false,
-  });
-  const groupsQueryKey = ["workspace-recruiting-groups", slug, workspaceId] as const;
   const [pending, setPending] = useState<string | null>(null);
-  const [newGroupName, setNewGroupName] = useState("");
-  const { data: groups = EMPTY_RECRUITING_GROUPS, refetch: refetchGroups } = useQuery({
-    enabled: Boolean(workspaceId),
-    queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.groups.$get({ param: { slug } }),
-        "加载组别失败",
-      );
-      return payload.groups;
-    },
-    queryKey: groupsQueryKey,
-    refetchOnWindowFocus: false,
-  });
-  const [groupNameDraftState, setGroupNameDraftState] = useState(() => ({
-    drafts: {},
-    groupIdsKey: JSON.stringify(groups.map((group) => group.id)),
-    workspaceId,
-  }));
-  const ownedGroupNameDraftState = reconcileGroupNameDraftState(
-    groups,
-    workspaceId,
-    groupNameDraftState,
-  );
-  if (ownedGroupNameDraftState !== groupNameDraftState) {
-    setGroupNameDraftState(ownedGroupNameDraftState);
-  }
-  const resolvedGroupNameDrafts = resolveGroupNameDrafts(groups, ownedGroupNameDraftState.drafts);
-  const [deleteGroupTarget, setDeleteGroupTarget] = useState<RecruitingGroupRow | null>(null);
-  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
-  const isDeleteGroupDialogOpen = Boolean(deleteGroupTarget);
-  const isDeletingGroup = Boolean(deletingGroupId);
   const canUpdate = useHasPermission("member", "update");
   const canDelete = useHasPermission("member", "delete");
   const canUpdateWorkspace = useHasPermission("organization", "update");
   const { data: session } = authClient.useSession();
   const { data: dynamicWorkspaceRoles = [] } = useDynamicWorkspaceRoles(workspaceId, canUpdate);
-
-  function handleTabChange(value: string) {
-    const tab = parseWorkspaceManagementTab(value);
-    void navigate({
-      replace: true,
-      resetScroll: false,
-      search: (prev: WorkspaceManagementSearch) => buildWorkspaceManagementSearch(prev, tab),
-    });
-  }
 
   // 当前用户在这个 org 的角色——决定 Select 给出哪些可选项 + 哪些行只读。
   // 服务端硬约束已经在 beforeUpdateMemberRole hook 里执行；这里 UI 同步
@@ -194,209 +152,192 @@ export function MembersManagementPage() {
     [assignableRoles, dynamicWorkspaceRoles],
   );
 
-  const allRows: MemberRow[] = useMemo(() => {
-    const list = memberOptions?.records ?? [];
-    return list.map((member) => ({
-      createdAt: member.createdAt,
-      email: member.email,
-      id: member.memberId,
-      image: member.image,
-      lastActiveAt: null,
-      name: member.name,
-      role: member.role,
-      userId: member.id,
-    }));
-  }, [memberOptions?.records]);
-  const fetchMembers = useMemo(
-    () => (params: Parameters<typeof buildWorkspaceMemberListQuery>[0]) =>
+  const queryClient = useQueryClient();
+  const membersQueryKey = ["workspace-member-directory", slug, workspaceId] as const;
+  const membersQuery = useQuery({
+    queryFn: () =>
       rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.$get({
-          param: { slug },
-          query: buildWorkspaceMemberListQuery(params),
-        }),
+        rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载工作区成员失败",
       ),
-    [slug],
-  );
-  const memberGrid = useDataGridState<MemberRow, { textFilters: string }>({
-    allowedSortIds: WORKSPACE_MEMBER_SORT_IDS,
-    defaultPageSize: DEFAULT_PAGE_SIZE,
-    defaultSorting: [...WORKSPACE_MEMBER_DEFAULT_SORTING],
-    initialFilters: INITIAL_MEMBER_FILTERS,
-    queryFn: fetchMembers,
-    queryKeyBase: ["workspace-member-list", slug, workspaceId],
+    queryKey: membersQueryKey,
     refetchOnWindowFocus: false,
   });
-  const hasMemberSearch = Boolean(memberGrid.filters.textFilters);
+  const members = membersQuery.data?.records ?? EMPTY_MEMBERS;
+  const refreshMembers = () => queryClient.invalidateQueries({ queryKey: membersQueryKey });
 
-  async function createGroup() {
-    const name = normalizeGroupName(newGroupName);
-    if (!name) {
-      return;
-    }
-    if (hasDuplicateGroupName(groups, name)) {
-      toast.error("同一工作区内已存在同名招聘组");
-      return;
-    }
-    const response = await rpc.api.w[":slug"].studio.workspace.groups.$post({
-      json: { name },
-      param: { slug },
-    });
-    if (!response.ok) {
-      toast.error(await readErrorMessage(response, "创建组别失败"));
-      return;
-    }
-    setNewGroupName("");
-    await refetchGroups();
-    toast.success("组别已创建");
-  }
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const hasMemberSearch = deferredSearch.trim().length > 0;
+  // null = 尚未手动展开/收起：默认全部展开，直接看到完整汇报线。
+  // null means untouched: every manager starts expanded.
+  const [expandedUserIds, setExpandedUserIds] = useState<ReadonlySet<string> | null>(null);
+  const effectiveExpandedUserIds = useMemo(
+    () => expandedUserIds ?? new Set(listMembersWithReports(members)),
+    [expandedUserIds, members],
+  );
+  const treeRows = useMemo(
+    () =>
+      flattenMemberTree({
+        expandedUserIds: effectiveExpandedUserIds,
+        query: deferredSearch,
+        records: members,
+      }),
+    [deferredSearch, effectiveExpandedUserIds, members],
+  );
+  const memberNameByUserId = useMemo(
+    () => new Map(members.map((record) => [record.userId, record.name])),
+    [members],
+  );
 
-  async function renameGroup(group: RecruitingGroupRow, draftName: string) {
-    if (group.isVirtual) {
-      return;
-    }
-    const name = normalizeGroupName(draftName);
-    if (!name || name === group.name) {
-      return;
-    }
-    if (hasDuplicateGroupName(groups, name, group.id)) {
-      toast.error("同一工作区内已存在同名招聘组");
-      return;
-    }
-    const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].$patch({
-      json: { name },
-      param: { id: group.id, slug },
-    });
-    if (!response.ok) {
-      toast.error(await readErrorMessage(response, "更新组别失败"));
-      return;
-    }
-    await refetchGroups();
-    toast.success("组别已更新");
-  }
-
-  async function deleteGroup(group: RecruitingGroupRow) {
-    setDeletingGroupId(group.id);
-    await runAsyncAction({
-      cleanup: () => setDeletingGroupId(null),
-      onError: () => toast.error("删除组别失败"),
-      operation: async () => {
-        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].$delete({
-          param: { id: group.id, slug },
-        });
-        if (!response.ok) {
-          toast.error("删除组别失败");
-          return;
-        }
-        setDeleteGroupTarget(null);
-        await refetchGroups();
-        toast.success("组别已删除，组内成员关系已移除");
-      },
+  function toggleExpanded(userId: string) {
+    setExpandedUserIds(() => {
+      const next = new Set(effectiveExpandedUserIds);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
     });
   }
 
-  async function addMemberToGroup(row: MemberRow, groupId: string) {
-    const pendingKey = `${groupId}:${row.userId}`;
-    setPending(pendingKey);
-    await runAsyncAction({
-      cleanup: () => setPending(null),
-      onError: () => toast.error("添加组成员失败"),
-      operation: async () => {
-        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
-          json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
-          param: { id: groupId, slug },
-        });
-        if (!response.ok) {
-          toast.error(await readErrorMessage(response, "添加组成员失败"));
-          return;
-        }
-        await refetchGroups();
-        toast.success("成员已加入招聘组");
-      },
-    });
+  const [selectedUserIds, setSelectedUserIds] = useState<ReadonlySet<string>>(() => new Set());
+  // 成员被移除后自动从选择中剔除。Drop selections for members that no longer exist.
+  const effectiveSelectedUserIds = useMemo(() => {
+    const memberIds = new Set(members.map((record) => record.userId));
+    return new Set([...selectedUserIds].filter((userId) => memberIds.has(userId)));
+  }, [members, selectedUserIds]);
+  const bulkManagerOptions = useMemo(
+    () =>
+      listManagerCandidates(members, [...effectiveSelectedUserIds]).map((candidate) => ({
+        avatarUrl: candidate.image,
+        description: candidate.email,
+        label: candidate.name,
+        value: candidate.userId,
+      })),
+    [effectiveSelectedUserIds, members],
+  );
+  const [bulkPending, setBulkPending] = useState(false);
+
+  function toggleSelected(userId: string, selected: boolean) {
+    const next = new Set(effectiveSelectedUserIds);
+    if (selected) {
+      next.add(userId);
+    } else {
+      next.delete(userId);
+    }
+    setSelectedUserIds(next);
   }
 
-  async function moveMemberToGroup(row: MemberRow, sourceGroupId: string, targetGroupId: string) {
-    const pendingKey = `${sourceGroupId}:${row.userId}`;
-    setPending(pendingKey);
-    await runAsyncAction({
-      cleanup: () => setPending(null),
-      onError: () => toast.error("移动组成员失败"),
-      operation: async () => {
-        const removeResponse = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
-          ":userId"
-        ].$delete({
-          param: { id: sourceGroupId, slug, userId: row.userId },
-        });
-        if (!removeResponse.ok) {
-          toast.error(await readErrorMessage(removeResponse, "移动组成员失败"));
-          await refetchGroups();
-          return;
-        }
-
-        const addResponse = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
-          json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
-          param: { id: targetGroupId, slug },
-        });
-        if (!addResponse.ok) {
-          toast.error(await readErrorMessage(addResponse, "移动组成员失败"));
-          await refetchGroups();
-          return;
-        }
-
-        await refetchGroups();
-        toast.success("成员已移动到目标招聘组");
-      },
-    });
+  function toggleVisibleSelected(selected: boolean) {
+    const next = new Set(effectiveSelectedUserIds);
+    for (const row of treeRows) {
+      if (selected) {
+        next.add(row.record.userId);
+      } else {
+        next.delete(row.record.userId);
+      }
+    }
+    setSelectedUserIds(next);
   }
 
-  async function changeGroupMemberRole(
-    groupId: string,
-    member: RecruitingGroupMemberRow,
-    role: RecruitingGroupRole,
-  ) {
-    const pendingKey = `${groupId}:${member.userId}`;
-    setPending(pendingKey);
-    await runAsyncAction({
-      cleanup: () => setPending(null),
-      onError: () => toast.error("更新组内角色失败"),
-      operation: async () => {
-        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
-          ":userId"
-        ].$patch({
-          json: { role },
-          param: { id: groupId, slug, userId: member.userId },
-        });
-        if (!response.ok) {
-          toast.error("更新组内角色失败");
-          return;
-        }
-        await refetchGroups();
-        toast.success("组内角色已更新");
-      },
-    });
+  async function bulkSetManager(managerUserId: string | null) {
+    const userIds = [...effectiveSelectedUserIds];
+    if (userIds.length === 0) {
+      return;
+    }
+    setBulkPending(true);
+    try {
+      await rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members.manager.$put({
+          json: { managerUserId, userIds },
+          param: { slug },
+        }),
+        "批量设置上级失败",
+      );
+      if (managerUserId) {
+        setExpandedUserIds(new Set([...effectiveExpandedUserIds, managerUserId]));
+      }
+      setSelectedUserIds(new Set());
+      await refreshMembers();
+      const managerName = managerUserId ? memberNameByUserId.get(managerUserId) : null;
+      toast.success(
+        managerName
+          ? `已将 ${userIds.length} 人的直属上级设为 ${managerName}`
+          : `已清除 ${userIds.length} 人的直属上级`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "批量设置上级失败");
+    } finally {
+      setBulkPending(false);
+    }
   }
 
-  async function removeGroupMember(groupId: string, member: RecruitingGroupMemberRow) {
-    const pendingKey = `${groupId}:${member.userId}`;
-    setPending(pendingKey);
-    await runAsyncAction({
-      cleanup: () => setPending(null),
-      onError: () => toast.error("移出招聘组失败"),
-      operation: async () => {
-        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
-          ":userId"
-        ].$delete({
-          param: { id: groupId, slug, userId: member.userId },
-        });
-        if (!response.ok) {
-          toast.error("移出招聘组失败");
-          return;
-        }
-        await refetchGroups();
-        toast.success("成员已移出招聘组");
-      },
-    });
+  async function changeDottedManagers(row: MemberRow, managerUserIds: string[]) {
+    setPending(row.id);
+    try {
+      await rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members[":userId"]["dotted-managers"].$put({
+          json: { managerUserIds },
+          param: { slug, userId: row.userId },
+        }),
+        "更新虚线汇报上级失败",
+      );
+      await refreshMembers();
+      toast.success("虚线汇报上级已更新");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新虚线汇报上级失败");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function changePeerSharing(row: MemberRow, shareWithPeers: boolean) {
+    if (row.shareWithPeers === shareWithPeers) {
+      return;
+    }
+    setPending(row.id);
+    try {
+      await rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members[":userId"]["peer-sharing"].$put({
+          json: { shareWithPeers },
+          param: { slug, userId: row.userId },
+        }),
+        "更新共享设置失败",
+      );
+      await refreshMembers();
+      toast.success(shareWithPeers ? "已共享给同级" : "已取消共享给同级");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新共享设置失败");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function changeManager(row: MemberRow, managerUserId: string | null) {
+    if (row.managerUserId === managerUserId) {
+      return;
+    }
+    setPending(row.id);
+    try {
+      await rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members[":userId"].manager.$put({
+          json: { managerUserId },
+          param: { slug, userId: row.userId },
+        }),
+        "更新上级失败",
+      );
+      if (managerUserId) {
+        setExpandedUserIds(new Set([...effectiveExpandedUserIds, managerUserId]));
+      }
+      await refreshMembers();
+      toast.success(managerUserId ? "上级已更新" : "已移除上级");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新上级失败");
+    } finally {
+      setPending(null);
+    }
   }
 
   async function changeWorkspaceRole(row: MemberRow, role: string) {
@@ -416,8 +357,7 @@ export function MembersManagementPage() {
       toast.error(error.message ?? "更新工作区角色失败");
       return;
     }
-    memberGrid.invalidate();
-    void queryClient.invalidateQueries({ queryKey: memberOptionsQueryKey });
+    await refreshMembers();
     await refetchOrganization();
     toast.success("工作区角色已更新");
   }
@@ -437,15 +377,7 @@ export function MembersManagementPage() {
             toast.error(error.message ?? "移除成员失败");
             return;
           }
-          const nextPage = getPageAfterMemberRemoval({
-            page: memberGrid.page,
-            visibleRowCount: memberGrid.data.records.length,
-          });
-          memberGrid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: memberOptionsQueryKey });
-          if (nextPage !== memberGrid.page) {
-            memberGrid.setPage(nextPage);
-          }
+          await refreshMembers();
           await refetchOrganization();
           toast.success("成员已移除");
         },
@@ -453,102 +385,245 @@ export function MembersManagementPage() {
     });
   }
 
-  const columns = useMemo(
-    () => [
-      customColumn<MemberRow>({
-        cell: (r) => (
-          <MemberCell
-            avatarSize="sm"
-            className="gap-3"
-            email={r.email}
-            image={r.image}
-            name={r.name}
-          />
-        ),
-        key: "name",
-        title: "成员",
-      }),
-      customColumn<MemberRow>({
-        cell: (r) => {
-          const canEditWorkspaceRole = canEditMemberWorkspaceRole({
-            assignableRoles,
-            canUpdate,
-            currentRole: currentMemberRole,
-            currentUserId: session?.user?.id,
-            row: r,
-          });
-          if (!canEditWorkspaceRole) {
-            return (
-              <Badge variant={getWorkspaceRoleBadgeVariant(r.role)}>
-                {getWorkspaceRoleLabel(r.role)}
-              </Badge>
-            );
-          }
+  const columns: MembersTreeTableColumn<MemberRow>[] = [
+    {
+      cell: ({ record }) => (
+        <MemberCell
+          avatarSize="sm"
+          className="gap-3"
+          email={record.email}
+          image={record.image}
+          name={record.name}
+        />
+      ),
+      key: "name",
+      title: "成员",
+      width: "minmax(16rem,2fr)",
+    },
+    {
+      cell: ({ record }) => {
+        if (!canUpdate) {
+          const managerName = record.managerUserId
+            ? memberNameByUserId.get(record.managerUserId)
+            : null;
           return (
-            <Select
-              disabled={pending === r.id}
-              onValueChange={(value) => {
-                if (value) {
-                  void changeWorkspaceRole(r, value);
-                }
-              }}
-              value={r.role}
-            >
-              <SelectTrigger className="w-36" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {assignableRoleOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="truncate text-muted-foreground text-sm">{managerName ?? "—"}</span>
           );
-        },
-        key: "role",
-        size: 150,
-        title: "工作区角色",
-      }),
-      customColumn<MemberRow>({
-        cell: (r) => (
+        }
+        const managerSelectId = `member-manager-${record.userId}`;
+        return (
+          <>
+            <label className="sr-only" htmlFor={managerSelectId}>
+              {`${record.name} 的直属上级`}
+            </label>
+            <SearchableSelect
+              disabled={pending === record.id}
+              emptyMessage="没有可选的上级"
+              id={managerSelectId}
+              modal={false}
+              onChange={(value) => {
+                void changeManager(record, value);
+              }}
+              options={listManagerCandidates(members, [record.userId]).map((candidate) => ({
+                avatarUrl: candidate.image,
+                description: candidate.email,
+                label: candidate.name,
+                value: candidate.userId,
+              }))}
+              placeholder="无上级"
+              searchPlaceholder="搜索成员"
+              triggerClassName="h-8 w-full max-w-52"
+              value={record.managerUserId}
+            />
+          </>
+        );
+      },
+      key: "manager",
+      title: <ColumnHeaderWithInfo description={MANAGER_HEADER_DESCRIPTION} label="直属上级" />,
+      width: "minmax(12rem,1.2fr)",
+    },
+    {
+      cell: ({ record }) => {
+        if (!canUpdate) {
+          const names = record.dottedManagerUserIds
+            .map((userId) => memberNameByUserId.get(userId))
+            .filter(Boolean);
+          return (
+            <span className="truncate text-muted-foreground text-sm">
+              {names.length > 0 ? names.join("、") : "—"}
+            </span>
+          );
+        }
+        const dottedSelectId = `member-dotted-managers-${record.userId}`;
+        return (
+          <>
+            <label className="sr-only" htmlFor={dottedSelectId}>
+              {`${record.name} 的虚线汇报上级`}
+            </label>
+            <SearchableMultiSelect
+              disabled={pending === record.id}
+              emptyMessage="没有可选的上级"
+              id={dottedSelectId}
+              modal={false}
+              onChange={(value) => {
+                void changeDottedManagers(record, value);
+              }}
+              options={listManagerCandidates(members, [record.userId])
+                .filter((candidate) => candidate.userId !== record.managerUserId)
+                .map((candidate) => ({
+                  avatarUrl: candidate.image,
+                  description: candidate.email,
+                  label: candidate.name,
+                  value: candidate.userId,
+                }))}
+              placeholder="无"
+              searchPlaceholder="搜索成员"
+              selectedPreviewLimit={1}
+              triggerClassName="h-8 w-full max-w-52"
+              value={record.dottedManagerUserIds}
+            />
+          </>
+        );
+      },
+      key: "dottedManagers",
+      title: (
+        <ColumnHeaderWithInfo
+          description={DOTTED_MANAGER_HEADER_DESCRIPTION}
+          label="虚线汇报上级"
+        />
+      ),
+      width: "minmax(12rem,1.2fr)",
+    },
+    {
+      cell: ({ record }) =>
+        canUpdate ? (
+          <Checkbox
+            aria-label={`将 ${record.name} 的数据共享给同级`}
+            checked={record.shareWithPeers}
+            disabled={pending === record.id}
+            onCheckedChange={(checked) => {
+              void changePeerSharing(record, checked === true);
+            }}
+          />
+        ) : (
           <span className="text-muted-foreground text-sm">
-            <TimeDisplay value={r.createdAt} />
+            {record.shareWithPeers ? "已共享" : "—"}
           </span>
         ),
-        enableSorting: true,
-        key: "createdAt",
-        title: "加入时间",
-      }),
-      customColumn<MemberRow>({
-        cell: (r) =>
-          r.lastActiveAt ? (
-            <span className="text-muted-foreground text-sm">
-              <TimeDisplay value={r.lastActiveAt} />
-            </span>
-          ) : (
-            <span className="text-muted-foreground text-sm">从未登录</span>
-          ),
-        enableSorting: true,
-        key: "lastActiveAt",
-        title: "最近活跃",
-      }),
-      actionsColumn<MemberRow>({
-        menu: canDelete
-          ? [
-              {
-                label: "移除成员",
-                onClick: (r) => removeMember(r),
-                variant: "destructive",
-              },
-            ]
-          : [],
-      }),
-    ],
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- 列定义只依赖权限值，剧场切换时无需重建
-    [assignableRoles, canDelete, canUpdate, currentMemberRole, pending, session?.user?.id],
-  );
+      key: "shareWithPeers",
+      title: (
+        <ColumnHeaderWithInfo
+          description={PEER_SHARING_HEADER_DESCRIPTION}
+          label="数据共享给同级"
+        />
+      ),
+      width: "8rem",
+    },
+    {
+      cell: ({ directReportCount }) => (
+        <span className="text-muted-foreground text-sm tabular-nums">
+          {directReportCount > 0 ? `${directReportCount} 人` : "—"}
+        </span>
+      ),
+      key: "reports",
+      title: "直属下级",
+      width: "6rem",
+    },
+    {
+      cell: ({ record }) => {
+        const canEditWorkspaceRole = canEditMemberWorkspaceRole({
+          assignableRoles,
+          canUpdate,
+          currentRole: currentMemberRole,
+          currentUserId: session?.user?.id,
+          row: record,
+        });
+        if (!canEditWorkspaceRole) {
+          return (
+            <Badge variant={getWorkspaceRoleBadgeVariant(record.role)}>
+              {getWorkspaceRoleLabel(record.role)}
+            </Badge>
+          );
+        }
+        return (
+          <Select
+            disabled={pending === record.id}
+            onValueChange={(value) => {
+              if (value) {
+                void changeWorkspaceRole(record, value);
+              }
+            }}
+            value={record.role}
+          >
+            <SelectTrigger aria-label={`${record.name} 的工作区角色`} className="w-36" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {assignableRoleOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      },
+      key: "role",
+      title: "工作区角色",
+      width: "10rem",
+    },
+    {
+      cell: ({ record }) => (
+        <span className="text-muted-foreground text-sm">
+          <TimeDisplay value={record.createdAt} />
+        </span>
+      ),
+      key: "createdAt",
+      title: "加入时间",
+      width: "9rem",
+    },
+    {
+      cell: ({ record }) => (
+        <span className="text-muted-foreground text-sm">
+          {record.lastActiveAt ? <TimeDisplay value={record.lastActiveAt} /> : "从未登录"}
+        </span>
+      ),
+      key: "lastActiveAt",
+      title: "最近活跃",
+      width: "9rem",
+    },
+  ];
+  if (canDelete) {
+    columns.push({
+      cell: ({ record }) => (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                aria-label={`${record.name} 的更多操作`}
+                disabled={pending === record.id}
+                size="sm"
+                variant="text"
+              >
+                更多
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem onClick={() => removeMember(record)} variant="destructive">
+              移除成员
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+      className: "text-right",
+      key: "actions",
+      title: "",
+      width: "5rem",
+    });
+  }
+
+  const allManagerUserIds = listMembersWithReports(members);
 
   return (
     <div className="mx-auto w-full max-w-[96rem] space-y-6">
@@ -570,15 +645,73 @@ export function MembersManagementPage() {
         }
       />
 
-      <Tabs className="space-y-4" onValueChange={handleTabChange} value={activeTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:w-fit">
-          <TabsTrigger value="members">成员</TabsTrigger>
-          <TabsTrigger value="groups">招聘组</TabsTrigger>
-        </TabsList>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <InputGroup className="w-64">
+              <InputGroupAddon>
+                <IconSearch aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput
+                aria-label="搜索成员"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索姓名或邮箱"
+                type="search"
+                value={search}
+              />
+            </InputGroup>
+            <Button
+              className="w-24"
+              disabled={allManagerUserIds.length === 0}
+              onClick={() => setExpandedUserIds(new Set(allManagerUserIds))}
+              variant="secondary"
+            >
+              <IconFoldDown />
+              全部展开
+            </Button>
+            <Button
+              className="w-24"
+              disabled={allManagerUserIds.length === 0}
+              onClick={() => setExpandedUserIds(new Set())}
+              variant="secondary"
+            >
+              <IconFoldUp />
+              全部收起
+            </Button>
+            <span className="text-muted-foreground text-sm">共 {members.length} 人</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <PermissionGate action="create" resource="invitation">
+              <PendingInvitationsButton organizationId={org?.id ?? null} />
+            </PermissionGate>
+            <PermissionGate action="create" resource="invitation">
+              <InviteLinksDrawer
+                assignableRoleOptions={assignableRoleOptions}
+                assignableRoles={assignableRoles}
+              />
+              <InviteDialog
+                assignableRoleOptions={assignableRoleOptions}
+                assignableRoles={assignableRoles}
+                trigger={
+                  <Button>
+                    <IconUserPlus className="size-4" />
+                    邀请成员
+                  </Button>
+                }
+              />
+            </PermissionGate>
+          </div>
+        </div>
 
-        <TabsContent className="mt-0" value="members">
-          <DataGrid<MemberRow>
-            {...memberGrid.bind}
+        {membersQuery.error ? (
+          <ListLoadError
+            error={membersQuery.error}
+            onRetry={() => {
+              void membersQuery.refetch();
+            }}
+          />
+        ) : (
+          <MembersTreeTable
             columns={columns}
             empty={
               <Empty className="border-border">
@@ -590,121 +723,41 @@ export function MembersManagementPage() {
                   <EmptyDescription>
                     {hasMemberSearch
                       ? "调整邮箱或姓名关键词后重试。"
-                      : "邀请同事加入这个工作区，再到招聘组看板里分配组内身份。"}
+                      : "邀请同事加入这个工作区，并为他们分配工作区角色。"}
                   </EmptyDescription>
                 </EmptyHeader>
-                {hasMemberSearch ? null : (
-                  <EmptyContent>
-                    <PermissionGate action="create" resource="invitation">
-                      <InviteDialog
-                        assignableRoleOptions={assignableRoleOptions}
-                        assignableRoles={assignableRoles}
-                        trigger={
-                          <Button>
-                            <IconUserPlus className="size-4" />
-                            邀请成员
-                          </Button>
-                        }
-                      />
-                    </PermissionGate>
-                  </EmptyContent>
-                )}
               </Empty>
             }
-            filters={[
-              {
-                key: "textFilters" as const,
-                resource: "members" as const,
-                type: "text-filters" as const,
-              },
-            ]}
-            getRowId={(r) => r.id}
-            toolbarRight={
-              <div className="flex flex-wrap gap-2">
-                <PermissionGate action="create" resource="invitation">
-                  <PendingInvitationsButton organizationId={org?.id ?? null} />
-                </PermissionGate>
-                <PermissionGate action="create" resource="invitation">
-                  <InviteLinksDrawer
-                    assignableRoleOptions={assignableRoleOptions}
-                    assignableRoles={assignableRoles}
-                  />
-                  <InviteDialog
-                    assignableRoleOptions={assignableRoleOptions}
-                    assignableRoles={assignableRoles}
-                    trigger={
-                      <Button>
-                        <IconUserPlus className="size-4" />
-                        邀请成员
-                      </Button>
-                    }
-                  />
-                </PermissionGate>
-              </div>
+            loading={membersQuery.isPending}
+            onToggle={toggleExpanded}
+            selection={
+              canUpdate
+                ? {
+                    onToggle: toggleSelected,
+                    onToggleVisible: toggleVisibleSelected,
+                    selectedUserIds: effectiveSelectedUserIds,
+                  }
+                : undefined
             }
+            rows={treeRows}
           />
-        </TabsContent>
+        )}
+      </div>
 
-        <TabsContent className="mt-0" value="groups">
-          <RecruitingGroupsPanel
-            allRows={allRows}
-            canUpdate={canUpdate}
-            groupNameDrafts={resolvedGroupNameDrafts}
-            groups={groups}
-            newGroupName={newGroupName}
-            onAddMemberToGroup={addMemberToGroup}
-            onCreateGroup={createGroup}
-            onDeleteGroup={setDeleteGroupTarget}
-            onGroupNameDraftChange={(groupId, value) =>
-              setGroupNameDraftState((current) => {
-                const owned = reconcileGroupNameDraftState(groups, workspaceId, current);
-                return { ...owned, drafts: { ...owned.drafts, [groupId]: value } };
-              })
-            }
-            onRemoveGroupMember={removeGroupMember}
-            onRenameGroup={renameGroup}
-            onMoveMemberToGroup={moveMemberToGroup}
-            onRoleChange={changeGroupMemberRole}
-            pending={pending}
-            setNewGroupName={setNewGroupName}
-          />
-        </TabsContent>
-      </Tabs>
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (open || isDeletingGroup) {
-            return;
-          }
-          setDeleteGroupTarget(null);
-        }}
-        open={isDeleteGroupDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个招聘组？</AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后仅移除该组内的成员关系，不会移除工作区成员。当前组别：
-              {deleteGroupTarget?.name ?? "未知组别"}。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingGroup}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isDeletingGroup}
-              onClick={(event) => {
-                event.preventDefault();
-                if (deleteGroupTarget) {
-                  void deleteGroup(deleteGroupTarget);
-                }
-              }}
-              variant="destructive"
-            >
-              {isDeletingGroup ? "正在删除…" : "确认删除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {canUpdate ? (
+        <MembersFloatingActionBar
+          disabled={bulkPending}
+          managerOptions={bulkManagerOptions}
+          onClearManager={() => {
+            void bulkSetManager(null);
+          }}
+          onClearSelection={() => setSelectedUserIds(new Set())}
+          onSetManager={(managerUserId) => {
+            void bulkSetManager(managerUserId);
+          }}
+          selectedCount={effectiveSelectedUserIds.size}
+        />
+      ) : null}
     </div>
   );
 }

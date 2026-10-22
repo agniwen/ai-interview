@@ -55,7 +55,13 @@ describe("permissions matrix", () => {
 
     it("can browse every studio page", () => {
       expect(roles.owner.statements.page).toEqual(
-        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
+        expect.arrayContaining([
+          "calendar",
+          "dashboard",
+          "globalConfig",
+          "offerApprovalTemplates",
+          "permissions",
+        ]),
       );
     });
   });
@@ -95,21 +101,17 @@ describe("permissions matrix", () => {
     });
 
     it("can browse every studio page", () => {
-      expect(roles.admin.statements.page).toEqual(
-        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
-      );
+      expect(roles.admin.statements.page).toEqual([...STUDIO_PAGE_PERMISSION_ACTIONS]);
     });
   });
 
-  describe("member role", () => {
-    it("exists", () => {
-      expect(roles.member).toBeDefined();
-    });
-
-    it("can access business resources; data scope is enforced by recruiting groups", () => {
-      const { member } = roles;
+  describe("recruitingSupervisor role", () => {
+    it("can fully manage recruiting work and configuration", () => {
+      const { recruitingSupervisor } = roles;
       const resources = [
         "interview",
+        "humanInterview",
+        "offer",
         "jd",
         "resumeLibrary",
         "department",
@@ -119,17 +121,51 @@ describe("permissions matrix", () => {
         "chat",
       ] as const;
       for (const r of resources) {
-        expect(member.statements[r]).toEqual(
+        expect(recruitingSupervisor.statements[r]).toEqual(
           expect.arrayContaining(["create", "read", "update", "delete"]),
         );
       }
     });
 
-    it("can update globalConfig and read auditLog", () => {
-      expect(roles.member.statements.globalConfig).toEqual(
-        expect.arrayContaining(["read", "update"]),
+    it("can decide offer approvals but not configure approval flows", () => {
+      expect(roles.recruitingSupervisor.statements.offerApproval).toEqual([
+        "create",
+        "read",
+        "decide",
+      ]);
+    });
+
+    it("browses the dashboard and members but no administration pages", () => {
+      expect(roles.recruitingSupervisor.statements.page).toEqual(
+        expect.arrayContaining(["dashboard", "members", "calendar", "jobDescriptions"]),
       );
-      expect(roles.member.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      for (const page of ["permissions", "globalConfig", "offerApprovalTemplates"] as const) {
+        expect(roles.recruitingSupervisor.statements.page).not.toContain(page);
+      }
+    });
+  });
+
+  describe("member (recruiting specialist) role", () => {
+    it("can create, read and update recruiting work and configuration without deleting", () => {
+      const { member } = roles;
+      const resources = [
+        "interview",
+        "humanInterview",
+        "offer",
+        "jd",
+        "resumeLibrary",
+        "department",
+        "interviewer",
+        "candidateForm",
+        "questionTemplate",
+      ] as const;
+      for (const r of resources) {
+        expect(member.statements[r]).toEqual(["create", "read", "update"]);
+      }
+    });
+
+    it("reads global config and manages their own mailbox ingest", () => {
+      expect(roles.member.statements.globalConfig).toEqual(["read"]);
       expect(roles.member.statements.resumeEmailIngest).toEqual(
         expect.arrayContaining(["create", "read", "update", "delete"]),
       );
@@ -141,19 +177,38 @@ describe("permissions matrix", () => {
       expect(stmts.member ?? []).toHaveLength(0);
     });
 
-    it("cannot browse admin-only studio pages", () => {
-      expect(roles.member.statements.page).not.toEqual(
-        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
-      );
+    it("browses daily recruiting and configuration pages only", () => {
       expect(roles.member.statements.page).toEqual(
         expect.arrayContaining([
           "resumes",
           "resumePool",
           "interviews",
+          "calendar",
           "recruitingLedger",
-          "members",
+          "departments",
+          "interviewers",
+          "jobDescriptions",
+          "forms",
+          "interviewQuestions",
         ]),
       );
+      for (const page of ["dashboard", "members", "permissions", "globalConfig"] as const) {
+        expect(roles.member.statements.page).not.toContain(page);
+      }
+    });
+  });
+
+  describe("interviewer role", () => {
+    it("only opens interview management and the personal center", () => {
+      expect(roles.interviewer.statements.page).toEqual(["calendar", "me"]);
+    });
+
+    it("has no recruiting resource permissions", () => {
+      // SAFETY: The permission matrix fixture is owned by this test and exposes string-keyed statements.
+      const stmts = roles.interviewer.statements as Record<string, readonly string[] | undefined>;
+      for (const resource of ["chat", "interview", "jd", "resumeLibrary", "humanInterview"]) {
+        expect(stmts[resource] ?? []).toHaveLength(0);
+      }
     });
   });
 
@@ -206,88 +261,49 @@ describe("permission matrix cross-cut", () => {
   // [role, resource, action, expected]
   // 这张表跟 spec §3.2 1:1 对齐，是回归防线。
   const cases: [keyof typeof roles, string, string, boolean][] = [
-    // interview
+    // deletes stay with supervisors and administrators
     ["owner", "interview", "delete", true],
     ["admin", "interview", "delete", true],
-    ["member", "interview", "delete", true],
-    // jd
-    ["member", "jd", "update", true],
-    ["member", "jd", "delete", true],
-    // resume library / pool / upload batches split
-    ["member", "resumeLibrary", "read", true],
-    ["member", "resumeLibrary", "update", true],
-    ["member", "resumePool", "read", true],
-    ["member", "resumePool", "publish", true],
-    ["member", "resumePool", "import", true],
-    ["member", "resumeUploadBatch", "process", true],
-    ["member", "resumeUploadBatch", "cancel", true],
-    ["admin", "mailIngestAccount", "manage", true],
-    ["member", "mailIngestAccount", "manage", false],
-    ["member", "mailIngestAccount", "create", false],
-    ["owner", "resumeEmailIngest", "read", true],
-    ["admin", "resumeEmailIngest", "update", true],
-    ["member", "resumeEmailIngest", "create", true],
-    // department / interviewer
-    ["member", "department", "create", true],
+    ["recruitingSupervisor", "interview", "delete", true],
+    ["member", "interview", "delete", false],
+    ["member", "resumeLibrary", "delete", false],
+    ["member", "resumePool", "delete", false],
+    ["member", "department", "delete", false],
+    ["recruitingSupervisor", "resumePool", "delete", true],
+    // recruiting specialists maintain configuration
+    ["member", "jd", "create", true],
+    ["member", "department", "update", true],
     ["member", "interviewer", "update", true],
-    ["admin", "department", "delete", true],
-    // later-stage workflow controls
-    ["admin", "humanInterview", "create", true],
-    ["admin", "humanInterview", "read", true],
-    ["admin", "humanInterview", "update", true],
-    ["admin", "humanInterview", "delete", true],
-    ["member", "humanInterview", "create", true],
-    ["member", "humanInterview", "read", true],
-    ["member", "humanInterview", "update", true],
-    ["member", "humanInterview", "delete", true],
-    ["noAccess", "humanInterview", "read", false],
-    ["admin", "offer", "create", true],
-    ["admin", "offer", "read", true],
-    ["admin", "offer", "update", true],
-    ["admin", "offer", "delete", true],
-    ["member", "offer", "create", true],
-    ["member", "offer", "read", true],
-    ["member", "offer", "update", true],
-    ["member", "offer", "delete", true],
-    ["noAccess", "offer", "read", false],
-    // candidateForm / questionTemplate
-    ["member", "candidateForm", "delete", true],
-    ["member", "questionTemplate", "delete", true],
-    // globalConfig
-    ["member", "globalConfig", "update", true],
+    ["member", "candidateForm", "create", true],
+    ["member", "questionTemplate", "update", true],
+    ["member", "resumePool", "publish", true],
+    ["member", "resumeUploadBatch", "cancel", true],
+    // offer approvals
+    ["admin", "offerApproval", "manage", true],
+    ["recruitingSupervisor", "offerApproval", "decide", true],
+    ["recruitingSupervisor", "offerApproval", "manage", false],
+    ["member", "offerApproval", "create", true],
+    ["member", "offerApproval", "decide", false],
+    // global config
     ["admin", "globalConfig", "update", true],
-    // auditLog
-    ["owner", "auditLog", "read", true],
-    ["admin", "auditLog", "read", true],
-    ["member", "auditLog", "read", true],
-    // chat — 全员可全 CRUD
-    ["member", "chat", "delete", true],
-    // member — 改角色 (update) owner / admin 均可（admin 的目标范围由服务端
-    // hook 进一步限制为非管理角色，矩阵这里只给动词）；邀请/移除 admin 也可。
+    ["recruitingSupervisor", "globalConfig", "update", false],
+    ["member", "globalConfig", "update", false],
+    // member management stays with administrators; the hook limits admin targets
     ["owner", "member", "update", true],
-    // admin 现在拥有 member.update 这个动词权限；具体能改谁、能改成什么角色的
-    // 硬约束在服务端 hook（beforeUpdateMemberRole）里执行，矩阵这里只授予动词。
-    // admin can now perform member.update; the actual target/role ceiling
-    // (non-admin targets only, no self, no peer-admin) lives in the server-side hook.
     ["admin", "member", "update", true],
+    ["recruitingSupervisor", "member", "update", false],
     ["member", "member", "update", false],
-    ["admin", "member", "create", true],
-    ["admin", "member", "delete", true],
-    ["member", "member", "create", false],
-    ["member", "member", "delete", false],
+    ["admin", "invitation", "create", true],
+    ["recruitingSupervisor", "invitation", "create", false],
     // page browsing
-    ["admin", "page", "dashboard", true],
-    ["admin", "page", "recruitingLedger", true],
-    ["admin", "page", "mailIngestAccounts", true],
-    ["member", "page", "dashboard", false],
-    ["member", "page", "recruitingLedger", true],
-    ["member", "page", "mailIngestAccounts", false],
-    ["member", "page", "permissions", false],
-    ["member", "page", "globalConfig", false],
-    ["member", "page", "resumes", true],
-    ["member", "page", "members", true],
-    ["noAccess", "page", "resumes", false],
-    ["noAccess", "page", "members", false],
+    ["admin", "page", "offerApprovalTemplates", true],
+    ["recruitingSupervisor", "page", "offerApprovals", true],
+    ["recruitingSupervisor", "page", "offerApprovalTemplates", false],
+    ["member", "page", "offerApprovalTemplates", false],
+    ["interviewer", "page", "calendar", true],
+    ["interviewer", "page", "interviews", false],
+    ["interviewer", "chat", "read", false],
+    ["noAccess", "page", "calendar", false],
     ["noAccess", "member", "create", false],
     ["noAccess", "invitation", "create", false],
   ];

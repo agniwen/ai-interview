@@ -31,8 +31,12 @@ A user who belongs to a workspace with a workspace role.
 _Avoid_: Account, teammate, staff
 
 **Workspace Role**:
-A member's permission profile inside one workspace, such as owner, admin, hr, or viewer.
+A member's permission profile inside one workspace: owner, admin, recruiting supervisor, recruiting specialist (`member`), interviewer, pending assignment (`noAccess`), or a workspace-defined dynamic role. It is the only source of workspace action permissions; which recruiting data a member sees follows Reporting Lines (ADR-0043, ADR-0044).
 _Avoid_: User type, permission level
+
+**Reporting Line**:
+A member's single direct manager inside one workspace. A member sees recruiting data created by themselves and by all direct or indirect reports. Peers (same direct manager, or both top-level) do not see each other unless a member shares data with peers, which exposes only that member's own records to them. A member may also have dotted-line managers, who additionally see that member and their reports without changing the reporting tree or peer groups. Owners and admins see all workspace recruiting data, and noAccess members see none (ADR-0043).
+_Avoid_: Recruiting group, team, org chart rank
 
 **Platform Administrator**:
 A platform-level operator who can inspect and support across workspaces without being a normal workspace member.
@@ -172,8 +176,9 @@ _Avoid_: Resume library, upload queue
 
 **Private Resume Pool**:
 The workspace resume-pool scope whose records remain privately owned. It defaults to the current
-user's uploads; workspace owners/admins can browse all uploaders, while recruiting supervisors and
-leads can browse their own uploads and those of lower-ranked members in their recruiting groups.
+user's uploads; members with resume-pool read access can browse uploads by their direct or indirect
+reports and by peers who share data with peers, while workspace owners/admins can browse all
+uploaders (ADR-0043).
 _Avoid_: My uploads, personal library
 
 **Public Resume Pool**:

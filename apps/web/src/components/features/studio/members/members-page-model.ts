@@ -1,45 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { listTextQuery } from "@app/shared/list-text-filters";
-import type { DataGridFetchParams } from "@/components/features/data-grid";
 
 import { authClient } from "@/lib/client/auth-client";
 import { isBuiltInWorkspaceRole } from "@/components/features/studio/members/role-display";
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
 import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
-
-export const DEFAULT_PAGE_SIZE = 10;
-export const WORKSPACE_MEMBER_SORT_IDS = ["createdAt", "lastActiveAt"] as const;
-export const WORKSPACE_MEMBER_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }] as const;
-export type WorkspaceMemberSortColumn = (typeof WORKSPACE_MEMBER_SORT_IDS)[number];
-
-function isWorkspaceMemberSortColumn(
-  value: string | undefined,
-): value is WorkspaceMemberSortColumn {
-  return WORKSPACE_MEMBER_SORT_IDS.some((column) => column === value);
-}
-
-export function buildWorkspaceMemberListQuery(
-  params: DataGridFetchParams<{ textFilters: string }>,
-) {
-  return {
-    ...listTextQuery(params),
-    page: String(params.page),
-    pageSize: String(params.pageSize),
-    sortBy: isWorkspaceMemberSortColumn(params.sortBy) ? params.sortBy : "createdAt",
-    sortOrder: params.sortOrder ?? "desc",
-  };
-}
-
-export function getPageAfterMemberRemoval({
-  page,
-  visibleRowCount,
-}: {
-  page: number;
-  visibleRowCount: number;
-}): number {
-  return page > 1 && visibleRowCount === 1 ? page - 1 : page;
-}
 
 const dynamicWorkspaceRoleSchema = z.object({
   createdAt: z.union([z.date(), z.string()]),
@@ -55,8 +20,11 @@ export interface MemberRow {
   name: string;
   image: string | null;
   role: string;
-  createdAt: string | Date;
+  createdAt: string;
   lastActiveAt: string | null;
+  managerUserId: string | null;
+  shareWithPeers: boolean;
+  dottedManagerUserIds: string[];
 }
 
 export interface DynamicWorkspaceRole {
@@ -66,70 +34,13 @@ export interface DynamicWorkspaceRole {
   role: string;
 }
 
-export type RecruitingGroupRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
-
-export interface RecruitingGroupMemberRow {
-  id: string;
-  userId: string;
-  email: string;
-  name: string;
-  image: string | null;
-  role: RecruitingGroupRole | null;
-}
-
-export interface RecruitingGroupRow {
-  id: string;
-  name: string;
-  createdAt: string;
-  isDefault: boolean;
-  isVirtual?: boolean;
-  members: RecruitingGroupMemberRow[];
-  memberUserIds: string[];
-}
-
-export const EMPTY_RECRUITING_GROUPS: RecruitingGroupRow[] = [];
-
-export interface GroupNameDraftState {
-  drafts: Record<string, string>;
-  groupIdsKey: string;
-  workspaceId: string;
-}
-
-export function reconcileGroupNameDraftState(
-  groups: readonly Pick<RecruitingGroupRow, "id">[],
-  workspaceId: string,
-  state: GroupNameDraftState,
-): GroupNameDraftState {
-  const groupIds = groups.map((group) => group.id);
-  const groupIdsKey = JSON.stringify(groupIds);
-  if (state.workspaceId !== workspaceId) {
-    return { drafts: {}, groupIdsKey, workspaceId };
-  }
-  if (state.groupIdsKey === groupIdsKey) {
-    return state;
-  }
-  const visibleGroupIds = new Set(groupIds);
-  return {
-    drafts: Object.fromEntries(
-      Object.entries(state.drafts).filter(([groupId]) => visibleGroupIds.has(groupId)),
-    ),
-    groupIdsKey,
-    workspaceId,
-  };
-}
-
-export function resolveGroupNameDrafts(
-  groups: readonly Pick<RecruitingGroupRow, "id" | "name">[],
-  userDrafts: Readonly<Record<string, string>>,
-): Record<string, string> {
-  return Object.fromEntries(groups.map((group) => [group.id, userDrafts[group.id] ?? group.name]));
-}
-
 const WORKSPACE_ROLE_BADGE_VARIANT = {
   admin: "secondary",
+  interviewer: "outline",
   member: "outline",
   noAccess: "outline",
   owner: "default",
+  recruitingSupervisor: "secondary",
 } as const satisfies Record<WorkspaceRole, "default" | "secondary" | "outline">;
 
 export function getWorkspaceRoleBadgeVariant(role: string): "default" | "secondary" | "outline" {
@@ -145,9 +56,9 @@ export function buildAssignableWorkspaceRoles(
 ): readonly string[] {
   let builtInRoles: string[] = [];
   if (currentRole === "owner") {
-    builtInRoles = ["admin", "member", "noAccess"];
+    builtInRoles = ["admin", "recruitingSupervisor", "member", "interviewer", "noAccess"];
   } else if (currentRole === "admin") {
-    builtInRoles = ["member", "noAccess"];
+    builtInRoles = ["recruitingSupervisor", "member", "interviewer", "noAccess"];
   }
   return [...builtInRoles, ...dynamicRoles.map((role) => role.role)].filter(
     (role, index, list) => list.indexOf(role) === index,
@@ -199,10 +110,3 @@ export function useDynamicWorkspaceRoles(workspaceId: string, enabled: boolean) 
     select: sortDynamicWorkspaceRolesByCreatedAt,
   });
 }
-
-export const GROUP_ROLE_LABELS = {
-  hr: "招聘成员",
-  recruitingLead: "招聘组长",
-  recruitingSupervisor: "招聘主管",
-  viewer: "只读成员",
-} as const satisfies Record<RecruitingGroupRole, string>;
