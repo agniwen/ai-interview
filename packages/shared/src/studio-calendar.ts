@@ -13,11 +13,20 @@ import type { InterviewSummaryStatus } from "@app/db-schema/db-enums";
  */
 export type StudioCalendarEvaluationConclusion = HumanInterviewRoundOutcome | "none";
 
+/** 招聘记录的创建人。/ Member who created the candidate recruiting record. */
+export interface StudioCalendarCreator {
+  avatarUrl: string | null;
+  id: string;
+  name: string;
+}
+
 export interface StudioCalendarCandidate {
   /** 简历头像版本，配合招聘记录 id 取头像；没有头像时为 null。/ Resume headshot version, if any. */
   candidateAvatarVersion: string | null;
   canOpenRecruitingRecord: boolean;
   candidateName: string;
+  /** 创建人已删除或缺失时为 null。/ Null when the creator is missing. */
+  creator: StudioCalendarCreator | null;
   evaluationConclusion: StudioCalendarEvaluationConclusion;
   interviewRecordId: string;
   jobDescriptionId: string | null;

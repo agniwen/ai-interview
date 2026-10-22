@@ -38,6 +38,7 @@ import type {
 import type {
   StudioAiCalendarEventPreview,
   StudioCalendarCandidate,
+  StudioCalendarCreator,
   StudioCalendarEvent,
   StudioCalendarInterviewer,
 } from "@app/shared/studio-calendar";
@@ -211,6 +212,7 @@ function groupHumanCandidatesByEvent(
       canOpenRecruitingRecord: canOpenRecruitingRecord(row.createdBy, visibilityScope),
       candidateAvatarVersion: null,
       candidateName: row.candidateName,
+      creator: null,
       evaluationConclusion: resolveHumanRoundConclusion({
         evaluationStatus: row.evaluationStatus,
         outcome: row.outcome,
@@ -247,16 +249,36 @@ function buildViewerInterviewerInviteToken({
   });
 }
 
-/** 按招聘记录补上简历头像版本。/ Attaches each candidate's resume headshot version. */
-async function attachCandidateAvatarVersions(
+/**
+ * 按招聘记录补上简历头像版本和创建人（名称、头像）。
+ * Attaches each candidate's resume headshot version and recruiting-record creator.
+ */
+async function attachCandidateDetails(
   events: StudioCalendarEvent[],
-  rows: { interviewRecordId: string; resumeContentHash: string | null }[],
+  rows: {
+    createdBy: string | null;
+    interviewRecordId: string;
+    resumeContentHash: string | null;
+  }[],
 ): Promise<StudioCalendarEvent[]> {
   const hashByRecordId = new Map(rows.map((row) => [row.interviewRecordId, row.resumeContentHash]));
-  const versions = await loadCandidateAvatarVersions([...hashByRecordId.values()]);
-  if (versions.size === 0) {
-    return events;
-  }
+  const creatorIdByRecordId = new Map(rows.map((row) => [row.interviewRecordId, row.createdBy]));
+  const creatorIds = [...new Set(rows.flatMap((row) => (row.createdBy ? [row.createdBy] : [])))];
+  const [versions, creatorRows] = await Promise.all([
+    loadCandidateAvatarVersions([...hashByRecordId.values()]),
+    creatorIds.length === 0
+      ? []
+      : db
+          .select({ avatarUrl: user.image, id: user.id, name: user.name })
+          .from(user)
+          .where(inArray(user.id, creatorIds)),
+  ]);
+  const creatorById = new Map(
+    creatorRows.map((row): [string, StudioCalendarCreator] => [
+      row.id,
+      { avatarUrl: row.avatarUrl, id: row.id, name: row.name },
+    ]),
+  );
   return events.map(
     (event): StudioCalendarEvent => ({
       ...event,
@@ -264,6 +286,8 @@ async function attachCandidateAvatarVersions(
         ...candidate,
         candidateAvatarVersion:
           versions.get(hashByRecordId.get(candidate.interviewRecordId) ?? "") ?? null,
+        creator:
+          creatorById.get(creatorIdByRecordId.get(candidate.interviewRecordId) ?? "") ?? null,
       })),
     }),
   );
@@ -368,6 +392,7 @@ export async function listStudioCalendarEvents({
     db
       .select({
         candidateName: recruitingRecordReadModel.candidateName,
+        createdBy: recruitingRecordReadModel.createdBy,
         interviewRecordId: recruitingRecordReadModel.id,
         jobDescriptionId: jobDescription.id,
         jobDescriptionName: jobDescription.name,
@@ -406,6 +431,7 @@ export async function listStudioCalendarEvents({
       .select({
         candidateName: recruitingRecordReadModel.candidateName,
         conversationId: aiInterviewConversation.conversationId,
+        createdBy: recruitingRecordReadModel.createdBy,
         endedAt: aiInterviewConversation.endedAt,
         interviewRecordId: recruitingRecordReadModel.id,
         jobDescriptionId: jobDescription.id,
@@ -526,7 +552,7 @@ export async function listStudioCalendarEvents({
     scheduledRows: aiRows,
   });
 
-  const allEvents = await attachCandidateAvatarVersions(
+  const allEvents = await attachCandidateDetails(
     [...events.values(), ...aiEvents],
     [...candidateRows, ...aiRows, ...aiConversationRows],
   );

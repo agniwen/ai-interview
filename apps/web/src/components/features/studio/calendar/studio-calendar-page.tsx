@@ -60,7 +60,13 @@ import { studioCalendarKeys } from "@/lib/client/api/query-keys";
 import { AiInterviewEventHoverCard } from "./ai-interview-event-hover-card";
 import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
-import { InterviewEvaluationHoverCard, PersonAvatar } from "./interview-evaluation-hover-card";
+import { InterviewEvaluationHoverCard } from "./interview-evaluation-hover-card";
+import {
+  CalendarCreators,
+  CalendarInterviewers,
+  calendarEventCreators,
+  uniqueText,
+} from "./studio-calendar-people";
 
 const CALENDAR_I18N = {
   labels: {
@@ -97,10 +103,6 @@ const EVENT_STATUS_META = {
   { label: string; variant: "success" | "warning" | "outline" | "info" }
 >;
 
-function uniqueText(values: (string | null | undefined)[]): string {
-  return [...new Set(values.filter((value): value is string => Boolean(value?.trim())))].join("、");
-}
-
 // 色调与招聘台阶段徽标一致：AI 面试用紫色，真人面试（复面 / 终面）用天蓝。
 const EVENT_TYPE_META = {
   ai: { className: "bg-purple-tint text-purple-ink", icon: IconSparkles, label: "AI 面试" },
@@ -128,9 +130,18 @@ function CalendarEventTypeBadge({
 
 // 表头与每一行共用的列宽，保证宽屏下逐列对齐。/ Column tracks shared by the header and every row.
 const AGENDA_COLUMNS_CLASS =
-  "lg:grid-cols-[4.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_5.5rem_4.5rem_4rem_1rem]";
+  "lg:grid-cols-[4.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_5.5rem_4.5rem_4rem_1rem]";
 
-const AGENDA_COLUMNS = ["时间", "候选人", "岗位", "面试官", "类型", "状态", "评价"] as const;
+const AGENDA_COLUMNS = [
+  "时间",
+  "候选人",
+  "岗位",
+  "创建人",
+  "面试官",
+  "类型",
+  "状态",
+  "评价",
+] as const;
 
 function CalendarAgendaHeader() {
   const { view } = useEventCalendarView();
@@ -150,34 +161,6 @@ function CalendarAgendaHeader() {
         <span key={label}>{label}</span>
       ))}
     </div>
-  );
-}
-
-function CalendarInterviewers({ event }: { event: StudioCalendarEvent }) {
-  if (event.kind === "ai") {
-    return (
-      <span className="flex min-w-0 items-center gap-1.5">
-        <PersonAvatar avatarUrl={null} kind="ai" seed="ai" />
-        <span className="truncate">AI 面试官</span>
-      </span>
-    );
-  }
-  if (event.interviewers.length === 0) {
-    return <span className="truncate">面试官待确认</span>;
-  }
-  return (
-    <span className="flex min-w-0 items-center gap-1.5">
-      <span className="flex shrink-0 -space-x-1">
-        {event.interviewers.slice(0, 3).map((interviewer) => (
-          <span className="rounded-full ring-2 ring-background" key={interviewer.id}>
-            <PersonAvatar avatarUrl={interviewer.avatarUrl} seed={interviewer.id} />
-          </span>
-        ))}
-      </span>
-      <span className="truncate">
-        {uniqueText(event.interviewers.map((interviewer) => interviewer.name))}
-      </span>
-    </span>
   );
 }
 
@@ -201,6 +184,8 @@ function CalendarAgendaEvent({
     Math.round((occurrence.end.getTime() - occurrence.start.getTime()) / 60_000),
   );
   const status = EVENT_STATUS_META[event.status];
+  const creators = calendarEventCreators(event);
+  const creatorNames = uniqueText(creators.map((creator) => creator.name));
   const [firstCandidate] = event.candidates;
   // 多位候选人属于同一岗位时才挂岗位预览。/ Only preview the job when every candidate shares it.
   const jobDescriptionIds = new Set(
@@ -243,6 +228,7 @@ function CalendarAgendaEvent({
         </div>
         <div className="truncate text-muted-foreground text-xs lg:hidden">
           {jobNames} · {interviewerNames}
+          {creatorNames ? ` · 创建人 ${creatorNames}` : null}
         </div>
       </div>
       <div className="hidden min-w-0 text-muted-foreground text-sm lg:block" title={jobNames}>
@@ -256,6 +242,12 @@ function CalendarAgendaEvent({
         ) : (
           <span className="block truncate">{jobNames}</span>
         )}
+      </div>
+      <div
+        className="hidden min-w-0 text-muted-foreground text-sm lg:block"
+        title={creatorNames || undefined}
+      >
+        <CalendarCreators creators={creators} />
       </div>
       <div
         className="hidden min-w-0 text-muted-foreground text-sm lg:block"

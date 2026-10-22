@@ -41,6 +41,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
               canOpenRecruitingRecord: true,
               candidateAvatarVersion: null,
               candidateName: "张三",
+              creator: null,
               evaluationConclusion: "none" as const,
               interviewRecordId: "interview-1",
               jobDescriptionId: null,
@@ -64,6 +65,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
               canOpenRecruitingRecord: true,
               candidateAvatarVersion: null,
               candidateName: "李四",
+              creator: null,
               evaluationConclusion: "none" as const,
               interviewRecordId: "interview-2",
               jobDescriptionId: null,
@@ -75,6 +77,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
               canOpenRecruitingRecord: true,
               candidateAvatarVersion: null,
               candidateName: "李小四",
+              creator: null,
               evaluationConclusion: "none" as const,
               interviewRecordId: "interview-2b",
               jobDescriptionId: null,
@@ -101,6 +104,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
               canOpenRecruitingRecord: true,
               candidateAvatarVersion: null,
               candidateName: "王五",
+              creator: null,
               evaluationConclusion: "none" as const,
               interviewRecordId: "interview-3",
               jobDescriptionId: null,
@@ -123,6 +127,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
               canOpenRecruitingRecord: true,
               candidateAvatarVersion: null,
               candidateName: "赵六",
+              creator: { avatarUrl: null, id: "creator-1", name: "周招聘" },
               evaluationConclusion: "none" as const,
               interviewRecordId: "interview-4",
               jobDescriptionId: null,
@@ -221,6 +226,16 @@ describe("StudioCalendarPage", () => {
       ),
     ].find((event) => event.textContent?.includes("张三"));
     expect(aiAgendaRow).toBeDefined();
+    // 创建人只归到对应候选人所在的那一场面试。
+    const agendaRows = [
+      ...host.querySelectorAll<HTMLElement>(
+        '[data-slot="event-calendar-event"][data-view="agenda"]',
+      ),
+    ];
+    expect(agendaRows.find((event) => event.textContent?.includes("赵六"))?.textContent).toContain(
+      "周招聘",
+    );
+    expect(aiAgendaRow?.textContent).not.toContain("周招聘");
     act(() => aiAgendaRow?.click());
     expect(openAgendaEvent).toHaveBeenCalledWith(
       expect.objectContaining({
