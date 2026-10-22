@@ -14,8 +14,8 @@ import {
   releaseWorkspaceMeetingLiveTranscript,
 } from "../../../meetings/routes/live-transcript/service";
 import {
-  isHumanInterviewMeetingAfterValidUntil,
   isHumanInterviewMeetingBeforeScheduledStart,
+  isHumanInterviewMeetingInMeetingWindowClosed,
 } from "@app/recruiting-workflows/human-interviews/human-interview-meeting-access";
 import { resolveHumanInterviewMeetingInterviewerInviteToken } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
 
@@ -63,7 +63,7 @@ function activeInterviewerError(scope: InterviewerScope, now: Date): string | nu
   ) {
     return "early";
   }
-  if (isHumanInterviewMeetingAfterValidUntil(scope.validUntil, now)) {
+  if (isHumanInterviewMeetingInMeetingWindowClosed(scope, now)) {
     return "expired";
   }
   return null;

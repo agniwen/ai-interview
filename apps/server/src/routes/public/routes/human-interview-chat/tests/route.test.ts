@@ -83,6 +83,25 @@ describe("human interview chat routes", () => {
     expect(mocks.save).not.toHaveBeenCalled();
   });
 
+  it("keeps sending available past the valid time only while the meeting is in progress", async () => {
+    const send = () =>
+      app().request("/candidate-token/chat-messages", {
+        body: JSON.stringify(input),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    const expired = { ...scope, validUntil: "2000-01-01T00:00:00.000Z" };
+
+    mocks.resolveCandidate.mockResolvedValue(expired);
+    const inProgress = await send();
+    expect(inProgress.status).toBe(201);
+
+    mocks.resolveCandidate.mockResolvedValue({ ...expired, status: "scheduled" });
+    const notStarted = await send();
+    expect(notStarted.status).toBe(403);
+    expect(mocks.save).toHaveBeenCalledOnce();
+  });
+
   it("rejects invalid messages and conflicting ids", async () => {
     const invalid = await app().request("/candidate-token/chat-messages", {
       body: JSON.stringify({ ...input, message: "  " }),

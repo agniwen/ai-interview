@@ -173,3 +173,15 @@ export function isHumanInterviewMeetingAfterValidUntil(
     !Number.isNaN(end.getTime()) && !Number.isNaN(now.getTime()) && end.getTime() <= now.getTime()
   );
 }
+
+/**
+ * In-meeting features (chat, live transcript) stay available while the meeting is in progress,
+ * even past `validUntil`: the admission deadline only stops new joins. The meeting leaves
+ * `in_progress` once its LiveKit room closes after that deadline, which ends these features too.
+ */
+export function isHumanInterviewMeetingInMeetingWindowClosed(
+  { status, validUntil }: { status: string; validUntil: string | null },
+  nowInput: string | number | Date = Date.now(),
+): boolean {
+  return status !== "in_progress" && isHumanInterviewMeetingAfterValidUntil(validUntil, nowInput);
+}

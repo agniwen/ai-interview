@@ -53,6 +53,7 @@ export {
   HumanInterviewMeetingError,
   isHumanInterviewMeetingAfterValidUntil,
   isHumanInterviewMeetingBeforeScheduledStart,
+  isHumanInterviewMeetingInMeetingWindowClosed,
 } from "./human-interview-meeting-access";
 
 type MeetingRow = typeof humanInterviewMeeting.$inferSelect;

@@ -2,8 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
-  isHumanInterviewMeetingAfterValidUntil,
   isHumanInterviewMeetingBeforeScheduledStart,
+  isHumanInterviewMeetingInMeetingWindowClosed,
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
 } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
@@ -72,7 +72,7 @@ function canSend(scope: ChatScope) {
     scope.canRead &&
     (scope.status === "scheduled" || scope.status === "in_progress") &&
     !isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt) &&
-    !isHumanInterviewMeetingAfterValidUntil(scope.validUntil)
+    !isHumanInterviewMeetingInMeetingWindowClosed(scope)
   );
 }
 

@@ -16,6 +16,8 @@ const scope = {
   validUntil: "2026-09-01T10:00:00.000Z",
 };
 
+const overtime = () => new Date("2026-09-01T10:20:00.000Z");
+
 describe("human interview live transcript public route", () => {
   it("authorizes a signed interviewer through the public API", async () => {
     const createAuthorization = vi.fn().mockResolvedValue({
@@ -109,6 +111,49 @@ describe("human interview live transcript public route", () => {
     });
     expect(response.status).toBe(201);
     expect(createAuthorization).toHaveBeenCalledOnce();
+  });
+
+  it("keeps live transcript available past the valid time while the meeting is in progress", async () => {
+    const createAuthorization = vi.fn().mockResolvedValue({
+      clientSecret: "temporary-provider-token",
+      expiresAt: "2026-09-01T11:00:00.000Z",
+      model: "qwen-audio-3.0-asr-flash-streaming",
+      provider: "qwen",
+      track: "microphone",
+    });
+    const heartbeat = vi.fn().mockResolvedValue(true);
+    const app = createHumanInterviewLiveTranscriptRouter({
+      createAuthorization,
+      heartbeat,
+      loadMode: () => Promise.resolve("legacy"),
+      now: overtime,
+      resolveInvite: vi.fn().mockResolvedValue(scope),
+    });
+    const notStartedApp = createHumanInterviewLiveTranscriptRouter({
+      createAuthorization,
+      heartbeat,
+      loadMode: () => Promise.resolve("legacy"),
+      now: overtime,
+      resolveInvite: vi.fn().mockResolvedValue({ ...scope, status: "scheduled" }),
+    });
+
+    const authorized = await app.request("/signed-token/live-transcript", {
+      body: JSON.stringify({ captureId, track: "microphone" }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const renewed = await app.request(`/signed-token/live-transcript/${captureId}/heartbeat`, {
+      method: "POST",
+    });
+    const rejected = await notStartedApp.request(
+      `/signed-token/live-transcript/${captureId}/heartbeat`,
+      { method: "POST" },
+    );
+
+    expect(authorized.status).toBe(201);
+    expect(renewed.status).toBe(204);
+    expect(rejected.status).toBe(403);
+    expect(heartbeat).toHaveBeenCalledOnce();
   });
 
   it("renews and releases leases using the invite-bound scope", async () => {
