@@ -1,3 +1,4 @@
+import type { HumanInterviewEvaluationReviewFinding } from "@app/db-schema/human-interview-evaluation-review";
 import type {
   RecruitingNode,
   RecruitingNodeStatus,
@@ -60,6 +61,8 @@ export interface HumanInterviewRoundRecord {
   reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
   /** 最近一次 AI 生成的评价快照；面试官提交后仍保留，供对照参考。 */
   aiEvaluation?: HumanInterviewEvaluationDraft | null;
+  /** 该 AI 快照未通过证据复核的问题，供面试官修改时参考。 */
+  aiEvaluationReviewFindings?: HumanInterviewEvaluationReviewFinding[];
   roundKind: "second_interview" | "final_interview";
   id: string;
   interviewRecordId: string;
@@ -259,6 +262,7 @@ export interface HumanInterviewReviewRecord {
   evaluationVersion?: number;
   reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
   aiEvaluation?: HumanInterviewEvaluationDraft | null;
+  aiEvaluationReviewFindings?: HumanInterviewEvaluationReviewFinding[];
   roundOutcome?: HumanInterviewRoundOutcome | null;
   recordingNotice?: string | null;
   documentSync?: {

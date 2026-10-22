@@ -131,7 +131,8 @@ async function loadMeetingRoundEvaluations(roundId: string, organizationId: stri
     loadRoundAiEvaluations([roundId], organizationId),
   ]);
   return {
-    aiEvaluation: aiEvaluations.get(roundId) ?? null,
+    aiEvaluation: aiEvaluations.get(roundId)?.evaluation ?? null,
+    aiEvaluationReviewFindings: aiEvaluations.get(roundId)?.reviewFindings ?? [],
     reviewerEvaluations: reviewerEvaluations.get(roundId) ?? [],
   };
 }

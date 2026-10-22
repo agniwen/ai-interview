@@ -217,7 +217,8 @@ export async function listHumanInterviewRounds(
   ]);
   return rounds.map((round) => ({
     ...toRecord({ interviewers: byRound.get(round.id) ?? [], round }),
-    aiEvaluation: aiEvaluations.get(round.id) ?? null,
+    aiEvaluation: aiEvaluations.get(round.id)?.evaluation ?? null,
+    aiEvaluationReviewFindings: aiEvaluations.get(round.id)?.reviewFindings ?? [],
     reviewerEvaluations: evaluations.get(round.id) ?? [],
   }));
 }
@@ -281,7 +282,8 @@ async function loadRoundById(
   ]);
   return {
     ...toRecord({ interviewers: interviewerRows, round }),
-    aiEvaluation: aiEvaluations.get(roundId) ?? null,
+    aiEvaluation: aiEvaluations.get(roundId)?.evaluation ?? null,
+    aiEvaluationReviewFindings: aiEvaluations.get(roundId)?.reviewFindings ?? [],
     reviewerEvaluations: evaluations.get(roundId) ?? [],
   };
 }

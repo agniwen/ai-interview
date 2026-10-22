@@ -107,6 +107,25 @@ it("shows AI suggestions and attributed reviews separately from my draft", async
   expect(container.textContent).not.toContain("使用 AI 建议作为我的草稿");
 });
 
+it("shows unresolved evidence-review findings with the AI suggestion", async () => {
+  currentReview = reviewRecord({
+    aiEvaluation: { ...evaluation, overallEvaluation: "AI 原始建议" },
+    aiEvaluationReviewFindings: [
+      { quote: "面试中未涉及团队管理，评级为 C", reason: "把未考察的管理经验当作降级依据" },
+    ],
+    evaluation: null,
+    personalEvaluation: true,
+  });
+  const container = await renderReview();
+  const aiSuggestion = [...container.querySelectorAll("details")].find((item) =>
+    item.querySelector("summary")?.textContent?.includes("查看 AI 参考评价"),
+  );
+  const note = aiSuggestion?.querySelector('[role="note"]');
+  expect(note?.textContent).toContain("面试中未涉及团队管理，评级为 C");
+  expect(note?.textContent).toContain("把未考察的管理经验当作降级依据");
+  expect(aiSuggestion?.textContent).toContain("AI 原始建议");
+});
+
 it.each(["pass", "fail"] as const)(
   "locks and saves the first decisive result: %s",
   async (lockedOutcome) => {

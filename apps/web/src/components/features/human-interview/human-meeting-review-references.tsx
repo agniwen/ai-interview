@@ -54,7 +54,14 @@ export function HumanMeetingReviewReferences({
             查看 AI 参考评价
           </summary>
           <div className="px-4 pb-4">
-            <RoundEvaluation evaluation={suggestion} round={{ evaluationStatus: "draft" }} />
+            <RoundEvaluation
+              evaluation={suggestion}
+              round={{
+                aiEvaluation: suggestion,
+                aiEvaluationReviewFindings: review.aiEvaluationReviewFindings,
+                evaluationStatus: "draft",
+              }}
+            />
             {canAdopt && onAdopt ? (
               <Button variant="outline" size="sm" onClick={() => onAdopt(suggestion)}>
                 使用 AI 建议作为我的草稿

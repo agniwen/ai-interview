@@ -16,16 +16,19 @@ describe("runHumanInterviewEvaluationProcessing", () => {
       {
         generate: vi.fn(() =>
           Promise.resolve({
-            detailedAnalysis: "完整分析",
-            evidenceTurnIds: ["turn-1"],
-            overallEvaluation: "整体评价",
-            professionalSkill: "优",
-            rating,
-            risks: "风险",
-            rolePosition: "负责人",
-            salaryRecommendation: "",
-            seniorityPosition: "高级专家",
-            strengths: "优势",
+            evaluation: {
+              detailedAnalysis: "完整分析",
+              evidenceTurnIds: ["turn-1"],
+              overallEvaluation: "整体评价",
+              professionalSkill: "优",
+              rating,
+              risks: "风险",
+              rolePosition: "负责人",
+              salaryRecommendation: "",
+              seniorityPosition: "高级专家",
+              strengths: "优势",
+            },
+            reviewFindings: [{ quote: "整体评价", reason: "评级依据未考察内容" }],
           }),
         ),
         loadInput: vi.fn(() =>
@@ -54,6 +57,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
         evaluation: expect.objectContaining({ rating }),
         meetingSessionId: "session-1",
         organizationId: "org-1",
+        reviewFindings: [{ quote: "整体评价", reason: "评级依据未考察内容" }],
         roundId: "round-1",
         transcriptRevisionId: "revision-1",
       }),
@@ -155,16 +159,13 @@ describe("runHumanInterviewEvaluationProcessing", () => {
     ).rejects.toBe(error);
     expect(markFailed).not.toHaveBeenCalled();
   });
-  it("证据复核永久失败只生成一次，立即告知人工复核", async () => {
+  it("输入永久不可用时只生成一次，立即告知人工复核", async () => {
     const markFailed = vi.fn(() => Promise.resolve());
     const generate = vi.fn(() =>
       Promise.reject(
-        Object.assign(
-          new Error("证据复核失败：第 1 次复核：缺少依据；第 2 次复核：risks 不能将未提问作为风险"),
-          {
-            name: "HumanInterviewEvaluationInputError",
-          },
-        ),
+        Object.assign(new Error("真人复面转录尚未可靠识别候选人发言，不能生成 AI 评价"), {
+          name: "HumanInterviewEvaluationInputError",
+        }),
       ),
     );
     const notifyReady = vi.fn();
@@ -195,7 +196,7 @@ describe("runHumanInterviewEvaluationProcessing", () => {
     expect(generate).toHaveBeenCalledOnce();
     expect(markFailed).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: expect.stringContaining("第 2 次复核：risks 不能将未提问作为风险"),
+        error: expect.stringContaining("尚未可靠识别候选人发言"),
       }),
     );
     expect(notifyReady).not.toHaveBeenCalled();

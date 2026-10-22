@@ -1,3 +1,5 @@
+import type { HumanInterviewEvaluationReviewFinding } from "@app/db-schema/human-interview-evaluation-review";
+import { humanInterviewEvaluationReviewFindingSchema } from "@app/db-schema/human-interview-evaluation-review";
 import {
   loadReviewerEvaluationFields,
   saveReviewerEvaluationTx,
@@ -602,10 +604,14 @@ export function createHumanInterviewEvaluationDao(
     evaluation: HumanInterviewGeneratedEvaluation;
     meetingSessionId: string;
     organizationId: string;
+    reviewFindings?: HumanInterviewEvaluationReviewFinding[];
     roundId: string;
     transcriptRevisionId: string;
   }): Promise<boolean> {
     const evaluation = humanInterviewGeneratedEvaluationSchema.parse(input.evaluation);
+    const reviewFindings = humanInterviewEvaluationReviewFindingSchema
+      .array()
+      .parse(input.reviewFindings ?? []);
     return await db.transaction(async (tx) => {
       const [state] = await tx
         .select({
@@ -671,6 +677,7 @@ export function createHumanInterviewEvaluationDao(
           id: crypto.randomUUID(),
           meetingSessionId: input.meetingSessionId,
           organizationId: input.organizationId,
+          reviewFindings: reviewFindings.length > 0 ? reviewFindings : null,
           roundId: input.roundId,
           source: "ai_generated",
           transcriptRevisionId: input.transcriptRevisionId,

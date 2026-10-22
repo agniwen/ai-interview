@@ -47,12 +47,12 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
 
     await expect(
       generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
-    ).resolves.toEqual(evaluation);
+    ).resolves.toEqual({ evaluation, reviewFindings: [] });
     expect(generate).toHaveBeenCalledOnce();
     expect(review).toHaveBeenCalledOnce();
   });
 
-  it("regenerates with only the violations and refuses drafts that keep violating", async () => {
+  it("regenerates with only the violations and keeps unresolved findings with the final draft", async () => {
     const generate = vi.fn().mockResolvedValue({ text: JSON.stringify(evaluation) });
     const compliant = "risks 第 1 条有候选人明确回答支持，不构成违规。";
     const violation = "risks 把未提问的跨部门协作当作候选人短板。";
@@ -65,10 +65,12 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
       }),
     });
 
-    const result = generateHumanInterviewEvaluation(input, { generate }, { generate: review });
-
-    await expect(result).rejects.toThrow(violation);
-    await expect(result).rejects.not.toThrow(compliant);
+    await expect(
+      generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
+    ).resolves.toEqual({
+      evaluation,
+      reviewFindings: [{ quote: "跨部门协作", reason: violation }],
+    });
     expect(generate).toHaveBeenCalledTimes(3);
     expect(review).toHaveBeenCalledTimes(3);
     const retryPrompt = String(generate.mock.calls[1]?.[0]);
@@ -88,7 +90,7 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
 
     await expect(
       generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
-    ).resolves.toEqual(evaluation);
+    ).resolves.toEqual({ evaluation, reviewFindings: [] });
     expect(generate).toHaveBeenCalledTimes(2);
     expect(review).toHaveBeenCalledOnce();
     expect(String(generate.mock.calls[1]?.[0])).toContain(uncovered);
@@ -104,7 +106,7 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
 
     await expect(
       generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
-    ).resolves.toEqual(stated);
+    ).resolves.toEqual({ evaluation: stated, reviewFindings: [] });
     expect(generate).toHaveBeenCalledOnce();
   });
 
@@ -119,7 +121,7 @@ describe("generateHumanInterviewEvaluation evidence review", () => {
 
     await expect(
       generateHumanInterviewEvaluation(input, { generate }, { generate: review }),
-    ).resolves.toEqual(listed);
+    ).resolves.toEqual({ evaluation: listed, reviewFindings: [] });
     expect(generate).toHaveBeenCalledOnce();
   });
 });

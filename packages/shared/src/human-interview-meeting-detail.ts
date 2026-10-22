@@ -6,6 +6,7 @@ import type {
 export interface HumanInterviewMeetingDetail extends Pick<
   HumanInterviewReviewRecord,
   | "aiEvaluation"
+  | "aiEvaluationReviewFindings"
   | "reviewerEvaluations"
   | "evaluation"
   | "evaluationStatus"

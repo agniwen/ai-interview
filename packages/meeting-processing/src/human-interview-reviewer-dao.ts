@@ -116,7 +116,10 @@ export async function loadReviewerEvaluationFields(
     ? reviewerRows.find((item) => item.reviewerId === input.reviewerId)
     : undefined;
   const [ai] = await db
-    .select({ evaluation: humanInterviewEvaluationSnapshot.evaluation })
+    .select({
+      evaluation: humanInterviewEvaluationSnapshot.evaluation,
+      reviewFindings: humanInterviewEvaluationSnapshot.reviewFindings,
+    })
     .from(humanInterviewEvaluationSnapshot)
     .where(
       and(
@@ -130,6 +133,7 @@ export async function loadReviewerEvaluationFields(
   const reviewerIds = await loadRoundReviewerIds(db, input.roundId);
   const fields: Partial<HumanInterviewReviewRecord> = {
     aiEvaluation: ai?.evaluation ?? null,
+    aiEvaluationReviewFindings: ai?.reviewFindings ?? [],
     canEvaluate: Boolean(input.reviewerId && reviewerIds.has(input.reviewerId)),
     currentReviewerId: input.reviewerId,
     lockedOutcome: await loadLockedOutcome(db, input.roundId, input.organizationId),

@@ -52,7 +52,7 @@ describe("generateHumanInterviewEvaluation", () => {
         { generate },
         { generate: review },
       ),
-    ).resolves.toMatchObject({ evidenceTurnIds: ["candidate-turn"] });
+    ).resolves.toMatchObject({ evaluation: { evidenceTurnIds: ["candidate-turn"] } });
     expect(review).toHaveBeenCalledOnce();
   });
 
@@ -91,14 +91,14 @@ describe("generateHumanInterviewEvaluation", () => {
         { generate },
         supportedReview,
       ),
-    ).resolves.toEqual(evaluation);
+    ).resolves.toEqual({ evaluation, reviewFindings: [] });
     expect(generate).toHaveBeenCalledOnce();
     expect(JSON.stringify(generate.mock.calls)).toContain("熟悉工业自动化行业");
     expect(JSON.stringify(supportedReview.generate.mock.calls)).toContain("熟悉工业自动化行业");
   });
 
   it.each([false, true])(
-    "repairs unsupported negative judgments and refuses persistently invalid drafts (%s)",
+    "repairs unsupported negative judgments and keeps unresolved findings with the draft (%s)",
     async (persistent) => {
       const unsupported = {
         detailedAnalysis: "没有问管理经历。",
@@ -154,8 +154,8 @@ describe("generateHumanInterviewEvaluation", () => {
         { generate: review },
       );
       await (persistent
-        ? expect(result).rejects.toThrow(issue)
-        : expect(result).resolves.toEqual(supported));
+        ? expect(result).resolves.toMatchObject({ reviewFindings: [{ reason: issue }] })
+        : expect(result).resolves.toEqual({ evaluation: supported, reviewFindings: [] }));
       expect(generate).toHaveBeenCalledTimes(2);
       expect(String(generate.mock.calls[1]?.[0])).toContain(issue);
       expect(review).toHaveBeenCalledTimes(2);
@@ -197,7 +197,7 @@ describe("generateHumanInterviewEvaluation", () => {
         { generate },
         { generate: review },
       ),
-    ).resolves.toEqual(evaluation);
+    ).resolves.toEqual({ evaluation, reviewFindings: [] });
     expect(generate).toHaveBeenCalledOnce();
     expect(review).toHaveBeenCalledOnce();
     expect(String(generate.mock.calls[0]?.[0])).toContain("材料不足时 rating 必须返回 null");
@@ -241,7 +241,7 @@ describe("generateHumanInterviewEvaluation", () => {
         { generate },
         supportedReview,
       ),
-    ).resolves.toEqual(evaluation);
+    ).resolves.toEqual({ evaluation, reviewFindings: [] });
 
     const prompt = String(generate.mock.calls[0]?.[0]);
     const schemaLine = prompt.split("\n").find((line) => line.startsWith('{"$schema":'));
@@ -337,10 +337,10 @@ describe("generateHumanInterviewEvaluation", () => {
       { generate },
       supportedReview,
     );
-    expect(result.rating).toBe("A");
-    expect(result.professionalSkill).toBe("优");
-    expect(result.rolePosition).toBe("-");
-    expect(result.salaryRecommendation).toBe("-");
+    expect(result.evaluation.rating).toBe("A");
+    expect(result.evaluation.professionalSkill).toBe("优");
+    expect(result.evaluation.rolePosition).toBe("-");
+    expect(result.evaluation.salaryRecommendation).toBe("-");
     expect(generate).toHaveBeenCalledTimes(1);
     expect(generate.mock.calls[0]?.[0]).toContain(
       "匿名 speakerKey 或 remote track 不代表候选人身份",

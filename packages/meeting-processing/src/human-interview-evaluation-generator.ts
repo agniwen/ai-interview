@@ -1,3 +1,4 @@
+import type { HumanInterviewEvaluationReviewFinding } from "@app/db-schema/human-interview-evaluation-review";
 import { formatJobInternalCriteria } from "@app/shared/job-internal-criteria";
 import {
   generateStructuredWithMastraAgent,
@@ -91,6 +92,12 @@ function findUncoveredClaims(evaluation: HumanInterviewGeneratedEvaluation): str
   );
 }
 
+export interface HumanInterviewEvaluationGenerationResult {
+  evaluation: HumanInterviewGeneratedEvaluation;
+  /** Evidence-review violations the final draft still contains; empty when the review passed. */
+  reviewFindings: HumanInterviewEvaluationReviewFinding[];
+}
+
 class HumanInterviewEvaluationInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -109,7 +116,7 @@ export async function generateHumanInterviewEvaluation(
   },
   agent: MastraGeneratorLike = humanInterviewEvaluationAgent,
   evidenceAgent: MastraGeneratorLike = humanInterviewEvaluationEvidenceAgent,
-): Promise<HumanInterviewGeneratedEvaluation> {
+): Promise<HumanInterviewEvaluationGenerationResult> {
   const serializedTurns = JSON.stringify(input.turns);
   const maxTranscriptChars = Number(
     process.env.HUMAN_INTERVIEW_EVALUATION_MAX_TRANSCRIPT_CHARS ?? 500_000,
@@ -142,7 +149,6 @@ export async function generateHumanInterviewEvaluation(
     );
   }
   let feedback = "";
-  const reviewFailures: string[] = [];
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
     const generatedEvaluation = await generateStructuredWithMastraAgent({
       agent,
@@ -273,16 +279,15 @@ ${JSON.stringify(normalized)}`,
       temperature: 0,
       timeoutMs: 2 * 60 * 1000,
     });
-    const violations = review.findings
+    const findings = review.findings
       .filter((finding) => finding.violation)
-      .map((finding) => `「${finding.quote}」${finding.reason}`);
-    if (violations.length === 0) {
-      return normalized;
+      .map(({ quote, reason }) => ({ quote, reason }));
+    if (findings.length === 0 || attempt === MAX_GENERATION_ATTEMPTS - 1) {
+      // Unresolved findings stay with the draft so interviewers can fix them while reviewing.
+      return { evaluation: normalized, reviewFindings: findings };
     }
-    reviewFailures.push(`第 ${attempt + 1} 次复核：${violations.join("；")}`);
+    const violations = findings.map(({ quote, reason }) => `「${quote}」${reason}`);
     feedback = `上一版评价未通过证据复核。请以上一版为基础逐条修正以下问题后输出完整对象：删除 overallEvaluation、strengths、risks 中被指出的表述，B 类事项只列入 overallEvaluation 末尾“面试未考察：……”或 detailedAnalysis 末尾“后续待核实：……”并保持中性；被删除内容若曾是评级或暂不评级的依据，必须依据剩余的候选人回答事实重新判断 rating，不得只删除措辞却保留错误结论；其余合规内容保持不变。\n需修正的问题：\n${JSON.stringify(violations)}\n上一版待修正评价：\n${JSON.stringify(normalized)}`;
   }
-  throw new HumanInterviewEvaluationInputError(
-    `AI 评价未通过证据复核，请根据以下原因调整材料或人工填写。\n${reviewFailures.join("\n")}`,
-  );
+  throw new Error("真人复面 AI 评价生成未返回结果");
 }

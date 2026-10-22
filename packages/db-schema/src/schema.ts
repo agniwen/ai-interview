@@ -1,3 +1,4 @@
+import type { HumanInterviewEvaluationReviewFinding } from "./human-interview-evaluation-review";
 import type { HumanTranscriptionEventRecord } from "./human-transcription-types";
 import type { IncomeProofType } from "./recruiting-materials";
 import type {
@@ -5258,6 +5259,8 @@ export const humanInterviewEvaluationSnapshot = pgTable(
     meetingSessionId: text("meeting_session_id"),
     organizationId: text("organization_id").notNull(),
     outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    // AI 证据复核仍未通过的问题；仅 ai_generated 快照可能有值。
+    reviewFindings: jsonb("review_findings").$type<HumanInterviewEvaluationReviewFinding[]>(),
     roundId: text("round_id").notNull(),
     source: text("source").$type<HumanInterviewEvaluationSnapshotSource>().notNull(),
     transcriptRevisionId: text("transcript_revision_id"),

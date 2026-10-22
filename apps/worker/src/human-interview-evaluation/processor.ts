@@ -55,7 +55,7 @@ function runHumanInterviewEvaluationProcessingEffect(
       if (!source) {
         return;
       }
-      const evaluation = yield* attempt("generate", () =>
+      const { evaluation, reviewFindings } = yield* attempt("generate", () =>
         dependencies.generate({
           ...source,
           salaryRange: null,
@@ -66,6 +66,7 @@ function runHumanInterviewEvaluationProcessingEffect(
           evaluation,
           meetingSessionId: input.meetingSessionId,
           organizationId: input.organizationId,
+          reviewFindings,
           roundId: input.roundId,
           transcriptRevisionId: input.transcriptRevisionId,
         }),

@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
@@ -9,7 +10,7 @@ import { cn } from "@app/shared/utils";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
-import { IconSparkles } from "@tabler/icons-react";
+import { IconAlertTriangle, IconSparkles } from "@tabler/icons-react";
 
 const AI_EVALUATION_TAB = "ai-evaluation";
 
@@ -38,6 +39,28 @@ function EvaluationField({
   );
 }
 
+type ReviewFindings = NonNullable<HumanInterviewRoundRecord["aiEvaluationReviewFindings"]>;
+
+function AiEvaluationReviewFindings({ findings }: { findings: ReviewFindings }) {
+  return (
+    <Alert role="note">
+      <IconAlertTriangle aria-hidden />
+      <AlertTitle>AI 证据复核未通过</AlertTitle>
+      <AlertDescription>
+        <p>以下表述未通过证据复核，采用或提交前请核对并修改：</p>
+        <ul className="flex list-disc flex-col gap-1.5 pl-4">
+          {findings.map((finding) => (
+            <li key={`${finding.quote}\u0000${finding.reason}`}>
+              <q className="text-foreground/90">{finding.quote}</q>
+              <span className="block">{finding.reason}</span>
+            </li>
+          ))}
+        </ul>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function SingleEvaluation({
   evaluation,
   round,
@@ -47,6 +70,7 @@ function SingleEvaluation({
   hideTitle = false,
   aiGenerated = false,
   outcome,
+  reviewFindings = [],
 }: {
   evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
   round: Pick<HumanInterviewRoundRecord, "evaluationStatus">;
@@ -56,6 +80,7 @@ function SingleEvaluation({
   hideTitle?: boolean;
   aiGenerated?: boolean;
   outcome?: HumanInterviewRoundRecord["outcome"];
+  reviewFindings?: ReviewFindings;
 }) {
   const submitted = round.evaluationStatus === "submitted";
   const statusLabel = {
@@ -107,6 +132,7 @@ function SingleEvaluation({
         ) : null}
         {aiGenerated || submitted ? null : <Badge variant="warning">评价 · {statusLabel}</Badge>}
       </div>
+      {reviewFindings.length > 0 ? <AiEvaluationReviewFindings findings={reviewFindings} /> : null}
       {hasSummary ? (
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
           <EvaluationField label="评级" value={evaluation.rating ?? ""} />
@@ -137,18 +163,26 @@ export function RoundEvaluation({
   evaluation: NonNullable<HumanInterviewRoundRecord["evaluation"]>;
   round: Pick<
     HumanInterviewRoundRecord,
-    "aiEvaluation" | "evaluationStatus" | "reviewerEvaluations"
+    "aiEvaluation" | "aiEvaluationReviewFindings" | "evaluationStatus" | "reviewerEvaluations"
   >;
   className?: string;
   compact?: boolean;
   autoScrollDetails?: boolean;
 }) {
   const reviews = round.reviewerEvaluations ?? [];
+  const aiReviewFindings = round.aiEvaluationReviewFindings ?? [];
   if (reviews.length === 0) {
+    // Findings describe the AI snapshot, so hide them once the round draft has been edited.
+    const showsAiDraft =
+      round.aiEvaluation === evaluation ||
+      (round.aiEvaluation !== null &&
+        round.aiEvaluation !== undefined &&
+        JSON.stringify(round.aiEvaluation) === JSON.stringify(evaluation));
     return (
       <SingleEvaluation
         evaluation={evaluation}
         round={round}
+        reviewFindings={showsAiDraft ? aiReviewFindings : []}
         className={className}
         autoScrollDetails={autoScrollDetails}
         compact={compact}
@@ -203,6 +237,7 @@ export function RoundEvaluation({
               compact={compact}
               aiGenerated
               hideTitle
+              reviewFindings={aiReviewFindings}
             />
           </TabsContent>
         ) : null}

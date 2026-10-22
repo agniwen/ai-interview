@@ -1,3 +1,4 @@
+import type { HumanInterviewEvaluationReviewFinding } from "@app/db-schema/human-interview-evaluation-review";
 import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import {
   humanInterviewEvaluationSnapshot,
@@ -56,13 +57,20 @@ export async function loadRoundReviewerEvaluations(roundIds: string[], organizat
 
 /** Latest AI-generated snapshot per round, kept after interviewers submit. */
 export async function loadRoundAiEvaluations(roundIds: string[], organizationId: string) {
-  const byRound = new Map<string, HumanInterviewEvaluationDraft>();
+  const byRound = new Map<
+    string,
+    {
+      evaluation: HumanInterviewEvaluationDraft;
+      reviewFindings: HumanInterviewEvaluationReviewFinding[];
+    }
+  >();
   if (roundIds.length === 0) {
     return byRound;
   }
   const rows = await db
     .select({
       evaluation: humanInterviewEvaluationSnapshot.evaluation,
+      reviewFindings: humanInterviewEvaluationSnapshot.reviewFindings,
       roundId: humanInterviewEvaluationSnapshot.roundId,
     })
     .from(humanInterviewEvaluationSnapshot)
@@ -76,7 +84,10 @@ export async function loadRoundAiEvaluations(roundIds: string[], organizationId:
     .orderBy(desc(humanInterviewEvaluationSnapshot.createdAt));
   for (const row of rows) {
     if (!byRound.has(row.roundId)) {
-      byRound.set(row.roundId, row.evaluation);
+      byRound.set(row.roundId, {
+        evaluation: row.evaluation,
+        reviewFindings: row.reviewFindings ?? [],
+      });
     }
   }
   return byRound;
