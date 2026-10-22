@@ -64,14 +64,14 @@ import { RESUME_EMAIL_INGEST_SECTION_ID } from "@/components/features/studio/pro
 import { useWorkspaceCan } from "@/lib/client/workspace-context";
 import { ResumePoolAiEvaluationHoverCard } from "@/components/features/studio/resumes/resume-ai-score-hover-card";
 
-/** 卡片按固定槽位排版（见 studio-list-card-profile），各断点高度由布局决定，与招聘台一致。 */
+/** 卡片按固定槽位排版（见 studio-list-card-profile），各断点高度推导见招聘台 resume-library-card-layout。 */
 const RESUME_POOL_CARD_HEIGHTS = {
-  base: 418,
-  lg: 502,
-  md: 502,
-  sm: 418,
-  xl: 368,
-  xxl: 368,
+  base: 428,
+  lg: 512,
+  md: 512,
+  sm: 428,
+  xl: 384,
+  xxl: 384,
 } as const;
 const RESUME_POOL_CARD_MEDIA_QUERIES = [640, 768, 1024, 1280, 1536].map(
   (width) => `(min-width: ${width}px)`,

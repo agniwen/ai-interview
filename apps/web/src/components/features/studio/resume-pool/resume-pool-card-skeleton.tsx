@@ -19,7 +19,7 @@ export function ResumePoolCardSkeleton() {
   return (
     <div
       className={cn(
-        "relative h-[418px] py-1.5 md:h-[502px] xl:h-[368px]",
+        "relative h-[428px] py-1.5 md:h-[512px] xl:h-[384px]",
         STUDIO_RECORD_ROW_DIVIDER_CLASS,
       )}
       data-slot="resume-pool-card-skeleton"

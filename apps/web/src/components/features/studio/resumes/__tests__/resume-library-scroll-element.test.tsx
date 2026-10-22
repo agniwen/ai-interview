@@ -69,12 +69,12 @@ describe("useResumeLibraryScrollElement", () => {
 
 describe("getResumeLibraryCardHeight", () => {
   it.each([
-    [390, 418],
-    [640, 418],
-    [768, 502],
-    [1024, 502],
-    [1280, 368],
-    [1536, 368],
+    [390, 428],
+    [640, 428],
+    [768, 512],
+    [1024, 512],
+    [1280, 384],
+    [1536, 384],
   ])("uses the measured maximum height at %ipx", (viewportWidth, expectedHeight) => {
     expect(getResumeLibraryCardHeight(viewportWidth)).toBe(expectedHeight);
   });
