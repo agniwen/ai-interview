@@ -36,6 +36,7 @@ import {
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
@@ -305,12 +306,16 @@ function participantTime(
 }
 
 function AttendanceRow({
+  avatarSeed,
+  image,
   joinedAt,
   label,
   leftAt,
   meeting,
   participantRole,
 }: {
+  avatarSeed: string;
+  image?: string | null;
   joinedAt: string | null;
   label: string;
   leftAt: string | null;
@@ -322,9 +327,12 @@ function AttendanceRow({
   const time = participantTime(presence, joinedAt, leftAt);
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 py-1">
-      <div className="min-w-0 text-xs">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="ml-2 text-muted-foreground">{participantRole}</span>
+      <div className="flex min-w-0 items-center gap-2 text-xs">
+        <Avatar aria-hidden className="size-4.5 shrink-0" seed={avatarSeed}>
+          {image ? <AvatarImage alt="" src={image} /> : null}
+        </Avatar>
+        <span className="truncate font-medium text-foreground">{label}</span>
+        <span className="shrink-0 text-muted-foreground">{participantRole}</span>
       </div>
       <Badge className="shrink-0" variant={meta.tone}>
         {meta.label}
@@ -353,6 +361,7 @@ function MeetingAttendanceSummary({
       <div className="grid gap-x-6 gap-y-2 lg:grid-cols-2">
         {meeting.rounds.map((candidate) => (
           <AttendanceRow
+            avatarSeed={candidate.candidateName || "未命名候选人"}
             joinedAt={candidate.joinedAt}
             key={candidate.roundId}
             label={candidate.candidateName}
@@ -363,6 +372,8 @@ function MeetingAttendanceSummary({
         ))}
         {meeting.interviewers.map((interviewer) => (
           <AttendanceRow
+            avatarSeed={interviewer.id}
+            image={interviewer.image}
             joinedAt={interviewer.joinedAt}
             key={interviewer.id}
             label={interviewer.name}
