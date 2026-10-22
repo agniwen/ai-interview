@@ -26,7 +26,6 @@ import {
   IconMicrophoneOff,
   IconPhoneOff,
   IconPlayerStopFilled,
-  IconUsers,
   IconVideo,
   IconVideoOff,
 } from "@tabler/icons-react";
@@ -58,10 +57,8 @@ import {
 } from "./human-meeting-media-errors";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
 import { cn } from "@app/shared/utils";
 import { Modal } from "@/components/ui/modal";
-import { Badge } from "@/components/ui/badge";
 import { MicrophoneDeviceMenu } from "./human-meeting-audio-controls";
 import { shouldReturnToMeetingForLocalScreenShare } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
@@ -79,45 +76,12 @@ import {
 } from "./meeting-participant-avatars";
 import type { HumanMeetingLiveTranscriptHandle } from "./human-meeting-live-transcript";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
+import {
+  getParticipantRoleLabel,
+  MeetingParticipantRoster,
+  parseParticipantMetadata,
+} from "./meeting-participant-roster";
 
-const participantMetadataSchema = z.object({
-  avatar_url: z.string().nullable().optional(),
-  avatar_version: z.string().nullable().optional(),
-  interview_record_id: z.string().optional(),
-  participant_role: z.string().optional(),
-  participant_type: z.string().optional(),
-});
-function parseParticipantMetadata(
-  metadata: string | undefined,
-): z.infer<typeof participantMetadataSchema> {
-  if (!metadata) {
-    return {};
-  }
-  try {
-    const parsed = participantMetadataSchema.safeParse(JSON.parse(metadata));
-    return parsed.success ? parsed.data : {};
-  } catch {
-    return {};
-  }
-}
-function getParticipantRoleLabel(trackRef: TrackReferenceOrPlaceholder): string {
-  const metadata = parseParticipantMetadata(trackRef.participant.metadata);
-  const { identity } = trackRef.participant;
-  let role = metadata.participant_role;
-  if (metadata.participant_type === "candidate" || identity.startsWith("candidate_")) {
-    role = "candidate";
-  }
-
-  let roleLabel = "面试官";
-  if (role === "candidate") {
-    roleLabel = "候选人";
-  } else if (role === "host") {
-    roleLabel = "主持人";
-  } else if (role === "observer") {
-    roleLabel = "旁听";
-  }
-  return roleLabel;
-}
 async function runEndMeeting(onEndMeeting: () => Promise<void> | void): Promise<boolean> {
   try {
     await onEndMeeting();
@@ -275,6 +239,12 @@ function HumanMeetingStageContent({
           </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2 md:min-w-0 md:flex-1 md:justify-end">
+          {/* 只在候选人资料视图显示；会议视图的画面已包含参会人。/ Materials view only; tiles already show people. */}
+          {viewMode === "materials" ? (
+            <div className="hidden md:block">
+              <MeetingParticipantRoster participants={participants} />
+            </div>
+          ) : null}
           {inviteToken ? (
             <div
               ref={setHeaderActionsContainer}
@@ -309,14 +279,6 @@ function HumanMeetingStageContent({
             </output>
           ) : null}
           <ThemeToggle className="hidden shrink-0 md:inline-flex" />
-          <Badge
-            className="hidden h-8 gap-1.5 px-2.5 py-0 md:inline-flex"
-            variant="secondary"
-            aria-label="参会人数"
-          >
-            <IconUsers data-icon="inline-start" />
-            {participants.length}
-          </Badge>
           <Button
             aria-expanded={chatOpen}
             aria-label={chatOpen ? "关闭聊天" : "打开聊天"}
@@ -677,7 +639,7 @@ function HumanParticipantTile({
   const trackRef = useTrackRefContext();
   const isSpeaking = useIsSpeaking(trackRef.participant);
   const highlightSpeaker = isSpeaking && trackRef.source === Track.Source.Camera;
-  const roleLabel = getParticipantRoleLabel(trackRef);
+  const roleLabel = getParticipantRoleLabel(trackRef.participant);
   const metadata = parseParticipantMetadata(trackRef.participant.metadata);
   const isCameraTrack = trackRef.source === Track.Source.Camera;
   const interviewerImage =

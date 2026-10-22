@@ -66,7 +66,13 @@ vi.mock("@livekit/components-react", () => ({
   useIsRecording: () => mediaState.recording,
   useIsSpeaking: () => mediaState.speaking,
   useParticipants: () =>
-    mediaState.agent ? [{ isAgent: false }, { isAgent: false }, { isAgent: true }] : [],
+    mediaState.agent
+      ? [
+          { identity: "candidate_1", isAgent: false },
+          { identity: "interviewer", isAgent: false },
+          { identity: "collector", isAgent: true },
+        ]
+      : [],
   useTrackRefContext: () => ({
     participant: {
       identity: "interviewer",
@@ -383,7 +389,8 @@ describe("HumanMeetingStage realtime transcript", () => {
         />,
       ),
     );
-    expect(container.querySelector('[aria-label="参会人数"]')?.textContent).toBe("2");
+    // The meeting view's tiles already show participants, so the header roster stays hidden.
+    expect(container.querySelector('[aria-label^="参会人"]')).toBeNull();
     const displayedIdentities = [
       ...container.querySelectorAll<HTMLElement>("[data-track-identities]"),
     ]
@@ -397,6 +404,26 @@ describe("HumanMeetingStage realtime transcript", () => {
         '[data-slot="meeting-share-main"] [data-track-identities]',
       )?.dataset.trackIdentities,
     ).toBe("candidate");
+    act(() =>
+      root.render(
+        <HumanMeetingStage
+          canEndMeeting
+          canPublish
+          canUseLiveTranscript
+          candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
+          chatInviteToken="invite-1"
+          chatMode="interviewer"
+          inviteToken="invite-1"
+          isEnding={false}
+          onCandidateMaterialsStateChange={() => {}}
+          onEndMeeting={() => {}}
+          onViewModeChange={() => {}}
+          title="真人复面"
+          viewMode="materials"
+        />,
+      ),
+    );
+    expect(container.querySelectorAll('[aria-label="参会人（2）"] li')).toHaveLength(2);
   });
   it.each([437, 1024])(
     "preserves the stage and shows responsive end confirmation at width %s",
