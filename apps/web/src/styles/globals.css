@@ -124,124 +124,200 @@
     );
 }
 
-/* 首页舞台色系：亮色取品牌蓝附近的四个相邻色调，暗色沿用压暗的克莱因蓝。
-   Homepage stage tones: brand-blue neighbours in light mode, deepened Klein blue in dark mode. */
-.home-stage-artwork {
-  --stage-bg: #8ec8f6;
-  --stage-ribbon: #0588f0;
-  --stage-ribbon-soft: #5eb1ef;
-  --stage-dash: rgb(255 255 255 / 50%);
-  background: var(--stage-bg);
-}
-
-.home-stage-artwork[data-tone="indigo"] {
-  --stage-bg: #a3a6f4;
-  --stage-ribbon: #5a5fe0;
-  --stage-ribbon-soft: #8287ee;
-}
-
-.home-stage-artwork[data-tone="sky"] {
-  --stage-bg: #93bdf4;
-  --stage-ribbon: #3a7fe0;
-  --stage-ribbon-soft: #69a2ee;
-}
-
-.home-stage-artwork[data-tone="azure"] {
-  --stage-bg: #8ec4ea;
-  --stage-ribbon: #2f8bc8;
-  --stage-ribbon-soft: #5eaadb;
-}
-
-.dark .home-stage-artwork {
-  --stage-bg: #111d4a;
-  --stage-ribbon: #1f3fae;
-  --stage-ribbon-soft: #182f80;
-  --stage-dash: rgb(255 255 255 / 26%);
-}
-
-.dark .home-stage-artwork[data-tone="indigo"] {
-  --stage-bg: #191a4c;
-  --stage-ribbon: #3a3cb0;
-  --stage-ribbon-soft: #2a2c84;
-}
-
-.dark .home-stage-artwork[data-tone="sky"] {
-  --stage-bg: #0f2546;
-  --stage-ribbon: #1c58aa;
-  --stage-ribbon-soft: #17447f;
-}
-
-.dark .home-stage-artwork[data-tone="azure"] {
-  --stage-bg: #0d2c40;
-  --stage-ribbon: #1a6797;
-  --stage-ribbon-soft: #165071;
-}
-
-.home-stage-ribbon {
-  stroke: var(--stage-ribbon);
-}
-
-.home-stage-ribbon-soft {
-  stroke: var(--stage-ribbon-soft);
-}
-
-/* 色调与姿态切换：颜色与位移同一条缓动曲线，形成一次连贯的转场。
-   Tone and pose changes share one easing curve so they read as a single transition. */
-.home-stage-ribbon,
-.home-stage-ribbon-soft {
-  transition-property: stroke;
-  transition-duration: 900ms;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.home-stage-artwork {
-  transition:
-    background-color 900ms cubic-bezier(0.22, 1, 0.36, 1),
-    --stage-dash-rush 1300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.home-stage-layer {
-  transform-box: view-box;
-  transform-origin: center;
-  transition: transform 1300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* 舞台虚线流动与焦点呼吸，纯 CSS，无需 JS。 Stage dash flow and focus breathing, CSS only. */
-.home-stage-dash {
-  stroke: var(--stage-dash);
-  stroke-width: 1px;
-  stroke-dasharray: 8 8;
-  animation: home-stage-dash 14s linear infinite;
-}
-
-.home-stage-focus {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: home-stage-breathe 4.8s ease-in-out infinite;
-}
-
-/* 虚线流动叠加切换时的“冲刺”位移：--stage-dash-rush 注册为长度并带过渡，切换时虚线先快速前冲再回到匀速流动。
-   Dash flow plus a rush offset: --stage-dash-rush is a registered length with a transition,
-   so a pose change makes the dashes surge forward before settling back into the steady flow. */
-@property --stage-dash-rush {
-  syntax: "<length>";
+/* 首页面板颗粒渐变：每组只取色环上相邻的颜色，上浅偏冷、下深偏暖。颜色注册为 <color>，
+   切换配色时随过渡平滑变化。
+   Homepage grain gradients: analogous colours only, light and cool on top, deep and warm below.
+   Colours are registered as <color> so palette changes transition smoothly. */
+@property --grain-top {
+  syntax: "<color>";
   inherits: true;
-  initial-value: 0px;
+  initial-value: #c9d6df;
 }
 
-@keyframes home-stage-dash {
+@property --grain-bottom {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0e2c3d;
+}
+
+@property --grain-1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d6e0e6;
+}
+
+@property --grain-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6fb5a3;
+}
+
+@property --grain-3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2d6f86;
+}
+
+@property --grain-4 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f2f40;
+}
+
+/* 紫粉到橙金。 Violet-pink to amber-gold. */
+.home-grain[data-palette="dusk"] {
+  --grain-top: #a3a0dc;
+  --grain-bottom: #e06a3c;
+  --grain-1: #7f9ce8;
+  --grain-2: #d48ccb;
+  --grain-3: #e4533f;
+  --grain-4: #f3aa3a;
+}
+
+/* 灰蓝到深棕。 Grey-blue to deep brown. */
+.home-grain[data-palette="sand"] {
+  --grain-top: #7f98a8;
+  --grain-bottom: #3a1d12;
+  --grain-1: #8eaabb;
+  --grain-2: #f0cd8e;
+  --grain-3: #cf622b;
+  --grain-4: #4a2616;
+}
+
+/* 雾蓝到深海蓝。 Mist blue to deep sea. */
+.home-grain[data-palette="harbor"] {
+  --grain-top: #c9d6df;
+  --grain-bottom: #0e2c3d;
+  --grain-1: #d6e0e6;
+  --grain-2: #6fb5a3;
+  --grain-3: #2d6f86;
+  --grain-4: #0f2f40;
+}
+
+/* 雾蓝到墨绿。 Mist blue to ink green. */
+.home-grain[data-palette="moss"] {
+  --grain-top: #c3cfd6;
+  --grain-bottom: #142212;
+  --grain-1: #c8d3da;
+  --grain-2: #a8bd6a;
+  --grain-3: #5f7d43;
+  --grain-4: #1b2e17;
+}
+
+/* 薰衣草到深夜紫。 Lavender to midnight violet. */
+.home-grain[data-palette="night"] {
+  --grain-top: #b6a6e6;
+  --grain-bottom: #22093a;
+  --grain-1: #9f8fe0;
+  --grain-2: #e08ad6;
+  --grain-3: #7a3fa8;
+  --grain-4: #2a0f45;
+}
+
+/* 天灰到锈红。 Sky grey to rust. */
+.home-grain[data-palette="ember"] {
+  --grain-top: #c8d2dc;
+  --grain-bottom: #5a160d;
+  --grain-1: #d3dbe3;
+  --grain-2: #f2c39a;
+  --grain-3: #e0623e;
+  --grain-4: #8a2516;
+}
+
+.home-grain {
+  background: linear-gradient(180deg, var(--grain-top), var(--grain-bottom));
+  transition:
+    --grain-top 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-bottom 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-1 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-2 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-3 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-4 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 四团大色块分布在四角与边缘，径向渐隐到透明，各自 20–28 秒缓慢漂移、轻微缩放。
+   Four large blobs at the corners and edges fade radially and drift over 20–28s. */
+.home-grain-blob {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.home-grain-blob-1 {
+  top: -8%;
+  left: -6%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(closest-side, var(--grain-1), transparent);
+  animation: home-grain-drift-a 22s ease-in-out infinite alternate;
+}
+
+.home-grain-blob-2 {
+  top: -4%;
+  right: -10%;
+  width: 66%;
+  height: 72%;
+  background: radial-gradient(closest-side, var(--grain-2), transparent);
+  animation: home-grain-drift-b 26s ease-in-out infinite alternate;
+}
+
+.home-grain-blob-3 {
+  bottom: -14%;
+  left: -12%;
+  width: 72%;
+  height: 74%;
+  background: radial-gradient(closest-side, var(--grain-3), transparent);
+  animation: home-grain-drift-b 24s ease-in-out infinite alternate-reverse;
+}
+
+.home-grain-blob-4 {
+  right: -6%;
+  bottom: -18%;
+  width: 74%;
+  height: 76%;
+  background: radial-gradient(closest-side, var(--grain-4), transparent);
+  animation: home-grain-drift-a 28s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes home-grain-drift-a {
   from {
-    stroke-dashoffset: calc(0px - var(--stage-dash-rush));
+    transform: translate(0, 0) scale(1);
   }
   to {
-    stroke-dashoffset: calc(-160px - var(--stage-dash-rush));
+    transform: translate(8%, 6%) scale(1.12);
   }
 }
 
-@keyframes home-stage-breathe {
-  50% {
-    opacity: 0.55;
-    transform: scale(0.82);
+@keyframes home-grain-drift-b {
+  from {
+    transform: translate(0, 0) scale(1.06);
+  }
+  to {
+    transform: translate(-7%, 5%) scale(0.94);
+  }
+}
+
+/* 白色细线纹样，径向遮罩把中间留给前景 UI；切换纹样时淡入。
+   Thin white patterns masked away from the centre for the foreground UI; fade in on change. */
+.home-grain-pattern {
+  stroke: rgb(255 255 255 / 30%);
+  stroke-width: 0.8px;
+  mask-image: radial-gradient(ellipse 58% 56% at 50% 50%, transparent 28%, black 78%);
+  animation: home-grain-pattern-in 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-grain-pattern * {
+  vector-effect: non-scaling-stroke;
+}
+
+.home-grain-dot {
+  fill: rgb(255 255 255 / 60%);
+  stroke: none;
+}
+
+@keyframes home-grain-pattern-in {
+  from {
+    opacity: 0;
   }
 }
 
@@ -261,16 +337,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-stage-dash,
-  .home-stage-focus,
+  .home-grain-blob,
+  .home-grain-pattern,
   .home-voice-bar {
     animation: none;
   }
 
-  .home-stage-artwork,
-  .home-stage-ribbon,
-  .home-stage-ribbon-soft,
-  .home-stage-layer {
+  .home-grain {
     transition: none;
   }
 }

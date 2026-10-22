@@ -16,7 +16,7 @@ import { getHomeCalibrationCopy } from "./home-calibration-copy";
 import { getHomeDemoCopy } from "./home-demo-copy";
 import { getDemoScreenCopy } from "./screens/demo-screen-copy";
 import { Section, SectionHeader } from "./section";
-import type { StageArtworkTone } from "./stage-artwork";
+import type { StageArtworkPalette, StageArtworkPattern } from "./stage-artwork";
 import { StageArtwork } from "./stage-artwork";
 
 interface Story {
@@ -38,13 +38,14 @@ const CANDIDATE_REVIEW_VALUES = {
   skillMatch: 92,
   stability: 78,
 } as const;
-// 三个故事面板用相邻色调错开，和首屏舞台同一色系。 Neighbouring tones keep the panels distinct.
-const STORY_TONES = {
-  calibration: "azure",
-  evidence: "indigo",
-  human: "blue",
-  interview: "sky",
-} satisfies Record<Story["id"], StageArtworkTone>;
+// 每个故事面板一组颗粒渐变配色与细线纹样；AI 面试配声波线。
+// Each story panel gets its own grain palette and line pattern; the AI interview uses sound waves.
+const STORY_ARTWORK = {
+  calibration: { palette: "ember", pattern: "lens" },
+  evidence: { palette: "dusk", pattern: "dots" },
+  human: { palette: "moss", pattern: "contours" },
+  interview: { palette: "harbor", pattern: "waves" },
+} satisfies Record<Story["id"], { palette: StageArtworkPalette; pattern: StageArtworkPattern }>;
 function CandidateScoreCard() {
   const copy = getHomeDemoCopy().feature;
   const reviewDimensions = RESUME_REVIEW_DIMENSIONS.map(({ key, weight }) => ({
@@ -398,6 +399,14 @@ function TeamCalibrationCard() {
 function getStories(): Story[] {
   return [
     {
+      description: messages.home_feature_chat_description(),
+      id: "interview",
+      label: messages.home_feature_chat_label(),
+      points: [messages.home_feature_chat_point_one(), messages.home_feature_chat_point_two()],
+      title: messages.home_feature_chat_title(),
+      visual: <AiInterviewVoiceChat />,
+    },
+    {
       description: messages.home_feature_evidence_description(),
       id: "evidence",
       label: messages.home_feature_evidence_label(),
@@ -407,14 +416,6 @@ function getStories(): Story[] {
       ],
       title: messages.home_feature_evidence_title(),
       visual: <CandidateScoreCard />,
-    },
-    {
-      description: messages.home_feature_chat_description(),
-      id: "interview",
-      label: messages.home_feature_chat_label(),
-      points: [messages.home_feature_chat_point_one(), messages.home_feature_chat_point_two()],
-      title: messages.home_feature_chat_title(),
-      visual: <AiInterviewVoiceChat />,
     },
     {
       description: messages.home_feature_human_description(),
@@ -466,7 +467,7 @@ function StoryCard({ story }: { story: Story }) {
           containerType: "inline-size",
         }}
       >
-        <StageArtwork composition="panel" tone={STORY_TONES[story.id]} />
+        <StageArtwork {...STORY_ARTWORK[story.id]} />
         <div
           className="absolute top-0 left-0 flex items-center justify-center p-8"
           style={{

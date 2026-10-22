@@ -9,12 +9,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as messages from "@/paraglide/messages";
 import { cn } from "@app/shared/utils";
 import { getHomeDemoCopy } from "./home-demo-copy";
-import type { StageArtworkTone } from "./stage-artwork";
+import type { StageArtworkPalette, StageArtworkPattern } from "./stage-artwork";
 import { StageArtwork } from "./stage-artwork";
 import { Section, SectionHeader } from "./section";
 
-// 每一步换一个相邻蓝色调，与色带姿态一起过渡。 Each step shifts to a neighbouring blue tone.
-const PROCESS_TONES: readonly StageArtworkTone[] = ["blue", "indigo", "sky", "azure"];
+// 每一步换一组颗粒渐变配色与纹样，颜色平滑过渡、纹样淡入。
+// Each step switches grain palette and pattern; colours transition and the pattern fades in.
+const PROCESS_ARTWORK: readonly { palette: StageArtworkPalette; pattern: StageArtworkPattern }[] = [
+  { palette: "sand", pattern: "rays" },
+  { palette: "dusk", pattern: "dots" },
+  { palette: "harbor", pattern: "waves" },
+  { palette: "night", pattern: "lens" },
+];
 
 type StepValue = "decision" | "interview" | "role" | "screening";
 
@@ -461,11 +467,7 @@ export function ProcessTabs() {
             id="process-demo-panel"
             role="tabpanel"
           >
-            <StageArtwork
-              composition="panel"
-              pose={activeIndex}
-              tone={PROCESS_TONES[activeIndex]}
-            />
+            <StageArtwork {...(PROCESS_ARTWORK[activeIndex] ?? PROCESS_ARTWORK[0])} />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/[0.04] dark:to-black/15" />
 
             <div className="absolute inset-0 grid place-items-center p-4 sm:p-7 lg:p-8">
