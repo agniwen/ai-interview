@@ -1,10 +1,11 @@
 "use client";
 
 import { cn } from "@app/shared/utils";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
-import { useHydrated } from "@/hooks/use-hydrated";
+import { waitForBodyScrollbars } from "@/lib/client/body-scrollbars";
+import { waitForEntranceAnimations, waitForIdle } from "@/lib/client/entrance-animations";
 
 const SkyShader = lazy(() => import("./sky-shader"));
 
@@ -21,13 +22,33 @@ interface SkyBackdropProps {
  * that fades in once ready. Without WebGPU or with reduced motion the poster stays.
  */
 export function SkyBackdrop({ className, veil = false }: SkyBackdropProps) {
-  const hydrated = useHydrated();
   const reducedMotion = useReducedMotion();
   const { resolvedTheme } = useTheme();
   const [shaderState, setShaderState] = useState<"loading" | "ready" | "unavailable">("loading");
-  // 只在水合后读取 navigator。 navigator is only read after hydration.
+  const [quietStart, setQuietStart] = useState(false);
+  // shader 分包解析、WebGPU 初始化和全屏渲染都很重：等首屏入场动画播完、body 滚动条在空闲时
+  // 初始化完成之后、下一个空闲时段再挂载，期间首帧海报图与 shader 首帧一致，看不出切换。
+  // Parsing the shader chunk, starting WebGPU and full-screen rendering are heavy: mount only after
+  // the first-screen entrance and body scrollbar initialization, in the next idle period. The poster
+  // matches the shader's first frame, so the swap is invisible.
+  useEffect(() => {
+    let active = true;
+    async function waitForQuietStart() {
+      await waitForEntranceAnimations();
+      await waitForBodyScrollbars();
+      await waitForIdle();
+      if (active) {
+        setQuietStart(true);
+      }
+    }
+    void waitForQuietStart();
+    return () => {
+      active = false;
+    };
+  }, []);
+  // 只在水合后（effect 之后）读取 navigator。 navigator is only read after hydration (post-effect).
   const mountShader =
-    hydrated && reducedMotion === false && shaderState !== "unavailable" && "gpu" in navigator;
+    quietStart && reducedMotion === false && shaderState !== "unavailable" && "gpu" in navigator;
 
   return (
     <div

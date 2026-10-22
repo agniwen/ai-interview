@@ -112,8 +112,10 @@ export function DemoWindowSkeleton() {
     <div
       aria-hidden="true"
       // 窗口按约 0.85 缩小，默认 gray-3 骨架在 gray-1 底上几乎不可见；统一提到半透明 gray-a5，明暗主题都适用。
+      // 骨架只是演示窗口加载前的静态占位，不做闪烁动画。
       // The canvas renders scaled down, so default gray-3 bars vanish on gray-1; use translucent gray-a5 in both themes.
-      className="flex h-full w-full bg-sidebar [&_[data-slot=skeleton]]:bg-(--gray-a5)"
+      // It is a static placeholder until the demo loads, so the bars do not pulse.
+      className="flex h-full w-full bg-sidebar [&_[data-slot=skeleton]]:animate-none [&_[data-slot=skeleton]]:bg-(--gray-a5)"
       data-slot="home-demo-skeleton"
     >
       <SidebarSkeleton />
