@@ -2,8 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@app/shared/utils";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { PageGrain } from "@/components/features/home/page-grain";
-import { StageArtwork } from "@/components/features/home/stage-artwork";
+import { SkyBackdrop } from "@/components/features/sky/sky-backdrop";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -46,21 +45,16 @@ export function AuthPageLayout({
   contentClassName,
   panelClassName,
   backBehavior = "home",
-  grain = false,
 }: {
   children: ReactNode;
   contentClassName?: string;
   panelClassName?: string;
   backBehavior?: "home" | "history";
-  grain?: boolean;
 }) {
   return (
     <main className="relative isolate min-h-dvh overflow-hidden" id="main-content">
-      {grain ? <PageGrain /> : null}
-      {/* 与首页首屏同一套 SVG 舞台背景，纯 CSS 动效，不再依赖 WebGL。 Same SVG stage as the homepage hero. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <StageArtwork composition="auth" />
-      </div>
+      {/* 与首页首屏同一套天空背景。 Same sky backdrop as the homepage hero. */}
+      <SkyBackdrop />
 
       <section
         className={cn(

@@ -9,8 +9,8 @@ const COPYRIGHT_YEAR = 2026;
 export function HomeFooter() {
   return (
     <footer className="mx-auto w-full max-w-360 px-6 pb-10 sm:px-8 lg:px-12">
-      <Separator className="mb-10 bg-border/60" />
-      <div className="flex flex-wrap items-end justify-between gap-8 pb-12 lg:pb-20">
+      <Separator className="mb-8 bg-border" />
+      <div className="flex flex-wrap items-end justify-between gap-8 pb-8 lg:pb-12">
         <p className="max-w-[10em] text-pretty font-medium text-[clamp(2rem,4vw,3.5rem)] text-foreground leading-[1.2] tracking-[-0.04em]">
           AI Hiring Copilot
         </p>

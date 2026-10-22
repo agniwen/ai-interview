@@ -60,7 +60,7 @@ function CandidateScoreCard() {
 
   return (
     <Card
-      className="w-[min(96%,32rem)] overflow-hidden rounded-[10px] before:rounded-[9px] border-border/70 bg-background/95 shadow-[0_22px_56px_-34px_rgba(15,23,42,0.55)]"
+      className="w-[min(96%,32rem)] overflow-hidden rounded-[10px] before:rounded-[9px] border-transparent bg-card shadow-large"
       data-density="compact"
       data-slot="candidate-score-card"
     >
@@ -182,7 +182,7 @@ function VoiceTurn({
       className={cn("flex max-w-[88%] flex-col gap-1", end ? "items-end self-end" : "items-start")}
     >
       <span className="px-1 text-[10px] text-white/85 leading-none">{name}</span>
-      <p className="line-clamp-3 rounded-[10px] bg-background/92 px-3 py-2 text-[11px] text-foreground/80 leading-relaxed shadow-[0_12px_36px_-26px_rgba(15,23,42,0.7)]">
+      <p className="line-clamp-3 rounded-[10px] bg-card px-3 py-2 text-[11px] text-foreground/80 leading-relaxed shadow-large">
         {text}
       </p>
     </div>
@@ -252,7 +252,7 @@ function HumanInterviewRoundCard() {
   ];
 
   return (
-    <div className="w-full max-w-[34rem] overflow-hidden rounded-[10px] bg-background/95 shadow-[0_18px_48px_-32px_rgba(15,23,42,0.5)]">
+    <div className="w-full max-w-[34rem] overflow-hidden rounded-[10px] bg-card shadow-large">
       <div className="flex items-center justify-between gap-3 border-border/60 border-b px-3.5 py-2.5">
         <p className="flex min-w-0 items-center gap-2 text-[12px]">
           <span aria-hidden="true" className="relative flex size-2">
@@ -333,7 +333,7 @@ function TeamCalibrationCard() {
   return (
     <div className="flex w-full max-w-[36rem] flex-col">
       <div
-        className="overflow-hidden rounded-[10px] border border-border/70 bg-background/95 p-4 shadow-[0_22px_56px_-34px_rgba(15,23,42,0.55)] sm:p-5"
+        className="overflow-hidden rounded-[10px] border border-transparent bg-card p-4 shadow-large sm:p-5"
         data-density="compact"
         data-layout="review-summary"
         data-slot="team-calibration-card"
@@ -456,7 +456,7 @@ function StoryCard({ story }: { story: Story }) {
   return (
     <article
       // 外圆角 18 = 内边距 10 + 预览圆角 8，内外同心。 Outer 18 = 10 padding + 8 inner radius, so corners stay concentric.
-      className="flex h-full select-none flex-col overflow-hidden rounded-[18px] border border-border/60 bg-foreground/[0.02] px-2.5 pt-2.5 pb-5 xl:grid xl:h-[30rem] xl:grid-cols-[minmax(0,1fr)_40.5rem] xl:gap-7 xl:py-2.5 xl:pr-2.5 xl:pl-8 dark:bg-home-card"
+      className="flex h-full select-none flex-col overflow-hidden rounded-[18px] border border-transparent bg-card shadow-default px-2.5 pt-2.5 pb-5 xl:grid xl:h-[30rem] xl:grid-cols-[minmax(0,1fr)_40.5rem] xl:gap-7 xl:py-2.5 xl:pr-2.5 xl:pl-8"
       data-feature-story={story.id}
     >
       <div
@@ -564,7 +564,7 @@ export function FeatureBlocks() {
               className={cn(
                 "h-9 rounded-full border px-5 font-medium text-sm transition-colors duration-300",
                 selected
-                  ? "border-foreground/15 bg-background text-foreground dark:bg-home-card"
+                  ? "border-transparent bg-card text-foreground shadow-default"
                   : "border-transparent bg-home-canvas text-muted-foreground hover:text-foreground dark:bg-white/[0.06]",
               )}
               key={story.id}
@@ -580,7 +580,7 @@ export function FeatureBlocks() {
 
       {/* 通栏视口：当前卡居中，两侧露出相邻卡。 Full-bleed viewport: active card centered, neighbours peek. */}
       <div
-        className="relative left-1/2 mt-10 w-screen -translate-x-1/2 cursor-grab overflow-hidden active:cursor-grabbing lg:mt-12"
+        className="relative left-1/2 mt-6 w-screen -translate-x-1/2 cursor-grab overflow-hidden py-2 active:cursor-grabbing lg:mt-8"
         ref={viewportRef}
       >
         {/* Embla 推荐的间距写法：slide 只留左侧内边距，容器用等量负边距抵消。 Embla's leading-padding spacing. */}

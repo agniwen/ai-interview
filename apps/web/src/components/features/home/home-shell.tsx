@@ -4,12 +4,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { RecruitmentCopilotMark } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
+import { SkyBackdrop } from "@/components/features/sky/sky-backdrop";
 import { CapabilityGrid } from "./capability-grid";
 import { Faq } from "./faq";
 import { FeatureBlocks } from "./feature-blocks";
 import { HomeFooter } from "./footer";
 import { Hero } from "./hero";
-import { PageGrain } from "./page-grain";
 import { ProcessTabs } from "./process-tabs";
 import { ProductShot } from "./product-shot";
 import { DecisionPrinciples } from "./testimonials";
@@ -27,13 +27,14 @@ export default function HomeShell() {
 
   return (
     <div>
-      <PageGrain />
       <main
         className="relative flex w-full flex-col items-stretch bg-home-surface"
         id="main-content"
       >
-        {/* 首屏画布带一点蓝调（对标 qoder 的中性偏绿底），只用于导航、首屏文案与舞台两侧。 */}
-        <div className="relative isolate overflow-hidden bg-home-canvas">
+        {/* 首屏整块铺天空背景：导航、文案与演示窗口舞台共用一片流动天空。
+            The whole hero (nav, copy, demo stage) shares one flowing sky. */}
+        <div className="relative isolate">
+          <SkyBackdrop veil />
           <header className="mx-auto flex w-full max-w-[105rem] items-center justify-between gap-4 px-6 pt-6 sm:px-8 lg:px-16 3xl:px-0">
             <div className="flex items-center gap-2.5 text-foreground">
               <RecruitmentCopilotMark className="size-7 sm:size-8" />
@@ -46,15 +47,15 @@ export default function HomeShell() {
               <ThemeToggle />
             </div>
           </header>
-          <div className="mx-auto w-full max-w-[105rem] px-6 sm:px-8 lg:px-16 3xl:px-0 pt-14 pb-12 sm:pt-16 sm:pb-14 lg:pt-20 lg:pb-16">
+          <div className="mx-auto w-full max-w-[105rem] px-6 sm:px-8 lg:px-16 3xl:px-0 pt-14 pb-8 sm:pt-20 sm:pb-10 lg:pt-20 lg:pb-10 2xl:pt-28 2xl:pb-12">
             <Hero onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
           </div>
           <ProductShot />
         </div>
-        <div className="relative bg-home-surface">
+        <div className="relative">
           <FeatureBlocks />
-          {/* 能力区落在偏蓝画布带上，卡片用更亮的表面，与上下白底区块形成层次。
-              Capability band sits on the tinted canvas so lighter cards read as a layer. */}
+          {/* 能力区落在画布带（系统侧栏底色）上，白色卡片与上下正文区形成层次。
+              Capability band sits on the canvas (app sidebar tone) so white cards read as a layer. */}
           <div className="relative isolate overflow-hidden bg-home-canvas">
             <CapabilityGrid />
           </div>

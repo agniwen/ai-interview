@@ -5,11 +5,13 @@ import {
   IconRefresh,
   IconBriefcase,
   IconChevronRight,
+  IconCircleOff,
+  IconInfoCircle,
   IconSparkles,
 } from "@tabler/icons-react";
 import { lazy, Suspense, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FloatingBar } from "@/components/ui/floating-bar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
@@ -220,8 +222,13 @@ export function DemoCandidateDetail() {
         style={{ paddingLeft: 288 }}
         data-slot="demo-candidate-actions"
       >
-        <div className="pointer-events-auto flex items-center gap-2 rounded-md border border-border/50 bg-background/90 p-2 shadow-sm backdrop-blur-xl">
-          <Badge variant="info">{stage}</Badge>
+        {/* 对齐真实 CandidateActionDock：FloatingBar + p-1 工具条，阶段入口为 text 按钮，结束为 destructive-subtle。
+            Mirrors the real CandidateActionDock: FloatingBar, p-1 toolbar, text stage trigger, subtle close. */}
+        <FloatingBar className="flex items-center gap-2 p-1">
+          <Button className="h-8 px-3 font-medium" size="sm" type="button" variant="text">
+            <IconInfoCircle className="size-4" />
+            {stage}
+          </Button>
           {phase === "screening" && (
             <Button
               data-demo-launch
@@ -269,10 +276,11 @@ export function DemoCandidateDetail() {
               {detail.enterOffer}
             </Button>
           )}
-          <Button size="sm" variant="outline" disabled>
+          <Button size="sm" type="button" variant="destructive-subtle">
+            <IconCircleOff className="size-4" />
             {detail.markClosed}
           </Button>
-        </div>
+        </FloatingBar>
       </div>
     </main>
   );

@@ -28,7 +28,6 @@ export function LoginPage({
       backBehavior={backBehavior}
       contentClassName="md:w-80 md:self-center"
       panelClassName="md:w-[29rem] lg:w-[33rem]"
-      grain
     >
       <div className="flex flex-col gap-2">
         <h1 className="font-medium text-2xl text-foreground tracking-tight sm:text-3xl">

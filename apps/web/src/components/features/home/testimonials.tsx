@@ -82,12 +82,12 @@ const principlesRow2: HiringPrinciple[] = [
 
 function PrincipleCard({ description, label, title }: HiringPrinciple) {
   return (
-    <article className="mr-4 flex h-full w-[320px] flex-col rounded-[12px] border border-transparent bg-control p-6 shadow-default sm:w-[380px] sm:p-8">
+    <article className="mr-3 flex h-full w-[300px] flex-col rounded-xl border border-transparent bg-card p-5 shadow-default sm:w-[340px] sm:p-6">
       <p className="text-primary text-sm">{label}</p>
-      <h3 className="mt-4 min-h-[2lh] text-pretty font-medium text-foreground text-2xl leading-[1.3] tracking-[-0.035em] sm:text-3xl">
+      <h3 className="mt-3 min-h-[2lh] text-pretty font-medium text-foreground text-xl leading-[1.3] tracking-[-0.03em] sm:text-2xl">
         {title}
       </h3>
-      <p className="mt-5 text-muted-foreground text-sm leading-[1.9]">{description}</p>
+      <p className="mt-3 text-muted-foreground text-sm leading-[1.75]">{description}</p>
     </article>
   );
 }
@@ -102,12 +102,12 @@ export function DecisionPrinciples() {
   const secondRow = principles.slice(6);
 
   return (
-    <div className="overflow-hidden bg-primary/[0.035]">
+    <div className="overflow-hidden">
       <Section>
         <SectionHeader title={m.home_principles_title()} lead={m.home_principles_lead()} />
 
         <FadeContent>
-          <div className="relative left-1/2 mt-16 flex w-screen max-w-[2000px] -translate-x-1/2 flex-col gap-6 overflow-hidden sm:gap-8">
+          <div className="relative left-1/2 mt-10 flex w-screen max-w-[2000px] -translate-x-1/2 flex-col gap-3 overflow-hidden sm:gap-4">
             <Marquee duration={48} fadeAmount={8} pauseOnHover>
               {firstRow.map((principle) => (
                 <PrincipleCard key={principle.title} {...principle} />

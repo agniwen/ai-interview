@@ -1,56 +1,20 @@
 // 首页舞台背景：纯色底 + 粗色带 + 流动虚线，全部为 SSR 内联 SVG，动效只用 CSS。
-// 首屏用宽幅构图，下方面板用紧凑构图；色调在克莱因蓝附近轻微变化，见 globals.css。
+// 用于首页下方的产品面板；色调在克莱因蓝附近轻微变化，见 globals.css。
 // Homepage stage artwork: solid fill, ribbons and flowing dashes as inline SVG with CSS-only motion.
-// The hero uses the wide composition, lower panels the compact one; tones vary around Klein blue.
+// Used by the lower product panels; tones vary around Klein blue.
 import { cn } from "@app/shared/utils";
 import { useEffect, useRef } from "react";
 
 export type StageArtworkTone = "azure" | "blue" | "indigo" | "sky";
 
 interface StageComposition {
-  /** 裁切锚点：登录页靠右对齐，保证面板右侧露出的部分构图稳定。 Slice anchor; auth keeps the right side stable. */
-  align?: string;
   dashes: readonly string[];
   focusPoints: readonly { cx: number; cy: number; r: number }[];
   ribbons: readonly { d: string; strong: boolean; width: number }[];
   viewBox: string;
 }
 
-// 路径控制点按曲率连续性整理过：多段曲线在接点两侧曲率相近、不再突然反向，单段曲线去掉了端部的
-// 急弯，整体走势与原构图偏差在 8px（两条长 S 线约 17px）以内。改动构图时请保持控制柄长度均衡。
-// Control points are tuned for curvature continuity: joints no longer flip curvature abruptly and
-// single curves lose their end hooks, staying within ~8px of the original course (~17px for the two
-// long S lines). Keep handle lengths balanced when editing the composition.
-const HERO_COMPOSITION = {
-  dashes: [
-    "M0 96C319 104 460 370 850 545C1128 670 1469 720 1720 640",
-    "M352 -20C333 302 497 520 250 940",
-    "M1720 300C1402 367 1230 149 1270 -40",
-    "M1090 940C1197 690 1531 628 1720 830",
-  ],
-  focusPoints: [
-    { cx: 132, cy: 82, r: 7 },
-    { cx: 1554, cy: 330, r: 9 },
-    { cx: 1612, cy: 778, r: 6 },
-  ],
-  ribbons: [
-    {
-      d: "M-120 170C178 150 406 440 780 610C1299 846 1340 920 1560 1040",
-      strong: true,
-      width: 132,
-    },
-    { d: "M1800 90C1598 236 1349 120 1200 -80", strong: true, width: 96 },
-    { d: "M250 -80C376 185 174 461 -90 540", strong: false, width: 78 },
-    { d: "M1800 690C1569 644 1385 828 1320 1010", strong: false, width: 88 },
-  ],
-  viewBox: "0 0 1680 904",
-} satisfies StageComposition;
-
 const COMPOSITIONS = {
-  // 登录页沿用首屏构图，靠右裁切：面板盖住左侧，右侧露出色带与虚线。
-  // Auth reuses the hero composition anchored right, so the panel covers the left side.
-  auth: { ...HERO_COMPOSITION, align: "xMaxYMid slice" },
-  hero: HERO_COMPOSITION,
   panel: {
     dashes: [
       "M0 470C265 444 448 631 700 740",
@@ -110,13 +74,12 @@ interface StageArtworkProps {
 
 export function StageArtwork({
   className,
-  composition = "hero",
+  composition = "panel",
   mirrored = false,
   pose,
   tone = "blue",
 }: StageArtworkProps) {
-  const { align, dashes, focusPoints, ribbons, viewBox }: StageComposition =
-    COMPOSITIONS[composition];
+  const { dashes, focusPoints, ribbons, viewBox }: StageComposition = COMPOSITIONS[composition];
   const svgRef = useRef<SVGSVGElement>(null);
   const rushRef = useRef({ count: 0, pose });
   // 姿态变化时只增不减地累加冲刺距离，循环回第一步时虚线也继续向前，而不是倒退。
@@ -143,7 +106,7 @@ export function StageArtwork({
       data-slot="home-stage-artwork"
       data-tone={tone}
       fill="none"
-      preserveAspectRatio={align ?? "xMidYMid slice"}
+      preserveAspectRatio="xMidYMid slice"
       ref={svgRef}
       viewBox={viewBox}
     >

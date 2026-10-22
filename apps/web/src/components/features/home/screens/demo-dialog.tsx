@@ -40,12 +40,12 @@ export function DemoDialogLayer() {
       >
         {container && dialog && (
           <Dialog.Portal container={container}>
-            <Dialog.Backdrop className="pointer-events-auto absolute inset-0 bg-black/15 backdrop-blur-xs dark:bg-black/50" />
+            <Dialog.Backdrop className="pointer-events-auto absolute inset-0 bg-background/80 backdrop-blur-xs" />
             <Dialog.Popup
               initialFocus={false}
               finalFocus={false}
               className={cn(
-                "pointer-events-auto absolute top-1/2 left-1/2 flex max-h-[700px] w-[720px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-background shadow-xl",
+                "pointer-events-auto absolute top-1/2 left-1/2 flex max-h-[700px] w-[720px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl bg-background shadow-extra-large",
                 dialog.kind === "resume" && "w-[1080px] h-[720px]",
               )}
               data-slot="demo-dialog"

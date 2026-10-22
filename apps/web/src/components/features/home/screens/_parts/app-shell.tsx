@@ -150,7 +150,7 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
           >
             {group.label}
           </div>
-          <ul className="flex w-full min-w-0 flex-col gap-1">
+          <ul className="flex w-full min-w-0 flex-col gap-px">
             {group.items.map((item) => {
               const Icon = item.icon;
               const active = item.label === (demo?.page ?? activeLabel);
@@ -160,14 +160,13 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                     type="button"
                     data-demo-page={item.label}
                     // SidebarMenuButton default: flex w-full items-center gap-2 rounded-lg p-2 text-sm h-8
-                    // active: bg-sidebar-accent font-medium text-sidebar-accent-foreground
+                    // active: bg-sidebar-active font-medium text-sidebar-accent-foreground shadow-default
                     className={cn(
-                      "flex h-8 w-full items-center gap-2 overflow-hidden rounded-lg p-2 text-left text-sm hover:bg-sidebar-accent focus-visible:outline-ring",
+                      "flex h-8 w-full items-center gap-2 overflow-hidden rounded-lg p-2 text-left text-sm focus-visible:outline-ring",
                       active
-                        ? "border-sidebar-border/60 bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                        : "border-transparent text-sidebar-foreground opacity-90",
+                        ? "bg-sidebar-active font-medium text-sidebar-accent-foreground shadow-default"
+                        : "text-sidebar-foreground",
                       item.children && "pr-8",
-                      "border",
                     )}
                   >
                     <Icon className="size-4 shrink-0" />
@@ -183,10 +182,10 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                         <IconChevronRight className="size-4 rotate-90" />
                       </span>
                       {/* SidebarMenuSub + SidebarMenuSubButton */}
-                      <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-sidebar-border border-l px-2.5 pt-1 pb-0.5">
+                      <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-px border-sidebar-border border-l px-2.5 pt-1 pb-0.5">
                         {item.children.map((child) => (
                           <li key={child}>
-                            <span className="flex h-7 min-w-0 -translate-x-px items-center rounded-lg border border-transparent px-2 text-sidebar-foreground text-sm">
+                            <span className="flex h-8 min-w-0 -translate-x-px items-center rounded-lg px-2 text-[13px] text-sidebar-foreground">
                               <span className="truncate">{child}</span>
                             </span>
                           </li>

@@ -54,6 +54,76 @@
   }
 }
 
+/* 天空背景（首页首屏、登录页、MCP 页）：渐变兜底 + shader 首帧图，shader 就绪后叠在其上；
+   veil 只用于首页首屏，托住文案并渐隐到页面底色。
+   Sky backdrop: gradient fallback plus the shader's first-frame poster under the live shader;
+   the veil is hero-only, keeping copy legible and fading into the page surface. */
+/* 首帧图由 sky-shader.tsx 在 t=0 导出（2400×1500，AVIF 4:4:4 q60 / WebP q82 兜底），存放在 COS 的
+   public/landing/ 下，文件名带内容哈希并按 immutable 缓存；改动 shader 参数后需重新导出并更新这里。
+   Posters are exported from sky-shader.tsx at t=0 (2400×1500, AVIF 4:4:4 q60 with a WebP q82 fallback)
+   and live under public/landing/ on COS with content-hashed, immutable names; re-export after shader edits. */
+.sky-backdrop-poster {
+  background:
+    image-set(
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-light.3ce44422ad.avif")
+          type("image/avif"),
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-light.90c39350da.webp")
+          type("image/webp")
+      )
+      center / cover no-repeat,
+    linear-gradient(160deg, #b8d0f7 0%, #e6f0ff 55%, #d6e6fc 100%);
+}
+
+.sky-backdrop-veil {
+  background:
+    radial-gradient(
+      ellipse 85% 42% at 50% 0%,
+      rgb(246 250 255 / 72%) 0%,
+      rgb(246 250 255 / 40%) 45%,
+      transparent 75%
+    ),
+    linear-gradient(
+      to top,
+      var(--home-surface) 0,
+      var(--home-surface) 24px,
+      color-mix(in oklab, var(--home-surface) 80%, transparent) 96px,
+      color-mix(in oklab, var(--home-surface) 45%, transparent) 180px,
+      color-mix(in oklab, var(--home-surface) 15%, transparent) 280px,
+      transparent 380px
+    );
+}
+
+.dark .sky-backdrop-poster {
+  background:
+    image-set(
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.a01425beb9.avif")
+          type("image/avif"),
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.b1c4e2165f.webp")
+          type("image/webp")
+      )
+      center / cover no-repeat,
+    linear-gradient(160deg, #233c9e 0%, #101b48 60%, #1c3088 100%);
+}
+
+.dark .sky-backdrop-veil {
+  background:
+    radial-gradient(
+      ellipse 85% 42% at 50% 0%,
+      rgb(5 11 32 / 72%) 0%,
+      rgb(5 11 32 / 38%) 45%,
+      transparent 75%
+    ),
+    linear-gradient(
+      to top,
+      var(--home-surface) 0,
+      var(--home-surface) 24px,
+      color-mix(in oklab, var(--home-surface) 80%, transparent) 96px,
+      color-mix(in oklab, var(--home-surface) 45%, transparent) 180px,
+      color-mix(in oklab, var(--home-surface) 15%, transparent) 280px,
+      transparent 380px
+    );
+}
+
 /* 首页舞台色系：亮色取品牌蓝附近的四个相邻色调，暗色沿用压暗的克莱因蓝。
    Homepage stage tones: brand-blue neighbours in light mode, deepened Klein blue in dark mode. */
 .home-stage-artwork {
@@ -445,11 +515,11 @@
   /* 三层表面（参考 Interfere）：外壳 shell（侧栏）→ 内容面板 background（gray-1，略低于纯白）→ 卡片 / 浮层 / 控件纯白。
      Three surfaces: shell (sidebar) → content panel (gray-1, just under white) → white cards, popovers and controls. */
   --background: var(--gray-1);
-  /* 首页画布：中性灰带一点蓝调。 Homepage canvas: neutral with a faint blue cast. */
-  --home-canvas: #f2f4f7;
-  /* 首页正文底色与卡片表面。 Homepage page surface and card surface. */
-  --home-surface: #ffffff;
-  --home-card: #ffffff;
+  /* 首页沿用应用的三层表面：画布 = 侧栏底色，正文 = 内容面板，卡片 = card。
+     The homepage reuses the app surfaces: canvas = sidebar, page = content panel, cards = card. */
+  --home-canvas: var(--sidebar);
+  --home-surface: var(--background);
+  --home-card: var(--card);
   --foreground: var(--gray-12);
   --card: #ffffff;
   --card-foreground: var(--foreground);
@@ -618,11 +688,9 @@
     inset 0 0 0 0.5px #ffffff12, 0 8px 40px 0 #0000000d, 0 12px 32px -16px #00000026;
 
   --background: var(--gray-1);
-  /* 首页暗色比应用背景提亮一档：画布、正文表面、卡片逐级变亮。
-     Homepage dark mode sits one step above the app background: canvas band, surface, then cards. */
-  --home-canvas: oklch(0.245 0 0);
-  --home-surface: oklch(0.265 0 0);
-  --home-card: oklch(0.305 0 0);
+  --home-canvas: var(--sidebar);
+  --home-surface: var(--background);
+  --home-card: var(--card);
   --foreground: var(--gray-12);
   --card: var(--gray-2);
   --card-foreground: var(--gray-12);

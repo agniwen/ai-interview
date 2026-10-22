@@ -21,7 +21,7 @@ export function ScreenFrame({ children, className }: ScreenFrameProps) {
     <div
       data-slot="screen-frame"
       className={cn(
-        "relative overflow-hidden rounded-[12px] bg-background ring-1 ring-black/5 select-none dark:ring-white/10",
+        "relative overflow-hidden rounded-[12px] bg-background shadow-extra-large select-none",
         className,
       )}
     >

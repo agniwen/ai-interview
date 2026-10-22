@@ -1,6 +1,7 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { z } from "zod";
 import { LoginPage } from "@/components/features/login/login-page";
+import { skyPosterPreconnectLink } from "@/components/features/sky/sky-assets";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { resolveLoginCallbackURL } from "@/components/features/login/login-navigation";
 import * as m from "@/paraglide/messages";
@@ -31,6 +32,7 @@ function LoginRoute() {
 export const Route = createFileRoute("/login")({
   validateSearch: loginSearchSchema,
   head: () => ({
+    links: [skyPosterPreconnectLink],
     meta: [{ title: formatDocumentTitle(m.login_document_title()) }],
   }),
   component: LoginRoute,

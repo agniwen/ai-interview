@@ -17,29 +17,27 @@ const ENTER =
 
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   return (
-    // 标题两行（品牌 + 定位、不带标点）；桌面端说明段放右栏底部右对齐，移动端依次排在标题下方。
-    // Two-line title; on desktop the lead sits bottom-right, on mobile it stacks under the title.
-    <section className="relative flex w-full flex-col items-start text-left lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.5fr)] lg:gap-x-16">
+    // 居中排版：两行粗体大标题、居中说明段、加大的胶囊按钮，对标 shaders.com 官方示例。
+    // Centered layout: bold two-line headline, centered lead and large pill CTAs.
+    <section className="relative flex w-full flex-col items-center text-center">
       <h1
-        className={`${ENTER} slide-in-from-bottom-[18px] font-medium text-4xl text-foreground leading-[1.33] tracking-[-0.02em] dark:text-white`}
+        className={`${ENTER} slide-in-from-bottom-[18px] font-semibold text-[clamp(2.25rem,4.6vw,4.75rem)] text-foreground leading-[1.08] tracking-[-0.045em] [text-wrap:balance] dark:text-white`}
       >
         <span className="block">AI Hiring Copilot</span>
         <span className="block">{messages.home_hero_tagline()}</span>
       </h1>
 
-      <div
-        className={`${ENTER} slide-in-from-bottom-3 mt-4 max-w-[30rem] delay-[120ms] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-end lg:justify-self-end lg:pb-1 lg:text-right`}
-      >
-        <LeadText className="max-w-none text-base text-muted-foreground leading-[1.6] sm:text-base lg:text-base xl:text-base">
+      <div className={`${ENTER} slide-in-from-bottom-3 mt-5 delay-[120ms] sm:mt-6 2xl:mt-8`}>
+        <LeadText className="mx-auto max-w-[34rem] text-base text-foreground/70 leading-[1.75] sm:text-base lg:text-base xl:text-base 2xl:text-lg dark:text-white/75">
           {messages.home_hero_description()}
         </LeadText>
       </div>
 
       <div
-        className={`${ENTER} slide-in-from-bottom-3 delay-[180ms] mt-8 flex flex-wrap items-center gap-3 lg:col-start-1 lg:row-start-2`}
+        className={`${ENTER} slide-in-from-bottom-3 delay-[180ms] mt-8 flex flex-wrap items-center justify-center gap-3 2xl:mt-10`}
       >
         <Button
-          className="group h-9 gap-2 rounded-full px-5 font-medium text-sm shadow-none has-[>svg]:px-5"
+          className="group h-11 w-40 gap-2 rounded-full border-transparent bg-foreground px-0 font-medium text-background text-[15px] shadow-none inset-shadow-none hover:bg-foreground/90 has-[>svg]:px-0 active:inset-shadow-none dark:bg-white dark:text-[#071233] dark:hover:bg-white/90"
           onClick={onResumeFiltering}
           type="button"
         >
@@ -51,7 +49,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
           />
         </Button>
         <Button
-          className="h-9 rounded-full border-foreground/15 bg-transparent px-5 font-medium text-sm shadow-none hover:bg-foreground/5"
+          className="h-11 w-40 rounded-full border-white/70 bg-white/55 px-0 font-medium text-[15px] shadow-none backdrop-blur-md hover:bg-white/75 dark:border-white/20 dark:bg-white/10 dark:hover:bg-white/15"
           onClick={onWorkbench}
           type="button"
           variant="outline"

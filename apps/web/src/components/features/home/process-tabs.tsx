@@ -70,7 +70,7 @@ function RoleBlueprintBlock() {
 
   return (
     <div className="w-full max-w-[44rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+      <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
         <div className="flex min-w-0 items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
             <p className="truncate font-semibold text-base">{copy.title}</p>
@@ -118,7 +118,7 @@ function EvidenceScreeningBlock() {
 
   return (
     <div className="w-full max-w-[44rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+      <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="flex items-center gap-2.5">
             <Avatar className="size-7" label={copy.avatarLabel} seed="candidate:明日香" size="sm">
@@ -169,7 +169,7 @@ function InterviewGuideBlock() {
 
   return (
     <div className="w-full max-w-[44rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+      <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
             <p className="truncate font-semibold text-base">{copy.title}</p>
@@ -214,7 +214,7 @@ function TeamDecisionBlock() {
 
   return (
     <div className="w-full max-w-[44rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-[10px] border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
+      <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div>
             <p className="font-semibold text-base">{copy.title}</p>
@@ -378,7 +378,7 @@ export function ProcessTabs() {
       <div ref={sectionRef}>
         <SectionHeader title={messages.home_process_title()} lead={messages.home_process_lead()} />
 
-        <div className="mt-16 grid items-start gap-10 lg:mt-20 lg:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.32fr)] lg:gap-12 xl:gap-16">
+        <div className="mt-10 grid items-start gap-8 lg:mt-12 lg:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.32fr)] lg:gap-12 xl:gap-16">
           <div
             aria-label={messages.home_process_aria()}
             className="min-w-0"

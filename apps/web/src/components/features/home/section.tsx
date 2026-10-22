@@ -14,7 +14,7 @@ export function Section({ children, className, id }: SectionProps) {
   return (
     <section
       className={cn(
-        "mx-auto w-full max-w-360 px-6 py-20 sm:px-8 sm:py-24 lg:px-16 lg:py-28",
+        "mx-auto w-full max-w-360 px-6 py-14 sm:px-8 sm:py-16 lg:px-16 lg:py-20",
         className,
       )}
       id={id}

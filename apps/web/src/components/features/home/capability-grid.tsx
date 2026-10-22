@@ -45,7 +45,7 @@ function BentoTile({
   const head = (
     <div>
       <Icon aria-hidden="true" className="size-6 text-primary" strokeWidth={1.25} />
-      <h3 className="mt-8 text-balance font-medium text-foreground text-2xl leading-tight tracking-[-0.035em]">
+      <h3 className="mt-5 text-balance font-medium text-foreground text-xl leading-tight tracking-[-0.035em]">
         {title}
       </h3>
       <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
@@ -57,7 +57,7 @@ function BentoTile({
   return (
     <article
       className={cn(
-        "relative flex h-full flex-col overflow-hidden rounded-[12px] border border-border/70 bg-home-card p-6 [&_[data-slot=badge]]:rounded-[8px] sm:p-8",
+        "relative flex h-full flex-col overflow-hidden rounded-xl border border-transparent bg-card shadow-default p-5 [&_[data-slot=badge]]:rounded-[8px] sm:p-6",
         className,
       )}
     >
@@ -355,12 +355,12 @@ function getPersonas(): PersonaConfig[] {
 
 function PersonaTile({ Icon, description, role, title }: PersonaConfig) {
   return (
-    <article className="flex h-full flex-col rounded-[12px] border border-border/70 bg-home-card p-6 sm:p-8">
+    <article className="flex h-full flex-col rounded-xl border border-transparent bg-card shadow-default p-5 sm:p-6">
       <div className="flex items-center gap-2.5">
         <Icon aria-hidden="true" className="size-6 text-primary" strokeWidth={1.25} />
         <p className="text-muted-foreground text-sm">{role}</p>
       </div>
-      <h3 className="mt-8 text-balance font-medium text-foreground text-2xl leading-tight tracking-[-0.035em]">
+      <h3 className="mt-5 text-balance font-medium text-foreground text-xl leading-tight tracking-[-0.035em]">
         {title}
       </h3>
       <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
@@ -375,7 +375,7 @@ function PersonaTile({ Icon, description, role, title }: PersonaConfig) {
 function PersonaRow() {
   const personas = getPersonas();
   return (
-    <div className="mt-6 grid gap-4 md:grid-cols-3 lg:mt-4">
+    <div className="mt-3 grid gap-3 md:grid-cols-3">
       {personas.map((persona, index) => (
         <FadeContent className="h-full" delay={0.05 * (index + 6)} key={persona.role}>
           <PersonaTile {...persona} />
@@ -389,7 +389,7 @@ function PersonaRow() {
 function CapabilityBento() {
   const tiles = getTiles();
   return (
-    <div className="mt-16 hidden gap-4 lg:grid lg:auto-rows-[minmax(220px,auto)] lg:grid-cols-4">
+    <div className="mt-10 hidden gap-3 lg:grid lg:auto-rows-[minmax(200px,auto)] lg:grid-cols-4">
       {tiles.map(({ span, ...tile }, index) => (
         <FadeContent className={cn("h-full", span)} delay={0.05 * index} key={tile.title}>
           <BentoTile {...tile} />
