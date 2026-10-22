@@ -128,6 +128,12 @@ it("opens materials before join time without connecting, and preserves selection
     ),
   );
   expect(button("未到入会时间").disabled).toBe(true);
+  // The entry shows candidate materials beside the details; the JD stays behind the title card.
+  expect(container.querySelector('[data-slot="interview-entry-materials"]')?.textContent).toContain(
+    "候选人资料：false",
+  );
+  expect(container.querySelector('[data-slot="interview-entry-jd"]')).toBeNull();
+  expect(container.textContent).not.toContain("负责用户运营");
   // Both desktop and mobile action areas expose the same independent materials action.
   expect(
     [...container.querySelectorAll("button")].filter(
@@ -135,10 +141,10 @@ it("opens materials before join time without connecting, and preserves selection
     ),
   ).toHaveLength(2);
   expect(button("查看候选人资料").disabled).toBe(false);
-  expect(button("关闭麦克风").getAttribute("aria-pressed")).toBe("true");
-  expect(button("开启摄像头").getAttribute("aria-pressed")).toBe("false");
-  await act(() => button("关闭麦克风").click());
-  await act(() => button("开启摄像头").click());
+  expect(button("麦克风已开启").getAttribute("aria-pressed")).toBe("true");
+  expect(button("摄像头已关闭").getAttribute("aria-pressed")).toBe("false");
+  await act(() => button("麦克风已开启").click());
+  await act(() => button("摄像头已关闭").click());
   await act(() => button("查看候选人资料").click());
   expect(container.querySelector("header h1")?.textContent).toBe("运营经理面试");
   expect(container.querySelector('header button[aria-label^="会议信息"]')).toBeNull();
@@ -215,8 +221,8 @@ it("applies candidate media choices when joining", async () => {
       </QueryClientProvider>,
     ),
   );
-  await act(() => button("关闭麦克风").click());
-  await act(() => button("开启摄像头").click());
+  await act(() => button("麦克风已开启").click());
+  await act(() => button("摄像头已关闭").click());
   vi.mocked(fetch).mockResolvedValue(
     Response.json({
       participantName: "测试候选人",

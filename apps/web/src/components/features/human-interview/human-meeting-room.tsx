@@ -600,6 +600,17 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
             name: props.preview.interviewerName,
             role: interviewerRoleLabel[props.preview.role],
           }}
+          materials={
+            isMobile ? undefined : (
+              <InterviewerCandidateMaterials
+                active
+                inviteToken={props.inviteToken}
+                onStateChange={setCandidateMaterialsState}
+                showTimeline={false}
+                state={candidateMaterialsState}
+              />
+            )
+          }
           message={entryMessage ?? undefined}
         >
           <HumanMeetingPrejoinMediaControls

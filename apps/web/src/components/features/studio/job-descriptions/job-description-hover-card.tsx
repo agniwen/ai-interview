@@ -34,40 +34,56 @@ function JobDescriptionPreviewSkeleton() {
   );
 }
 
-function JobDescriptionPreview({ record }: { record: JobDescriptionRecord }) {
+function JobDescriptionPreview({
+  code,
+  internalCriteria,
+  interviewerCount,
+  name,
+  prompt,
+}: {
+  code?: string | null;
+  internalCriteria?: string | null;
+  interviewerCount?: number;
+  name: string;
+  prompt: string;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 wrap-break-word font-medium text-sm leading-5">{record.name}</h3>
-          {record.code ? (
+          <h3 className="min-w-0 wrap-break-word font-medium text-sm leading-5">{name}</h3>
+          {code ? (
             <Badge className="shrink-0 font-mono" variant="secondary">
-              {record.code}
+              {code}
             </Badge>
           ) : null}
         </div>
-        <p className="text-muted-foreground text-xs">
-          已配置 {record.interviewerIds.length} 位面试官
-        </p>
+        {interviewerCount === undefined ? null : (
+          <p className="text-muted-foreground text-xs">已配置 {interviewerCount} 位面试官</p>
+        )}
       </div>
 
       <section className="flex flex-col gap-1">
         <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
         <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
-          <MarkdownView className="pr-3 text-sm" content={record.prompt.trim() || "未填写"} />
+          <MarkdownView className="pr-3 text-sm" content={prompt.trim() || "未填写"} />
         </ScrollArea>
       </section>
-      {record.internalCriteria?.trim() ? (
+      {internalCriteria?.trim() ? (
         <section className="flex flex-col gap-1">
           <h4 className="font-medium text-muted-foreground text-xs">内部标准</h4>
           <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
-            <MarkdownView className="pr-3 text-sm" content={record.internalCriteria} />
+            <MarkdownView className="pr-3 text-sm" content={internalCriteria} />
           </ScrollArea>
         </section>
       ) : null}
     </div>
   );
 }
+
+const TRIGGER_BUTTON_CLASS =
+  "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none";
+const HOVER_CARD_CONTENT_CLASS = "w-96 max-w-[calc(100vw-2rem)]";
 
 export interface JobDescriptionHoverCardDependencies {
   fetchDetail: (slug: string, id: string) => Promise<JobDescriptionRecord>;
@@ -130,10 +146,7 @@ export function JobDescriptionHoverCardView({
         <HoverCardTrigger
           render={
             <button
-              className={cn(
-                "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
-                className,
-              )}
+              className={cn(TRIGGER_BUTTON_CLASS, className)}
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(true);
@@ -147,14 +160,22 @@ export function JobDescriptionHoverCardView({
       )}
       <HoverCardContent
         align="start"
-        className="w-96 max-w-[calc(100vw-2rem)]"
+        className={HOVER_CARD_CONTENT_CLASS}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         sideOffset={8}
       >
         {isPending || record ? (
           <SkeletonReveal loading={isPending} skeleton={<JobDescriptionPreviewSkeleton />}>
-            {record ? <JobDescriptionPreview record={record} /> : null}
+            {record ? (
+              <JobDescriptionPreview
+                code={record.code}
+                internalCriteria={record.internalCriteria}
+                interviewerCount={record.interviewerIds.length}
+                name={record.name}
+                prompt={record.prompt}
+              />
+            ) : null}
           </SkeletonReveal>
         ) : null}
         {isError ? (
@@ -186,5 +207,41 @@ export function JobDescriptionHoverCard(props: {
         slug,
       }}
     />
+  );
+}
+
+// 公开链接页面没有工作区上下文，直接用页面已有的 JD 文本渲染同一张岗位预览卡。
+// Public link pages have no workspace context, so they render the same preview from the JD text
+// they already hold.
+export function JobDescriptionPromptHoverCard({
+  className,
+  name,
+  prompt,
+}: {
+  className?: string;
+  name: string;
+  prompt: string | null | undefined;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!prompt?.trim()) {
+    return <span className={className}>{name}</span>;
+  }
+  return (
+    <HoverCard onOpenChange={setOpen} open={open}>
+      <HoverCardTrigger
+        render={
+          <button
+            className={cn(TRIGGER_BUTTON_CLASS, className)}
+            onClick={() => setOpen(true)}
+            type="button"
+          >
+            {name}
+          </button>
+        }
+      />
+      <HoverCardContent align="start" className={HOVER_CARD_CONTENT_CLASS} sideOffset={8}>
+        <JobDescriptionPreview name={name} prompt={prompt} />
+      </HoverCardContent>
+    </HoverCard>
   );
 }

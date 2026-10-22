@@ -37,6 +37,12 @@ export const defaultHumanMeetingPrejoinMediaSettings: HumanMeetingPrejoinMediaSe
   microphoneEnabled: true,
 };
 
+// 麦克风组与摄像头按钮共用同一外框（内部按钮去边框），保证两者高度一致。
+// The microphone group and camera button share one frame around borderless buttons, so both
+// render at the same height.
+const MEDIA_CONTROL_FRAME_CLASS =
+  "rounded-md border border-transparent transition-colors hover:border-border hover:bg-accent";
+
 export function HumanMeetingPrejoinMediaControls({
   disabled = false,
   onChange,
@@ -70,13 +76,10 @@ export function HumanMeetingPrejoinMediaControls({
     <div aria-label="入会设备设置" className="flex items-center gap-2">
       <ButtonGroup
         aria-label="麦克风设置"
-        className={cn(
-          "rounded-md border border-transparent transition-colors hover:border-border hover:bg-accent",
-          menuOpen && "border-border bg-accent",
-        )}
+        className={cn(MEDIA_CONTROL_FRAME_CLASS, menuOpen && "border-border bg-accent")}
       >
+        {/* 按钮文字说明当前状态，aria-pressed 同步开关。/ The text states the current state; aria-pressed mirrors it. */}
         <Button
-          aria-label={settings.microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
           aria-pressed={settings.microphoneEnabled}
           className={cn(
             "border-0 hover:bg-transparent",
@@ -84,12 +87,16 @@ export function HumanMeetingPrejoinMediaControls({
           )}
           disabled={disabled}
           onClick={() => onChange({ ...settings, microphoneEnabled: !settings.microphoneEnabled })}
-          size="icon-sm"
-          title={settings.microphoneEnabled ? "麦克风已开启" : "麦克风已关闭"}
+          size="sm"
           type="button"
           variant="ghost"
         >
-          {settings.microphoneEnabled ? <IconMicrophone /> : <IconMicrophoneOff />}
+          {settings.microphoneEnabled ? (
+            <IconMicrophone data-icon="inline-start" />
+          ) : (
+            <IconMicrophoneOff data-icon="inline-start" />
+          )}
+          {settings.microphoneEnabled ? "麦克风已开启" : "麦克风已关闭"}
         </Button>
         <ButtonGroupSeparator className="my-1.5 bg-border/80" />
         <DropdownMenu
@@ -162,19 +169,27 @@ export function HumanMeetingPrejoinMediaControls({
           </DropdownMenuContent>
         </DropdownMenu>
       </ButtonGroup>
-      <Button
-        aria-label={settings.cameraEnabled ? "关闭摄像头" : "开启摄像头"}
-        aria-pressed={settings.cameraEnabled}
-        className={cn(!settings.cameraEnabled && "text-destructive hover:text-destructive")}
-        disabled={disabled}
-        onClick={() => onChange({ ...settings, cameraEnabled: !settings.cameraEnabled })}
-        size="icon-sm"
-        title={settings.cameraEnabled ? "摄像头已开启" : "摄像头已关闭"}
-        type="button"
-        variant="ghost"
-      >
-        {settings.cameraEnabled ? <IconVideo /> : <IconVideoOff />}
-      </Button>
+      <div className={MEDIA_CONTROL_FRAME_CLASS}>
+        <Button
+          aria-pressed={settings.cameraEnabled}
+          className={cn(
+            "border-0 hover:bg-transparent",
+            !settings.cameraEnabled && "text-destructive hover:text-destructive",
+          )}
+          disabled={disabled}
+          onClick={() => onChange({ ...settings, cameraEnabled: !settings.cameraEnabled })}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {settings.cameraEnabled ? (
+            <IconVideo data-icon="inline-start" />
+          ) : (
+            <IconVideoOff data-icon="inline-start" />
+          )}
+          {settings.cameraEnabled ? "摄像头已开启" : "摄像头已关闭"}
+        </Button>
+      </div>
     </div>
   );
 }
