@@ -3,6 +3,7 @@ import { InterviewManagementPage } from "@/components/features/studio/interviews
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { coerceStudioInterviewsSearch } from "@/lib/client/studio-interviews-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 function StudioInterviewsRoute() {
   const { slug } = useParams({ from: "/w/$slug/studio/interviews" });
@@ -16,6 +17,7 @@ function StudioInterviewsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
+  loader: ({ parentMatchPromise }) => requireStudioPagePermission(parentMatchPromise, "interviews"),
   validateSearch: (search) => coerceStudioInterviewsSearch(search),
   head: () => ({
     meta: [{ title: formatDocumentTitle("AI初面") }],

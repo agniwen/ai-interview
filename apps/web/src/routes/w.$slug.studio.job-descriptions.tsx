@@ -4,6 +4,7 @@ import { JobDescriptionsPageSkeleton } from "@/components/features/studio/studio
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 const routeApi = getRouteApi("/w/$slug/studio/job-descriptions");
 
@@ -25,7 +26,8 @@ function StudioJobDescriptionsRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
   validateSearch: coerceSearchParams,
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "jobDescriptions");
     const state = await loadStudioJobDescriptionsState({
       data: { slug: params.slug },
     });

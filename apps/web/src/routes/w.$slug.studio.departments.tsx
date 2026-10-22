@@ -3,8 +3,11 @@ import { DepartmentManagementPage } from "@/components/features/studio/departmen
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 export const Route = createFileRoute("/w/$slug/studio/departments")({
+  loader: ({ parentMatchPromise }) =>
+    requireStudioPagePermission(parentMatchPromise, "departments"),
   validateSearch: coerceSearchParams,
   head: () => ({
     meta: [{ title: formatDocumentTitle("部门管理") }],

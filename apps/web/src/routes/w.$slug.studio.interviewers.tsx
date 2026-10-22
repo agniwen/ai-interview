@@ -4,6 +4,7 @@ import { InterviewerAgentsPageSkeleton } from "@/components/features/studio/stud
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 const routeApi = getRouteApi("/w/$slug/studio/interviewers");
 
@@ -16,7 +17,8 @@ function StudioInterviewersRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio/interviewers")({
   validateSearch: coerceSearchParams,
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "interviewers");
     const state = await loadStudioInterviewersState({
       data: { slug: params.slug },
     });

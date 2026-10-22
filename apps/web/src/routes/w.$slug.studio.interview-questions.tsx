@@ -4,6 +4,7 @@ import { StudioTablePageSkeleton } from "@/components/features/studio/studio-pag
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 const routeApi = getRouteApi("/w/$slug/studio/interview-questions");
 
@@ -16,7 +17,8 @@ function StudioInterviewQuestionsRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
   validateSearch: coerceSearchParams,
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "interviewQuestions");
     const state = await loadStudioInterviewQuestionsState({
       data: { slug: params.slug },
     });

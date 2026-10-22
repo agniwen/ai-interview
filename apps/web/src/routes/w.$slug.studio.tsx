@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  Outlet,
-  createFileRoute,
-  notFound,
-  redirect,
-  useRouterState,
-} from "@tanstack/react-router";
+import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
@@ -17,22 +11,7 @@ import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
-import { hasPermissionInStatements } from "@app/shared/permission-statements";
 import { cn } from "@app/shared/utils";
-
-function findStudioPageByPath(pathname: string, slug: string) {
-  const studioBasePath = `/w/${slug}/studio`;
-  const relativePath = pathname.slice(studioBasePath.length) || "/";
-  return STUDIO_PAGE_PATHS.find(
-    (item) => relativePath === item.path || relativePath.startsWith(`${item.path}/`),
-  );
-}
-
-async function findFirstAllowedStudioPath(slug: string) {
-  const { getFirstAllowedStudioPagePath } = await import("@/lib/start/auth-session");
-  return await getFirstAllowedStudioPagePath({ data: { slug } });
-}
 
 // 侧栏展开/收起过渡期间（Sidebar 根节点带 data-transitioning），桌面端内容区直接取过渡结束后的最终宽度：
 // 只重排一次，过渡中仅随左边缘平移并被 SidebarInset 裁剪；静止时恢复 w-full，不依赖下面的宽度算式。
@@ -103,33 +82,10 @@ function StudioShellRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio")({
   ssr: "data-only",
-  loader: async (loaderContext) => {
-    const { location, params, parentMatchPromise } = loaderContext;
-
-    if (location.pathname === `/w/${params.slug}/studio`) {
-      const fallbackPath = await findFirstAllowedStudioPath(params.slug);
-      if (!fallbackPath) {
-        throw notFound();
-      }
-      throw redirect({ href: `/w/${params.slug}/studio${fallbackPath}` });
-    }
-
-    const requestedPage = findStudioPageByPath(location.pathname, params.slug);
-    if (!requestedPage) {
-      return null;
-    }
-
-    const parentMatch = await parentMatchPromise;
-    const state = parentMatch.loaderData;
-    if (
-      !state ||
-      state.status !== "ready" ||
-      !hasPermissionInStatements(state.permissions, "page", requestedPage.action)
-    ) {
-      throw notFound();
-    }
-
-    return null;
+  // Page permissions are checked by each page route; see requireStudioPagePermission.
+  loader: async ({ parentMatchPromise }) => {
+    const workspaceMatch = await parentMatchPromise;
+    return workspaceMatch.loaderData ?? null;
   },
   head: ({ matches }) => ({
     meta: [

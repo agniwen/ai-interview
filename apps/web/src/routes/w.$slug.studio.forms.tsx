@@ -4,6 +4,7 @@ import { StudioTablePageSkeleton } from "@/components/features/studio/studio-pag
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 const routeApi = getRouteApi("/w/$slug/studio/forms");
 
@@ -16,7 +17,8 @@ function StudioFormsRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio/forms")({
   validateSearch: coerceSearchParams,
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "forms");
     const state = await loadStudioFormsState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({

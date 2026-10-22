@@ -4,6 +4,7 @@ import type { StudioCalendarCandidate, StudioCalendarEvent } from "@app/shared/s
 import { studioCalendarEventDestination } from "@/components/features/studio/calendar/studio-calendar-navigation";
 import { StudioCalendarPage } from "@/components/features/studio/calendar/studio-calendar-page";
 import { formatDocumentTitle } from "@/lib/start/document-title";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 function StudioCalendarRoute() {
   const navigate = useNavigate({ from: "/w/$slug/studio/calendar" });
@@ -35,6 +36,7 @@ function StudioCalendarRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/calendar")({
+  loader: ({ parentMatchPromise }) => requireStudioPagePermission(parentMatchPromise, "calendar"),
   head: () => ({
     meta: [{ title: formatDocumentTitle("面试管理") }],
   }),

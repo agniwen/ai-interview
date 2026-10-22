@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { WorkspacePermissionsSection } from "@/components/features/studio/members/workspace-permissions-section";
 import { PermissionsPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { formatDocumentTitle } from "@/lib/start/document-title";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 function StudioPermissionsRoute() {
   return (
@@ -17,6 +18,8 @@ function StudioPermissionsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/permissions")({
+  loader: ({ parentMatchPromise }) =>
+    requireStudioPagePermission(parentMatchPromise, "permissions"),
   component: StudioPermissionsRoute,
   head: () => ({
     meta: [{ title: formatDocumentTitle("权限管理") }],

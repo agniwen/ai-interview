@@ -9,6 +9,7 @@ import { RecruitingDashboardPage } from "@/components/features/studio/dashboard/
 import { DashboardPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 function StudioDashboardRoute() {
   const state = useLoaderData({ from: "/w/$slug/studio/dashboard" });
@@ -22,7 +23,8 @@ function StudioDashboardRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/dashboard")({
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "dashboard");
     const state = await loadStudioDashboardState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({

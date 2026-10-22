@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { InterviewCopyGuard } from "@/components/features/interview/interview-copy-guard";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 
@@ -11,12 +11,6 @@ function InterviewQuickStartRoute() {
 }
 
 export const Route = createFileRoute("/interview")({
-  loader: ({ location }) => {
-    if (location.pathname === "/interview") {
-      throw redirect({ href: "/" });
-    }
-    return null;
-  },
   head: () => ({
     meta: [
       {

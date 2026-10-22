@@ -34,9 +34,6 @@ export async function loadWorkspaceRoute(
   if (state.member.role === NO_ACCESS_WORKSPACE_ROLE) {
     throw redirect({ href: "/wait" });
   }
-  if (location.pathname === `/w/${params.slug}`) {
-    throw redirect({ href: `/w/${params.slug}/studio` });
-  }
   return state;
 }
 

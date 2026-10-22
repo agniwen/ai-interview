@@ -1,14 +1,17 @@
 import { isNotFound } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
 import type { WorkspaceAccessState } from "@/lib/start/auth-session-types";
+import { Route as MembersRoute } from "@/routes/w.$slug.studio.members";
 import { Route } from "@/routes/w.$slug.studio";
 
 type LoaderFunction<T> = T extends (...args: infer Arguments) => infer Result
   ? (...args: Arguments) => Result
   : never;
-type StudioLoader = LoaderFunction<NonNullable<typeof Route.options.loader>>;
+type RouteLoader = LoaderFunction<NonNullable<typeof Route.options.loader>>;
 
-function isStudioLoader(value: typeof Route.options.loader): value is StudioLoader {
+type StudioLoaderOption = typeof Route.options.loader | typeof MembersRoute.options.loader;
+
+function isRouteLoader(value: StudioLoaderOption): value is RouteLoader {
   return typeof value === "function";
 }
 
@@ -24,16 +27,19 @@ function readyAccess(
   };
 }
 
-async function runStudioLoader(state: WorkspaceAccessState) {
-  const { loader } = Route.options;
-  if (!isStudioLoader(loader)) {
-    throw new TypeError("Studio route loader is unavailable.");
+async function runLoader(
+  loader: StudioLoaderOption,
+  parentLoaderData: WorkspaceAccessState,
+  pathname: string,
+) {
+  if (!isRouteLoader(loader)) {
+    throw new TypeError("Route loader is unavailable.");
   }
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return await loader({
-    location: { pathname: "/w/acme/studio/resumes" },
+    location: { pathname },
     params: { slug: "acme" },
-    parentMatchPromise: Promise.resolve({ loaderData: state }),
+    parentMatchPromise: Promise.resolve({ loaderData: parentLoaderData }),
   } as never);
 }
 
@@ -42,11 +48,22 @@ describe("Studio route access", () => {
     expect(Route.options.ssr).toBe("data-only");
   });
 
-  it("accepts the requested page from the workspace parent match", async () => {
-    await expect(runStudioLoader(readyAccess(["resumes"]))).resolves.toBeNull();
+  it("passes the workspace access state to Studio pages", async () => {
+    const state = readyAccess(["members"]);
+    await expect(runLoader(Route.options.loader, state, "/w/acme/studio")).resolves.toBe(state);
   });
 
-  it("returns not-found when the workspace parent match denies the requested page", async () => {
-    await expect(runStudioLoader(readyAccess([]))).rejects.toSatisfy(isNotFound);
+  it("accepts a page the workspace access state allows", async () => {
+    await expect(
+      runLoader(MembersRoute.options.loader, readyAccess(["members"]), "/w/acme/studio/members"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("returns not-found for a denied page even when the layout was loaded for another page", async () => {
+    // The shared layout match may be reused from an intent preload of another page,
+    // so the page route must enforce its own permission.
+    await expect(
+      runLoader(MembersRoute.options.loader, readyAccess(["resumes"]), "/w/acme/studio/resumes"),
+    ).rejects.toSatisfy(isNotFound);
   });
 });

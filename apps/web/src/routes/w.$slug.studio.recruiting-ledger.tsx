@@ -7,6 +7,7 @@ import { RecruitingLedgerPage } from "@/components/features/studio/recruiting-le
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioRecruitingLedgerState } from "@/lib/start/studio/recruiting-ledger.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 const routeApi = getRouteApi("/w/$slug/studio/recruiting-ledger");
 
@@ -63,7 +64,8 @@ function StudioRecruitingLedgerRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio/recruiting-ledger")({
   validateSearch: recruitingLedgerSearchSchema,
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "recruitingLedger");
     const state = await loadStudioRecruitingLedgerState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({

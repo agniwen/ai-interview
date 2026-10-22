@@ -3,6 +3,7 @@ import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
 import { ResumePoolPage } from "@/components/features/studio/resume-pool/resume-pool-page";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { ResumePoolPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 function StudioResumePoolRoute() {
   const activeRouteId = useRouterState({
@@ -28,6 +29,7 @@ function StudioResumePoolRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resume-pool")({
+  loader: ({ parentMatchPromise }) => requireStudioPagePermission(parentMatchPromise, "resumePool"),
   head: () => ({
     meta: [{ title: formatDocumentTitle("人才库") }],
   }),
