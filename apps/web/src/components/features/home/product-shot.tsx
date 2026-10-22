@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
+import { useEntranceSettled } from "@/hooks/use-entrance-settled";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { DemoWindowSkeleton } from "./screens/demo-window-skeleton";
 import { ScreenFrame } from "./screens/screen-frame";
@@ -27,6 +28,7 @@ function DemoWindowPlaceholder() {
  */
 export function ProductShot() {
   const hydrated = useHydrated();
+  const [stageRef, entranceSettled] = useEntranceSettled<HTMLDivElement>();
 
   return (
     <section
@@ -34,7 +36,15 @@ export function ProductShot() {
       data-slot="home-product-stage"
     >
       <div className="mx-auto w-full max-w-[calc(1280px+8rem)] px-4 pt-2 pb-12 sm:pb-14 lg:px-16 lg:pb-16">
-        <div className="w-full animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-[550ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none">
+        {/* 入场动画播完即移除，body 节点重插时不会重播。 Dropped once finished so it never replays. */}
+        <div
+          className={
+            entranceSettled
+              ? "w-full"
+              : "w-full animate-in fade-in slide-in-from-bottom-4 fill-mode-both duration-[550ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none"
+          }
+          ref={stageRef}
+        >
           {hydrated ? (
             <Suspense fallback={<DemoWindowPlaceholder />}>
               <ResumesScreen />
