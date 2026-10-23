@@ -4,14 +4,18 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
+  IconAlertCircleFilled,
   IconBriefcase,
   IconCircleCheckFilled,
   IconMicrophone,
+  IconSparkles,
   IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { getPipelineStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";
 import * as messages from "@/paraglide/messages";
 import { cn } from "@app/shared/utils";
 import { getHomeDemoCopy } from "./home-demo-copy";
@@ -78,46 +82,56 @@ function EvidenceScreeningBlock() {
   const copy = getHomeDemoCopy().roles.manager;
 
   return (
-    <div className="w-full max-w-[44rem]" data-process-ui-block>
+    <div className="w-full max-w-[28rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <Avatar className="size-7" label={copy.avatarLabel} seed="candidate:明日香" size="sm">
-              <AvatarFallback>{getHomeDemoCopy().feature.candidateName.slice(0, 1)}</AvatarFallback>
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar className="size-9" label={copy.avatarLabel} seed={`candidate:${copy.name}`}>
+              <AvatarFallback>{copy.name.slice(0, 1)}</AvatarFallback>
             </Avatar>
-            <div>
-              <p className="font-semibold text-[14px]">{copy.name}</p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">{copy.role}</p>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-lg leading-tight">{copy.name}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.role}</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="font-semibold text-2xl tabular-nums leading-none">87</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{copy.overallScore}</p>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <IconSparkles aria-hidden="true" className="size-3 text-primary" />
+              {copy.aiLabel}
+            </span>
+            <Badge className="h-6" variant="success">
+              {copy.aiValue}
+            </Badge>
           </div>
         </div>
-
-        <div className="grid sm:grid-cols-[minmax(9rem,0.78fr)_minmax(0,1.22fr)]">
-          <div className="px-4 py-3.5 sm:border-r">
-            <p className="font-medium text-[12px] text-muted-foreground">{copy.originalTitle}</p>
-            <div className="mt-3 space-y-3 text-[12px] text-foreground/58 leading-relaxed">
-              {copy.originalLines.map((line, index) => (
-                <p className={index === 2 ? "text-foreground/38" : undefined} key={line}>
-                  {line}
-                </p>
-              ))}
-            </div>
-          </div>
-
-          <div className="divide-y divide-border/65 border-t px-4 sm:border-t-0">
-            {copy.items.map(([label, detail, source]) => (
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-2.5" key={label}>
-                <div className="min-w-0">
-                  <p className="font-medium text-[13px]">{label}</p>
-                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{detail}</p>
-                </div>
-                <span className="self-center text-[11px] text-muted-foreground">{source}</span>
-              </div>
+        <div className="border-t px-5 py-4">
+          <p className="font-medium text-[12px] text-muted-foreground">{copy.evidenceTitle}</p>
+          <ul className="mt-2.5 space-y-2.5">
+            {copy.items.map(([kind, detail, source]) => (
+              <li className="flex items-start gap-2" key={detail}>
+                {kind === "risk" ? (
+                  <IconAlertCircleFilled
+                    aria-hidden="true"
+                    className="mt-px size-4 shrink-0 text-amber"
+                  />
+                ) : (
+                  <IconCircleCheckFilled
+                    aria-hidden="true"
+                    className="mt-px size-4 shrink-0 text-green"
+                  />
+                )}
+                <span className="min-w-0">
+                  <span className="block text-[13px]">{detail}</span>
+                  <span className="block text-[12px] text-muted-foreground">{source}</span>
+                </span>
+              </li>
             ))}
+          </ul>
+        </div>
+        <div className="border-t px-5 py-4">
+          <div className="rounded-[8px] bg-muted/60 px-3.5 py-3">
+            <p className="text-[12px] text-muted-foreground">{copy.followupTitle}</p>
+            <p className="mt-1 font-medium text-[14px]">{copy.followup}</p>
           </div>
         </div>
       </div>
@@ -125,53 +139,62 @@ function EvidenceScreeningBlock() {
   );
 }
 
-const STAGE_TONE = {
-  ai: "bg-primary/10 text-primary",
-  hired: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
-  human: "bg-amber-500/14 text-amber-700 dark:text-amber-300",
-  screening: "bg-muted text-foreground/70",
-} as const;
+// 与招聘台阶段徽标同一套色调。Same tones as the recruiting desk's stage badges.
+const STAGE_TILE = {
+  default: "bg-muted text-muted-foreground",
+  info: "bg-sky-tint text-sky-ink",
+  outline: "bg-muted text-muted-foreground",
+  pink: "bg-pink-tint text-pink-ink",
+  success: "bg-green-tint text-green-ink",
+  warning: "bg-amber-tint text-amber-ink",
+} as const satisfies Record<ReturnType<typeof getPipelineStageBadgeVariant>, string>;
 
 function HrPipelineBlock() {
   const copy = getHomeDemoCopy().roles.hr;
 
   return (
-    <div className="w-full max-w-[44rem]" data-process-ui-block>
+    <div className="w-full max-w-[28rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
-        <div className="border-b px-4 py-3">
-          <p className="truncate font-semibold text-base">{copy.title}</p>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
+        <div className="px-5 pt-5 pb-4">
+          <p className="truncate font-semibold text-lg">{copy.title}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{copy.subtitle}</p>
+          <ol className="mt-4 grid grid-cols-4 gap-1.5">
+            {copy.stages.map(([stage, label, count]) => (
+              <li
+                className={cn(
+                  "min-w-0 rounded-[8px] px-2 py-2.5 sm:px-2.5",
+                  STAGE_TILE[getPipelineStageBadgeVariant(stage)],
+                )}
+                key={stage}
+              >
+                <p className="truncate text-[11px] sm:text-[12px]">{label}</p>
+                <p className="mt-1.5 font-semibold text-foreground text-xl tabular-nums leading-none">
+                  {count}
+                </p>
+              </li>
+            ))}
+          </ol>
         </div>
-        <div className="grid grid-cols-[minmax(6rem,0.8fr)_minmax(6rem,0.8fr)_minmax(0,1.2fr)] bg-muted/24 px-4 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
-          {copy.headers.map((header) => (
-            <span key={header}>{header}</span>
-          ))}
-        </div>
-        <div className="divide-y divide-border/65 px-4">
-          {copy.rows.map(([name, stage, stageLabel, next]) => (
-            <div
-              className="grid grid-cols-[minmax(6rem,0.8fr)_minmax(6rem,0.8fr)_minmax(0,1.2fr)] items-center py-3 text-[13px]"
-              key={name}
-            >
-              <span className="flex min-w-0 items-center gap-2 font-medium">
-                <Avatar className="size-6" label={name} seed={`candidate:${name}`} size="sm">
-                  <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
-                </Avatar>
-                <span className="truncate">{name}</span>
-              </span>
-              <span>
-                <span
-                  className={cn(
-                    "inline-flex rounded-full px-2 py-0.5 font-medium text-[12px]",
-                    STAGE_TONE[stage],
-                  )}
-                >
-                  {stageLabel}
+        <div className="border-t px-5 py-4">
+          <p className="font-medium text-[12px] text-muted-foreground">{copy.queueTitle}</p>
+          <ul className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-3">
+            {copy.rows.map(([name, stage, stageLabel, next]) => (
+              <li className="col-span-2 grid grid-cols-subgrid items-center" key={name}>
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Avatar className="size-7" label={name} seed={`candidate:${name}`} size="sm">
+                    <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-[13px]">{name}</span>
+                    <span className="block truncate text-[12px] text-muted-foreground">{next}</span>
+                  </span>
                 </span>
-              </span>
-              <span className="truncate text-muted-foreground">{next}</span>
-            </div>
-          ))}
+                <Badge className="h-6 w-full" variant={getPipelineStageBadgeVariant(stage)}>
+                  {stageLabel}
+                </Badge>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
@@ -195,7 +218,7 @@ function CandidateInviteBlock() {
             {copy.checks.map(([label, status]) => (
               <li className="flex items-center justify-between gap-3 text-[13px]" key={label}>
                 <span className="flex items-center gap-2">
-                  <IconCircleCheckFilled aria-hidden="true" className="size-4 text-emerald-500" />
+                  <IconCircleCheckFilled aria-hidden="true" className="size-4 text-green" />
                   {label}
                 </span>
                 <span className="text-muted-foreground">{status}</span>
