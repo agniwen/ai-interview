@@ -1,18 +1,19 @@
 "use client";
 
-import { IconClipboardList, IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InterviewEntryBackground } from "./interview-background";
 import { withCleanup } from "@/lib/client/async-control";
+import { interviewSolidButtonClass } from "./interview-button-styles";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
+import { InterviewFlowProgress } from "./interview-flow-stepper";
 import { FormCard } from "./pre-interview-forms/form-card";
 import { buildInitialAnswers, validateAnswers } from "./pre-interview-forms/helpers";
 import type {
@@ -165,7 +166,7 @@ export function PreInterviewFormsView({
           }
           setSubmittedIds((prev) => new Set([...prev, template.templateId]));
         }
-        toast.success("信息已保存，感谢您的配合。");
+        toast.success("信息已保存");
       },
       () => setSubmitting(false),
     );
@@ -184,18 +185,8 @@ export function PreInterviewFormsView({
         <InterviewEntryBackground />
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pt-12 pb-44 sm:px-6 sm:pt-20 sm:pb-40 md:pt-16">
-            <section className="mb-8">
-              <Badge className="mb-3">
-                <IconClipboardList data-icon="inline-start" />
-                开始前的面试表单
-              </Badge>
-              <h1 className="text-2xl tracking-tight sm:text-3xl">
-                开始前，请补充本次面试所需信息
-              </h1>
-              <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-                这些信息将用于本轮面试。填写完成后，您可以继续进入面试。
-              </p>
-            </section>
+            <InterviewFlowProgress className="mb-8 self-center" currentStep="forms" hasForms />
+            <h1 className="mb-8 text-2xl tracking-tight sm:text-3xl">补充面试信息</h1>
 
             <div className="space-y-4">
               {pendingTemplates.map((template) => (
@@ -218,17 +209,15 @@ export function PreInterviewFormsView({
         actions={
           <Button
             disabled={submitting || pendingTemplates.length === 0}
+            className={interviewSolidButtonClass}
             onClick={() => {
               handleSubmitAll();
             }}
-            size="sm"
           >
             {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             保存并继续
           </Button>
         }
-        currentStep="forms"
-        hasForms
         onBack={onBack}
       />
     </>

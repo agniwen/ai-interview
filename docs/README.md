@@ -12,7 +12,7 @@
 - [本地 LiveKit](../infra/livekit-local/README.md)、[本地任务 Redis](../infra/queue-local/README.md)
 - [会议处理容量验证](operations/meeting-buddy-capacity.md)、[Qwen Realtime 运维](operations/qwen-realtime-agent.md)
 - [远程 MCP](integrations/remote-mcp.md)
-- [首页背景](design/home-multicolor-artwork.md)、[面试入口背景](design/interview-preparation-artwork.md)、[品牌图标](design/light-brand-icon.md)
+- [首页背景](design/home-multicolor-artwork.md)、[面试入口点阵背景](design/interview-preparation-artwork.md)、[品牌图标](design/light-brand-icon.md)
 
 各应用和共享包的 README 描述各自入口与职责；[AGENTS.md](../AGENTS.md) 是编码约定的共同来源。
 

@@ -5,8 +5,8 @@ function createSession() {
   const calls: string[] = [];
   const session = {
     room: {
-      switchActiveDevice: vi.fn(() => {
-        calls.push("switch-default-microphone");
+      switchActiveDevice: vi.fn((_kind: string, deviceId: string) => {
+        calls.push(`switch-microphone:${deviceId}`);
         return Promise.resolve(true);
       }),
     },
@@ -34,7 +34,25 @@ describe("startInterviewSession", () => {
       startMuted,
     });
 
-    expect(calls).toEqual(["start-session", "switch-default-microphone"]);
+    expect(calls).toEqual(["start-session", "switch-microphone:default"]);
     expect(session.room.switchActiveDevice).toHaveBeenCalledWith("audioinput", "default", false);
+  });
+
+  it("captures the chosen microphone from the first track and keeps it after connecting", async () => {
+    const { calls, session } = createSession();
+
+    await startInterviewSession({
+      microphoneDeviceId: "usb-mic",
+      recordingEnabled: false,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
+      session: session as never,
+      startMuted: false,
+    });
+
+    expect(calls).toEqual([
+      "switch-microphone:usb-mic",
+      "start-session",
+      "switch-microphone:usb-mic",
+    ]);
   });
 });

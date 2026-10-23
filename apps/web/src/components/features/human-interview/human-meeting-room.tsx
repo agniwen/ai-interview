@@ -39,6 +39,7 @@ import {
   shouldPollHumanInterviewRecordingStatus,
 } from "./human-meeting-recording-status";
 import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
+import { interviewSolidButtonClass } from "@/components/features/interview/interview-button-styles";
 
 type HumanMeetingRoomProps =
   | {
@@ -533,6 +534,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     const joinButton = (
       <Button
         className={cn(
+          interviewSolidButtonClass,
           "h-11 md:h-10 md:w-fit md:min-w-36",
           props.mode === "interviewer" ? "min-w-0 flex-1 md:flex-none" : "w-full",
         )}

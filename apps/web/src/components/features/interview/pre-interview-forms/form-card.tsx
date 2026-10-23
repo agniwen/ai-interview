@@ -30,8 +30,8 @@ export function FormCard({
     <section
       className={
         submitted
-          ? "rounded-xl border border-border bg-card/60 p-5 opacity-70"
-          : "rounded-xl border border-border bg-card p-5"
+          ? "rounded-xl border border-transparent bg-card/60 p-5 opacity-70 shadow-default"
+          : "rounded-xl border border-transparent bg-card p-5 shadow-default"
       }
     >
       <header className="mb-4 flex items-start justify-between gap-3">
