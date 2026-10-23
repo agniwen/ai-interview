@@ -1,7 +1,7 @@
 /** Language-independent fixtures for the homepage demo; localized text lives in demo-copy/. */
 export const DEMO_CANDIDATE_ID = "00003";
-export const DEMO_CANDIDATE_EMAIL = "shinji@nerv.example";
-export const DEMO_CANDIDATE_PHONE = "+81 3-0000-0003";
+export const DEMO_CANDIDATE_EMAIL = "shinji@example.com";
+export const DEMO_CANDIDATE_PHONE = "+86 138 0000 0003";
 export const DEMO_INVITATION_URL = `interview.example.com/i/shinji-${DEMO_CANDIDATE_ID}`;
 export const DEMO_CREATED_AT = "2026-10-06 14:32";
 

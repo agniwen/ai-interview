@@ -67,20 +67,44 @@ export function LeadText({ children, className }: { children: string; className?
 }
 
 export function SectionHeader({
+  action,
   align = "start",
   lead,
   title,
 }: {
+  /** 标题右侧的行动按钮，对齐 ElevenLabs 的「了解更多」。 Optional action beside the title. */
+  action?: ReactNode;
   /** 居中用于轮播类板块（对齐 qoder 的产品展示）。 Centered for carousel sections. */
   align?: "center" | "start";
   lead: string;
   title: ReactNode;
 }) {
   const centered = align === "center";
-  return (
+  const header = (
     <div className={cn("flex flex-col gap-3", centered && "items-center text-center")}>
       <SectionTitle>{title}</SectionTitle>
       <LeadText className="max-w-[40rem] sm:text-base xl:text-base">{lead}</LeadText>
+    </div>
+  );
+  if (!action) {
+    return header;
+  }
+  return (
+    <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      {header}
+      <div className="shrink-0">{action}</div>
+    </div>
+  );
+}
+
+/**
+ * 分区之间的细分隔线：只占内容宽度，两端淡出，不做框线。
+ * Soft divider between sections: content width only, fading at both ends.
+ */
+export function SectionDivider() {
+  return (
+    <div aria-hidden="true" className="mx-auto w-full max-w-360 px-6 sm:px-8 lg:px-16">
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
     </div>
   );
 }

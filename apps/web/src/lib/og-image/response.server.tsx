@@ -2,7 +2,7 @@ import { ImageResponse } from "takumi-js/response";
 import { RecruitmentOgCard } from "@/components/og/recruitment-og-card";
 
 const OG_FONT_FAMILY = "Noto Sans SC";
-const OG_FONT_TEXT = "招聘 AI 协同工作台覆盖简历筛选面试编排候选人评估端到端工作流";
+const OG_FONT_TEXT = "Deepround 新一代招聘智能体覆盖简历筛选面试编排候选人评估端到端工作流";
 const OG_IMAGE_SIZE = {
   height: 630,
   width: 1200,
@@ -15,13 +15,13 @@ function getAppHostname() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL;
 
   if (!baseUrl) {
-    return "AI Hiring Copilot";
+    return "Deepround";
   }
 
   try {
     return new URL(baseUrl).hostname;
   } catch {
-    return "AI Hiring Copilot";
+    return "Deepround";
   }
 }
 
@@ -73,9 +73,9 @@ function loadOgFonts() {
 export async function createOgImageResponse() {
   return new ImageResponse(
     <RecruitmentOgCard
-      description="覆盖简历筛选、AI 面试编排、候选人评估的端到端招聘工作流。"
+      description="新一代招聘智能体，覆盖简历筛选、AI 面试编排、候选人评估的端到端招聘工作流。"
       items={["简历筛选", "AI 面试", "候选人评估"]}
-      name="招聘 AI 协同工作台"
+      name="Deepround"
       url={getAppHostname()}
     />,
     {

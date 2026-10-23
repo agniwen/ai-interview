@@ -11,7 +11,7 @@ export const Route = createFileRoute("/w/$slug/agent/")({
   head: () => ({
     meta: [
       {
-        content: "Workspace 级招聘 Copilot，可检索招聘台和岗位库并协助推进招聘动作。",
+        content: "Workspace 级招聘智能体，可检索招聘台和岗位库并协助推进招聘动作。",
         name: "description",
       },
     ],

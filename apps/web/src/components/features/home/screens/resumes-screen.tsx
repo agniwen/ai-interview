@@ -543,7 +543,7 @@ function ResumeCardList() {
         createdAt: meta.createdAt,
         creator: people.recruiter,
         education: record.education,
-        email: `${meta.id}@nerv.example`,
+        email: `${meta.id}@example.com`,
         focus: record.focus,
         group: meta.group,
         id: meta.id,

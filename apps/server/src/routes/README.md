@@ -11,7 +11,7 @@
 | `interview/`              | `/interview`              | 候选人 AI 面试入口                                       |
 | `join/`                   | `/join`                   | 工作区邀请链接（预览与加入）                             |
 | `public/`                 | `/public`                 | 无需登录的公开页面数据（邀请响应、评价复核等）           |
-| `resume/`                 | `/resume`                 | Copilot 对话的模型列表与标题生成                         |
+| `resume/`                 | `/resume`                 | 招聘智能体对话的模型列表与标题生成                       |
 | `session/`                | `/session`                | 会话与当前用户                                           |
 | `platform/`               | `/platform`               | 平台管理员                                               |
 | `mcp/`                    | `/mcp`、`/mcp-access`     | MCP 招聘工具与授权管理                                   |
@@ -19,7 +19,7 @@
 | `meetings/`               | `/w/:slug/meetings`       | Echo 会议记录、转写、智能分析                            |
 | `workspace/`              | `/w/:slug`                | 工作区聚合路由，挂载工作区鉴权和 Studio 等子路由         |
 | `studio/`                 | `/w/:slug/studio`         | 招聘工作台：候选人、面试、岗位、表单、题库、Offer 审批等 |
-| `chat/`                   | `/w/:slug/chat`           | 招聘 Copilot 对话                                        |
+| `chat/`                   | `/w/:slug/chat`           | 招聘智能体 对话                                          |
 
 ## 边界
 

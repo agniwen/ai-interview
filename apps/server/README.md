@@ -1,6 +1,6 @@
 # @app/server
 
-AI Hiring Copilot 的 Hono 后端运行时。它拥有 HTTP/RPC 边界、认证与工作区授权、业务路由编排、数据库访问和外部集成适配；既可由 `apps/web` 挂载到 `/api`，也可作为独立 Bun 服务运行。
+Deepround 的 Hono 后端运行时。它拥有 HTTP/RPC 边界、认证与工作区授权、业务路由编排、数据库访问和外部集成适配；既可由 `apps/web` 挂载到 `/api`，也可作为独立 Bun 服务运行。
 
 ## 职责
 

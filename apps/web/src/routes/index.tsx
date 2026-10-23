@@ -3,7 +3,7 @@ import { z } from "zod";
 import { HomeAuthRedirect } from "@/components/features/home/home-auth-redirect";
 import HomeShell from "@/components/features/home/home-shell";
 import { skyPosterPreconnectLink } from "@/components/features/sky/sky-assets";
-import { formatDocumentTitle } from "@/lib/start/document-title";
+import { ROOT_DOCUMENT_TITLE } from "@/lib/start/document-title";
 import * as m from "@/paraglide/messages";
 
 const homeSearchSchema = z.object({
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     links: [skyPosterPreconnectLink],
     meta: [
-      { title: formatDocumentTitle(m.home_document_title()) },
+      { title: ROOT_DOCUMENT_TITLE },
       { content: m.home_document_description(), name: "description" },
     ],
   }),

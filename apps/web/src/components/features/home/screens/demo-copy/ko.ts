@@ -10,24 +10,33 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     candidateInfo: "후보자 정보",
     completed: "완료",
     contributionBody:
-      "초호기 저격 포지션을 맡아 양전자포 재충전 후 결정적인 두 번째 사격을 명중시켰다.",
-    contributionTitle: "야시마 작전에서의 개인 기여",
+      "기획 주제·규칙 설계·회고를 맡아 3주 만에 신규 4,200명, 매장 사용률 27%를 달성했습니다.",
+    contributionTitle: "‘주말 매장 체크인’ 캠페인에서의 개인 기여",
     conversationLabel: "대화",
     conversationQuestions: "대화 질문",
     conversationValue: "후보자 답변 12회",
     copyLink: "면접 링크 복사",
     endTime: "종료 시간",
     formAnswers: [
-      { label: "경력", value: "실전 1년" },
-      { label: "희망 연봉", value: "월 ¥32,000–35,000" },
-      { label: "입사 가능 시기", value: "오퍼 확정 후 즉시 제3신도쿄시 부임 가능" },
+      {
+        label: "경력",
+        value: "3년",
+      },
+      {
+        label: "희망 연봉",
+        value: "월 ¥18,000–20,000",
+      },
+      {
+        label: "입사 가능 시기",
+        value: "오퍼 확정 후 2주 이내",
+      },
     ],
     formQuestions: "양식 질문",
     hideTranscript: "대화 기록 접기",
     itemCount: (count: number) => `${count}개`,
     recommendBadge: "추천",
     resultMarkdown:
-      "**대면 면접 진행을 권장합니다.** 이카리 신지는 야시마 작전의 저격 계획, 긴급 탈출 절차, 싱크로율 향상 방법을 구체적으로 설명했습니다. 기여가 명확하며 신경 접속 기동 시간을 3.2초에서 1.4초로 줄였고, 2주간의 싱크로 테스트 데이터로 뒷받침됩니다. 대면 면접에서는 고압 상황에서의 작전 판단을 중점 확인합니다.",
+      "**대면 면접 진행을 권장합니다.** 신지는 ‘주말 매장 체크인’ 캠페인의 기획·실행·회고와 커뮤니티 악성 여론 대응 절차를 명확하게 설명했습니다. 개인 기여가 구체적이며, 월간 활성 비율이 18%에서 36%로 올랐고 3개월 연속 데이터로 뒷받침됩니다. 대면 면접에서는 부서 간 협업과 예산 관리를 중점적으로 확인합니다.",
     resultTitle: "면접 결과",
     roundButton: "1차 · AI 첫 면접 · 10/08 11:00",
     scoreLabel: "점수",
@@ -51,19 +60,18 @@ export const koDemoScreenCopy: DemoScreenCopy = {
   conversation: [
     {
       answer:
-        "저는 초호기 저격 포지션을 맡았고 영호기가 방패로 엄호했습니다. 양전자포는 일본 전역의 전력을 사용했습니다. 첫 발은 사도의 간섭으로 빗나갔지만 20초 재충전 후 두 번째 사격으로 제5사도의 코어를 관통했습니다.",
-      question: "참여한 야시마 작전과 본인이 맡은 부분을 구체적으로 소개해 주세요.",
+        "스광 라이프에서 40개 이상의 도시별 사용자 그룹을 맡아 신규 가입 SOP와 KOC 등급별 인센티브를 만들었습니다. ‘주말 매장 체크인’은 기획부터 회고까지 직접 맡아 3주 만에 신규 4,200명, 매장 사용률 27%를 달성했습니다.",
+      question: "직접 맡았던 커뮤니티 성장 프로젝트와 본인이 담당한 부분을 소개해 주세요.",
     },
     {
       answer:
-        "먼저 MAGI가 보여 주는 신경 접속 오류율로 전투 지속 여부를 판단합니다. 엄빌리컬 케이블이 끊기면 내부 전원은 5분밖에 버티지 못하므로 회수 경로를 미리 확인합니다. 임계값을 넘으면 작전부가 엔트리 플러그를 긴급 사출합니다.",
-      question: "전투 중 싱크로율이 흔들릴 때 어떻게 대응하고 탈출하나요?",
+        "먼저 그룹에 통일된 답변과 처리 기한을 공지해 감정이 번지지 않게 합니다. 동시에 고객지원과 사업 담당자로 임시 대응 그룹을 만들어 30분 안에 해결책을 냅니다. 이후 대표적인 문제는 FAQ와 공지에 정리하고 매달 불만 비율을 회고합니다.",
+      question: "그룹에 불만이나 부정적 여론이 몰리면 어떻게 대응하나요?",
     },
     {
       answer:
-        "아카기 박사님이 동일한 테스트 플러그 조건에서 2주간 싱크로 곡선을 기록해 P75 값을 비교하고 LCL 농도 변화의 영향을 배제했습니다. 신경 접속 기동 시간도 3.2초에서 1.4초로 줄었습니다.",
-      question:
-        "싱크로율이 41.3%에서 70% 이상으로 올랐습니다. 데이터가 유효한지 어떻게 확인했나요?",
+        "기준은 ‘해당 월에 그룹에서 발언하거나 이벤트에 참여한 멤버 비율’이며 봇과 직원 계정은 제외했습니다. 운영 활동을 하지 않은 대조 그룹과 비교해 할인 시즌의 자연 증가를 걸러냈고, 3개월 연속 33% 이상을 유지했습니다.",
+      question: "월간 활성 비율이 18%에서 36%로 올랐습니다. 데이터가 유효한지 어떻게 확인했나요?",
     },
   ],
   desk: {
@@ -80,168 +88,228 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     "00001": {
       detail: "최종 면접 · 평가 대기",
       education: [
-        { period: "2025–2027", primary: "제3신도쿄시립 제일중학교", secondary: "2학년 A반" },
+        {
+          period: "2018–2022",
+          primary: "난징대학교",
+          secondary: "중어중문학 · 학사",
+        },
       ],
       focus: [
         {
-          content: "영호기 장기 테스트 파일럿으로 안정적인 조종과 싱크로 테스트 기록이 있습니다.",
-          kind: "matching",
-          point: "기체 조종",
+          content: "콘텐츠 운영 3년, 장문 글과 숏폼 영상 기획에 강하고 꾸준히 제작합니다.",
+          kind: "matching" as const,
+          point: "콘텐츠 기획",
         },
         {
-          content: "야시마 작전에서 방패로 초호기를 엄호하며 편대 방어를 맡았습니다.",
-          kind: "matching",
-          point: "방어 엄호",
+          content: "조회·완독·전환 데이터를 매주 회고해 기획에 반영합니다.",
+          kind: "matching" as const,
+          point: "데이터 회고",
         },
         {
-          content:
-            "이력서에 본인 동기 서술이 적어 최종 면접에서 소통과 협업 의지를 확인해야 합니다.",
-          kind: "risk",
-          point: "소통",
+          content: "지원 동기 서술이 적어 최종 면접에서 협업 의지를 확인해야 합니다.",
+          kind: "risk" as const,
+          point: "주도적 소통",
         },
       ],
-      job: "NERV 일본 지부 / 에반게리온 영호기 파일럿",
+      job: "윈판테크 / 콘텐츠 운영",
       name: "아야나미 레이",
       stage: "대면 면접",
       summary:
-        "퍼스트 칠드런. 영호기의 장기 테스트 파일럿으로 야시마 작전에서 방패로 엄호했고 명령을 안정적으로 수행합니다.",
+        "콘텐츠 운영 3년, 장문 글과 숏폼 영상 기획에 강함. 실행은 안정적이나 지원 동기 서술이 적음.",
       verdict: "추천",
       work: [
-        { period: "2025–현재", primary: "NERV 일본 지부", secondary: "에반게리온 영호기 파일럿" },
-        { period: "2015–2025", primary: "NERV 본부", secondary: "싱크로 테스트 대상" },
+        {
+          period: "2022–현재",
+          primary: "지싱 아카데미",
+          secondary: "콘텐츠 운영",
+        },
+        {
+          period: "2021–2022",
+          primary: "칭허출판사 뉴미디어팀",
+          secondary: "편집 인턴",
+        },
       ],
     },
     "00002": {
       detail: "2차 면접 · 일정 확정",
-      education: [{ period: "2024–2025", primary: "독일의 한 대학", secondary: "월반 졸업" }],
-      focus: [
+      education: [
         {
-          content: "제7사도 작전에서 이호기 주공을 맡아 근접전 경험이 뛰어납니다.",
-          kind: "matching",
-          point: "근접 돌격",
-        },
-        {
-          content: "아사마산 화구 D형 장비 잠항을 완수했습니다.",
-          kind: "matching",
-          point: "특수 환경",
-        },
-        {
-          content: "단독 행동 경향이 있어 편대 협동과 지휘 복종을 2차 면접에서 확인해야 합니다.",
-          kind: "risk",
-          point: "편대 협동",
+          period: "2016–2020",
+          primary: "푸단대학교",
+          secondary: "마케팅 · 학사",
         },
       ],
-      job: "NERV 일본 지부 / 에반게리온 2호기 파일럿",
+      focus: [
+        {
+          content: "한 번에 1.2만 명이 참여한 온라인 챌린지를 주도했습니다.",
+          kind: "matching" as const,
+          point: "이벤트 기획",
+        },
+        {
+          content: "해외 중국어 사용자 커뮤니티를 운영해 여러 시간대 운영에 익숙합니다.",
+          kind: "matching" as const,
+          point: "해외 커뮤니티",
+        },
+        {
+          content: "혼자 추진하는 편이라 부서 간 협업 방식을 2차 면접에서 확인해야 합니다.",
+          kind: "risk" as const,
+          point: "협업",
+        },
+      ],
+      job: "윈판테크 / 시니어 커뮤니티 운영",
       name: "소류 아스카 랑그레이",
       stage: "대면 면접",
-      summary:
-        "세컨드 칠드런. 독일 지부에서 파일럿 훈련을 모두 마쳤으며 근접전과 특수 환경 전투 경험이 뛰어납니다.",
+      summary: "커뮤니티·이벤트 운영 5년. 커뮤니티를 처음부터 구축하는 데 강하고 기획력이 뛰어남.",
       verdict: "추천",
       work: [
-        { period: "2026–현재", primary: "NERV 일본 지부", secondary: "에반게리온 2호기 파일럿" },
-        { period: "2016–2026", primary: "NERV 독일 지부", secondary: "파일럿 훈련생" },
+        {
+          period: "2022–현재",
+          primary: "하이청 셀렉트",
+          secondary: "커뮤니티 운영 리더",
+        },
+        {
+          period: "2020–2022",
+          primary: "치밍 에듀케이션",
+          secondary: "이벤트 운영",
+        },
       ],
     },
     "00004": {
       detail: "미처리",
       education: [
-        { period: "2025–2027", primary: "제3신도쿄시립 제일중학교", secondary: "2학년 A반" },
+        {
+          period: "2020–2024",
+          primary: "광저우체육대학",
+          secondary: "스포츠경제경영 · 학사",
+        },
       ],
       focus: [
         {
-          content: "체력과 격투 기본기가 탄탄해 고강도 훈련에 적합합니다.",
-          kind: "matching",
-          point: "체력",
+          content: "교내 동아리 행사 운영 경험이 많고 사용자와의 소통에 능합니다.",
+          kind: "matching" as const,
+          point: "사용자 소통",
         },
         {
-          content: "실전 싱크로 기록이 없어 작전 경험은 테스트로 보완해야 합니다.",
-          kind: "risk",
-          point: "실전 경험",
+          content: "완결된 온라인 운영 프로젝트가 없고 데이터 분석 역량을 보완해야 합니다.",
+          kind: "risk" as const,
+          point: "운영 경험",
         },
         {
-          content: "임시 선발된 예비 파일럿으로 적격자 자질 확인이 필요합니다.",
-          kind: "risk",
-          point: "선발 배경",
+          content: "신입이므로 운영 직무에 대한 이해도를 확인해야 합니다.",
+          kind: "risk" as const,
+          point: "직무 이해",
         },
       ],
-      job: "NERV 미국 제1지부 / 에반게리온 3호기 파일럿",
+      job: "윈판테크 / 사용자 운영",
       name: "스즈하라 토우지",
       stage: "이력서 심사",
-      summary:
-        "포스 칠드런. 급히 선발된 후보 파일럿으로 체력은 뛰어나지만 실전 싱크로 기록은 아직 없습니다.",
+      summary: "신입. 교내 행사 운영 경험은 풍부하나 완결된 온라인 운영 실적은 아직 없음.",
       verdict: "보류",
       work: [
-        { period: "2026–현재", primary: "NERV 일본 지부", secondary: "3호기 후보 파일럿" },
-        { period: "2024–2026", primary: "제일중학교 농구부", secondary: "주전" },
+        {
+          period: "2023–2024",
+          primary: "질풍 스포츠",
+          secondary: "매장 이벤트 인턴",
+        },
+        {
+          period: "2021–2024",
+          primary: "교내 농구 동아리",
+          secondary: "회장",
+        },
       ],
     },
     "00005": {
       detail: "합격",
-      education: [{ period: "—", primary: "SEELE 직속 기관", secondary: "배경 미확인" }],
+      education: [
+        {
+          period: "2015–2019",
+          primary: "에든버러대학교",
+          secondary: "심리학 · 학사",
+        },
+      ],
       focus: [
         {
-          content: "싱크로율을 자유롭게 설정할 수 있어 요구 수준을 크게 넘습니다.",
-          kind: "matching",
-          point: "싱크로율",
+          content: "사용자 리서치와 심리학 배경으로 사용자 동기를 빠르게 파악합니다.",
+          kind: "matching" as const,
+          point: "사용자 인사이트",
         },
         {
-          content: "SEELE가 직접 파견해 신원과 파견 배경을 중점 확인해야 합니다.",
-          kind: "risk",
-          point: "파견 배경",
+          content: "최근 2년은 프리랜서로 일해 경력을 중점적으로 확인해야 합니다.",
+          kind: "risk" as const,
+          point: "경력 연속성",
         },
         {
-          content: "NERV와의 장기 협력 의향이 이력서에 없어 입장 확인이 필요합니다.",
-          kind: "risk",
+          content: "장기 커리어 계획이 이력서에 없어 근속 의향을 확인해야 합니다.",
+          kind: "risk" as const,
           point: "장기 의향",
         },
       ],
-      job: "NERV 일본 지부 / 에반게리온 2호기 파일럿(후보)",
+      job: "윈판테크 / 커뮤니티 운영",
       name: "나기사 카오루",
       stage: "이력서 심사",
-      summary:
-        "피프스 칠드런. SEELE에서 직접 파견되었고 싱크로율을 자유롭게 설정할 수 있습니다. 신원과 파견 배경을 중점 확인해야 합니다.",
+      summary: "심리학 배경으로 사용자 인사이트에 강함. 최근 2년 프리랜서로 경력 연속성 확인 필요.",
       verdict: "보류",
       work: [
-        { period: "2026–현재", primary: "NERV 일본 지부", secondary: "후보 파일럿" },
-        { period: "—", primary: "SEELE", secondary: "직접 파견" },
+        {
+          period: "2024–현재",
+          primary: "프리랜서",
+          secondary: "커뮤니티 컨설턴트",
+        },
+        {
+          period: "2019–2024",
+          primary: "에코 소셜",
+          secondary: "사용자 리서처",
+        },
       ],
     },
     "00006": {
       detail: "연봉 협상 중",
       education: [
-        { period: "2018–2022", primary: "NERV 유로 지부", secondary: "파일럿 양성 과정" },
+        {
+          period: "2014–2018",
+          primary: "상하이외국어대학교",
+          secondary: "영어 · 학사",
+        },
       ],
       focus: [
         {
-          content: "상황 대응이 빨라 돌발 상황에서 기체를 바로 넘겨받을 수 있습니다.",
-          kind: "matching",
-          point: "임기응변",
+          content: "라이브 방송과 커뮤니티 연계 경험이 많아 돌발 상황 대응이 빠릅니다.",
+          kind: "matching" as const,
+          point: "순발력",
         },
         {
-          content: "여러 기체 탑승 경험이 있어 기체를 가리지 않고 적응합니다.",
-          kind: "matching",
-          point: "다기종 적응",
+          content: "WeCom·샤오훙수·더우인 커뮤니티를 동시에 운영합니다.",
+          kind: "matching" as const,
+          point: "멀티 플랫폼",
         },
         {
-          content: "무단으로 이호기에 탑승한 이력이 있어 절차 준수 의식을 확인해야 합니다.",
-          kind: "risk",
-          point: "승인 절차",
+          content: "승인 없이 쿠폰을 발급한 적이 있어 절차 준수 의식을 확인해야 합니다.",
+          kind: "risk" as const,
+          point: "절차 준수",
         },
       ],
-      job: "NERV 유로 지부 / 에반게리온 8호기 파일럿",
+      job: "윈판테크 / 프라이빗 트래픽 운영",
       name: "마키나미 마리 일러스트리어스",
       stage: "오퍼 협상",
       summary:
-        "유로 지부에서 전입했으며 임기응변에 강합니다. 무단으로 2호기에 탑승해 작전을 완수한 적이 있습니다.",
+        "프라이빗 트래픽·라이브 방송 운영 6년, 멀티 플랫폼에 강함. 절차 준수 의식 확인 필요.",
       verdict: "추천",
       work: [
-        { period: "2026–현재", primary: "NERV 유로 지부", secondary: "에반게리온 8호기 파일럿" },
-        { period: "2022–2026", primary: "NERV 유로 지부", secondary: "시험기 파일럿" },
+        {
+          period: "2021–현재",
+          primary: "무광 뷰티",
+          secondary: "프라이빗 트래픽 운영 매니저",
+        },
+        {
+          period: "2018–2021",
+          primary: "스타캐스트 미디어",
+          secondary: "라이브 방송 운영",
+        },
       ],
     },
   },
   detail: {
-    activityNote: "카츠라기 미사토 · 이력서를 등록하고 에반게리온 초호기 파일럿 공고에 연결함",
+    activityNote: "카츠라기 미사토 · 이력서를 등록하고 커뮤니티 운영 직무에 연결",
     activityTab: "활동 기록",
     aiEvaluationTab: "AI 평가",
     aiInterviewTab: "AI 첫 면접",
@@ -255,7 +323,7 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     launchAi: "AI 첫 면접 시작",
     markClosed: "종료로 표시",
     overviewSummary:
-      "서드 칠드런. 14차례 사도 요격 작전에 참여했고 신경 접속 기동 시간을 3.2초에서 1.4초로 단축.",
+      "커뮤니티 운영 3년, 40개 이상의 도시별 그룹 담당. 월간 활성 비율을 18%에서 36%로 향상.",
     overviewTab: "개요",
     previewResume: "이력서 미리 보기",
     profileFields: {
@@ -281,7 +349,7 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     },
     tabsLabel: "후보자 상세",
     viewEvaluationDetails: "AI 평가 상세 보기",
-    workYears: "실전 1년",
+    workYears: "3년",
   },
   dialog: {
     aiQuestions: "AI 면접 질문",
@@ -292,7 +360,7 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     invitationLabel: "후보자 전용 면접 링크",
     invitationValidity: "유효 기간: 7일 · 1차 AI 첫 면접 시작됨",
     overviewTab: "이력서 개요",
-    questionKinds: ["작전 경험", "비상 대응", "싱크로 성과"],
+    questionKinds: ["프로젝트 경험", "여론 대응", "데이터 회고"],
     questionLabel: (index: number, kind: string) => `질문 ${index} · ${kind}`,
     questionsTab: "면접 질문",
     resumeDetails: "이력서 상세",
@@ -307,65 +375,64 @@ export const koDemoScreenCopy: DemoScreenCopy = {
       start: "시작 시간",
     },
     scheduleFocusBody:
-      "AI 첫 면접에서 확인된 작전 근거를 바탕으로 저격 판단, 긴급 탈출, 싱크로율 데이터를 검증합니다. 후보자와 면접관 모두 일정을 확인했습니다.",
+      "AI 1차 면접에서 확인한 프로젝트 근거를 바탕으로 이벤트 기획, 여론 대응, 데이터 기준을 검증합니다. 후보자와 면접관 모두 이 일정을 확인했습니다.",
     scheduleFocusTitle: "면접 중점",
     structuredResume: "구조화된 이력서",
     viewCandidatePage: "후보자 면접 페이지 보기",
   },
   evaluation: {
     conciseOverall:
-      "이카리 신지는 서드 칠드런으로, 초호기 첫 출격에서 제3사도를 격퇴했습니다. 싱크로율이 안정적이고 실전 경험이 충실해 에반게리온 파일럿에게 필요한 반응 속도와 작전 수행력을 갖췄습니다. 면접 진행을 권장합니다.",
+      "신지는 로컬 서비스 커뮤니티 운영 3년 경력으로 40개 이상의 도시별 그룹을 단독으로 맡았고, 신규 유입·활성화·회고 모두 정량적 성과가 있습니다. 커뮤니티 운영 직무와 적합도가 높아 면접 진행을 권장합니다.",
     dimensions: {
       educationBackground:
-        "제3신도쿄시립 제일중학교 재학 중이며 NERV 파일럿 기초 훈련을 받아 학업 배경이 직무 요건에 대체로 부합합니다.",
+        "화둥사범대학교 신문방송학 학사로, 콘텐츠 기획과 사용자 소통의 기반을 갖춰 직무 요건에 부합합니다.",
       experienceRelevance:
-        "근접전, 저격, 수중전을 아우르는 14차례 사도 요격 작전에 참여해 직무와 직접 관련됩니다.",
+        "커뮤니티·프라이빗 트래픽 운영 3년으로 유입·활성화·이벤트·여론 대응을 모두 다뤄 직무와 직접 관련됩니다.",
       potential:
-        "긴급 소집된 파일럿에서 스스로 출격을 자원하는 주력 파일럿으로 성장했고 최고 싱크로율 400%를 기록했습니다.",
+        "운영 어시스턴트에서 도시 커뮤니티 책임자로 성장했고 SOP와 인센티브 체계를 스스로 만들어 성장 잠재력이 큽니다.",
       projectMatch:
-        "야시마 작전과 제7사도 2기 동시 섬멸 작전에 참여해 단독 저격과 편대 협동을 모두 경험했습니다.",
+        "‘주말 매장 체크인’ 등 여러 캠페인을 기획부터 회고까지 주도해 이벤트 운영 요건에 부합합니다.",
       skillMatch:
-        "엔트리 플러그 조작, AT 필드 중화, 양전자포 저격에 능숙하며 신경 접속 기동 시간을 3.2초에서 1.4초로 줄였습니다.",
+        "WeCom SCRM, 설문, 대시보드를 능숙하게 다루며 세그먼트 운영과 캠페인 데이터 회고를 혼자 수행합니다.",
       stability:
-        "“도망치면 안 돼”라고 거듭 말하며 꾸준히 출동합니다. 가출 기록이 한 번 있지만 장기 출근은 안정적입니다.",
+        "두 회사에서 각각 2년, 3년 근무했고 퇴사 사유가 명확해 전반적인 안정성이 좋습니다.",
     },
     judgment:
-      "**적극 추천.** 신경 싱크로, AT 필드 중화, 다기체 협동 작전 경험이 에반게리온 초호기 파일럿 직무와 높게 부합하며 단독으로 전선 요격을 맡을 수 있습니다.",
+      "**강력 추천.** 커뮤니티 구축, 이벤트 기획, 데이터 회고 경험이 커뮤니티 운영 직무와 높게 일치하며 도시별 커뮤니티를 단독으로 맡을 수 있습니다.",
     matchingEvidence: [
       {
-        content: "다기체 협동 작전 기록이 있어 직무가 요구하는 편대 협동 역량을 갖췄습니다.",
-        jobRequirement: "다기체 협동 사도 요격 경험",
-        point: "다기체 협동",
-        resumeEvidence: "영호기·2호기와 협동해 제7사도를 2기 동시 공격으로 섬멸",
+        content: "이벤트 기획부터 실행까지의 기록이 있고 성과가 정량화되어 있습니다.",
+        jobRequirement: "커뮤니티 이벤트를 단독으로 기획·실행한 경험",
+        point: "이벤트 기획",
+        resumeEvidence: "‘주말 매장 체크인’ 주도, 3주 만에 신규 4,200명, 매장 사용률 27%",
       },
       {
-        content: "싱크로율 향상이 정량적으로 기록되어 신경 접속 안정성 요건을 충족합니다.",
-        jobRequirement: "싱크로율 60% 이상 안정 유지",
-        point: "싱크로율",
-        resumeEvidence: "첫 탑승 41.3%, 3개월 내 70% 이상으로 안정",
+        content: "활성도 향상이 정량적으로 기록되어 활성화 요건을 충족합니다.",
+        jobRequirement: "커뮤니티 활성도와 유지율을 꾸준히 높일 수 있음",
+        point: "커뮤니티 활성화",
+        resumeEvidence: "월간 활성 비율 18%→36%, 3개월 연속 33% 이상 유지",
       },
       {
-        content: "결정적 순간의 장거리 저격 경험이 있으며 무기 조작이 능숙합니다.",
-        jobRequirement: "양전자포 등 장거리 무기 숙련",
-        point: "장거리 저격",
-        resumeEvidence: "야시마 작전에서 양전자포로 결정적인 두 번째 사격 명중",
+        content: "운영 규모가 요건을 충족하고 세그먼트 운영 경험이 있습니다.",
+        jobRequirement: "1만 명 이상 커뮤니티 운영 경험",
+        point: "커뮤니티 규모",
+        resumeEvidence: "40개 이상의 도시별 그룹, 누적 멤버 2.6만 명 담당",
       },
     ],
     risks: [
       {
         content:
-          "초호기 폭주 시 대처 방법이 이력서에 없고, 무단으로 탑승 임무를 이탈한 기록이 한 번 있어 대면 면접에서 중점 확인이 필요합니다.",
-        jobRequirement: "고압 작전 중 안정적인 판단",
-        point: "정서적 안정성",
+          "제품·고객지원 팀과의 협업 방식이 이력서에 없고 프로젝트도 대부분 단독 추진이라 대면 면접에서 중점 확인이 필요합니다.",
+        jobRequirement: "제품·고객지원 등 다른 팀과 함께 추진할 수 있음",
+        point: "부서 간 협업",
         resumeEvidence: null,
       },
     ],
-    seniorityLevel: "에반게리온 초호기 전속 파일럿",
-    seniorityRationale:
-      "단독으로 전선 요격을 맡고, 다기체 작전에서는 작전부 지휘에 맞춰 협동할 수 있습니다.",
+    seniorityLevel: "커뮤니티 운영(중급)",
+    seniorityRationale: "도시별 커뮤니티를 단독으로 맡고 그로스 팀의 캠페인을 지원할 수 있습니다.",
     teamRationale:
-      "초호기 주 파일럿으로 핵심 요격 임무를 맡고 영호기·2호기 파일럿과 요격 편대를 구성하기에 적합합니다.",
-    teamSuggestion: "주력 파일럿 / 전선 요격",
+      "핵심 도시 사용자 그룹과 커뮤니티 이벤트를 맡아 콘텐츠·그로스 팀과 협업하기에 적합합니다.",
+    teamSuggestion: "커뮤니티 운영 / 도시 커뮤니티 책임자",
   },
   evaluationUi: {
     basis: {
@@ -400,36 +467,36 @@ export const koDemoScreenCopy: DemoScreenCopy = {
   },
   humanEvaluation: {
     detailedAnalysis:
-      "작전 판단: 단독 저격과 편대 엄호의 역할 경계를 구분하며 철수 계획이 명확합니다.\n싱크로 성과: 싱크로 곡선의 측정 기준을 설명하고 훈련과 LCL 조건의 영향을 이해합니다.\n협동 작전: 영호기·2호기 파일럿과 호흡이 잘 맞고 작전부의 실시간 지시를 수행합니다.",
+      "이벤트 기획: 목표·예산·회고 지표를 명확히 설명하고 판단에 근거가 있습니다.\n데이터 기준: 월간 활성 기준과 대조군 설계를 설명하며 할인 시즌 등의 영향을 배제했습니다.\n협업 소통: 고객지원·사업 담당자와의 협업 절차가 명확하고 문제를 끝까지 해결합니다.",
     overallEvaluation:
-      "**작전 재면접 합격을 권장합니다.** 이카리 신지는 야시마 작전의 저격 판단과 싱크로율 변동 시 철수 계획을 명확히 설명했고, 싱크로 데이터 검증 방법도 신뢰할 수 있습니다. 에반게리온 초호기 파일럿 직무에 적합합니다.",
+      "**업무 면접 통과를 권장합니다.** 신지는 커뮤니티 이벤트의 기획과 회고, 여론 대응 절차를 명확히 설명했고 데이터 기준 검증 방법도 신뢰할 수 있습니다. 커뮤니티 운영 직무에 적합합니다.",
     professionalSkill: "우수",
     rating: "A",
     risks:
-      "고압 상황에서 가끔 회피 경향이 있어 작전부장의 지속적인 소통이 필요합니다. 폭주 상태 대처는 별도 평가합니다.",
-    rolePosition: "주력 파일럿 / 전선 요격",
-    salaryRecommendation: "월 ¥32,000–35,000, 파일럿 위험 수당 별도",
+      "부서 간 추진 시 신중한 편이라 리소스 조율에 상사의 도움이 필요합니다. 대형 이벤트 예산 관리 경험은 제한적입니다.",
+    rolePosition: "커뮤니티 운영 / 도시 커뮤니티 책임자",
+    salaryRecommendation: "월 ¥18,000–20,000, 분기 성과급 별도",
     strengths:
-      "싱크로율이 꾸준히 향상됨; 결정적 순간에 출격함; MAGI 데이터로 판단함; 편대 의식이 뛰어남.",
+      "이벤트를 완결된 흐름으로 운영함, 데이터 기준이 명확함, 대시보드로 전략을 조정함, 사용자 응대가 세심함.",
   },
   humanInterview: {
     focusItems: [
-      "단독 저격과 편대 엄호는 어떻게 분담하나요?",
-      "싱크로율 이상 시 철수 여부를 어떻게 판단하나요?",
-      "싱크로 훈련이 실전에 미치는 영향을 어떻게 검증하나요?",
+      "‘주말 매장 체크인’의 목표와 예산은 어떻게 정했나요?",
+      "불만이 몰릴 때 고객지원과 어떻게 협업하나요?",
+      "활성화 활동이 월간 활성에 준 실제 효과를 어떻게 검증하나요?",
     ],
-    focusNote: "AI 첫 면접에서 확인된 작전 근거를 바탕으로 핵심 판단을 깊이 확인합니다.",
+    focusNote: "AI 1차 면접에서 확인한 프로젝트 근거를 참고해 핵심 결정을 깊이 확인합니다.",
     focusTitle: "이번 면접 중점",
     history: "지난 면접",
     pending: "처리 대기",
     progressDescription: "면접 일정, 차수별 결과, 면접 평가 확인",
     progressTitle: "대면 면접 진행 상황",
-    roundLabel: "작전 재면접",
+    roundLabel: "업무 면접",
     schedule: "면접 일정 잡기",
   },
   job: {
-    label: "NERV 일본 지부 / 에반게리온 초호기 파일럿",
-    title: "에반게리온 초호기 파일럿",
+    label: "윈판테크 / 커뮤니티 운영",
+    title: "커뮤니티 운영",
   },
   liveInterview: {
     camera: "카메라",
@@ -451,25 +518,65 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     copyLink: "오퍼 링크 복사",
     edit: "편집",
     expectations: [
-      { label: "희망 월급", value: "¥ 35,000" },
-      { label: "현재 월급", value: "¥ 30,000" },
-      { label: "정규 전환 후 급여", value: "¥ 34,000" },
-      { label: "수습 기간 급여", value: "¥ 34,000" },
-      { label: "최초 입사 가능일", value: "2026/11/02" },
-      { label: "비고", value: "작전 재면접 합격, 처우 합의 완료" },
+      {
+        label: "희망 월급",
+        value: "¥ 20,000",
+      },
+      {
+        label: "현재 월급",
+        value: "¥ 16,000",
+      },
+      {
+        label: "정규 전환 후 급여",
+        value: "¥ 19,000",
+      },
+      {
+        label: "수습 기간 급여",
+        value: "¥ 19,000",
+      },
+      {
+        label: "최초 입사 가능일",
+        value: "2026/11/02",
+      },
+      {
+        label: "비고",
+        value: "업무 면접 통과, 처우 합의 완료",
+      },
     ],
     expectationsNote: "오퍼 발송 전에 후보자의 기대 조건을 모아 협상에 참고합니다.",
     expectationsTitle: "후보자 기대 조건",
     fields: [
-      { label: "직위", value: "에반게리온 초호기 전속 파일럿" },
-      { label: "기본 월급", value: "¥ 34,000" },
-      { label: "연간 보너스", value: "¥ 68,000" },
-      { label: "복리후생", value: "NERV 본부 숙소 및 학업 지원금" },
-      { label: "입사 예정일", value: "2026/11/02" },
-      { label: "오퍼 유효 기한", value: "2026/10/16" },
-      { label: "메일 상태", value: "shinji@nerv.example로 발송됨 · 10/10 10:05" },
+      {
+        label: "직위",
+        value: "커뮤니티 운영(중급)",
+      },
+      {
+        label: "기본 월급",
+        value: "¥ 19,000",
+      },
+      {
+        label: "연간 보너스",
+        value: "¥ 38,000",
+      },
+      {
+        label: "복리후생",
+        value: "보충 의료보험 및 연간 건강검진",
+      },
+      {
+        label: "입사 예정일",
+        value: "2026/11/02",
+      },
+      {
+        label: "오퍼 유효 기한",
+        value: "2026/10/16",
+      },
+      {
+        label: "메일 상태",
+        value: "shinji@example.com으로 발송 · 10/10 10:05",
+      },
     ],
-    notes: "작전 재면접 합격, 처우는 작전부장과 확인 완료. 수습 3개월, 급여는 100% 지급.",
+    notes:
+      "업무 면접을 통과했고 처우는 사용자 그로스팀 책임자와 확인했습니다. 수습 3개월, 급여 100% 지급.",
     notesLabel: "비고",
     progress: {
       current: (label: string) => `현재: ${label}`,
@@ -490,27 +597,32 @@ export const koDemoScreenCopy: DemoScreenCopy = {
   },
   resume: {
     education: [
-      { period: "2025–2027", primary: "제3신도쿄시립 제일중학교", secondary: "2학년 A반" },
+      {
+        period: "2017–2021",
+        primary: "화둥사범대학교",
+        secondary: "신문방송학 · 학사",
+      },
     ],
     educationTitle: "학력",
-    fileName: "이카리신지_에바파일럿.pdf",
-    previewSubtitle: "실전 1년 · 싱크로율 조정 · AT 필드 · 양전자포 저격",
-    skills: ["싱크로율 조정", "AT 필드 중화", "양전자포 저격", "사도 요격"],
+    fileName: "이카리_신지_커뮤니티_운영.pdf",
+    previewSubtitle: "3년 · 커뮤니티 구축 · 이벤트 기획 · 데이터 회고",
+    skills: ["세그먼트 운영", "이벤트 기획", "WeCom SCRM", "데이터 회고"],
     skillsTitle: "기술",
     summary:
-      "서드 칠드런. 첫 출격에서 제3사도를 격퇴했으며 싱크로율이 직무 핵심 요건과 높게 부합합니다.",
+      "커뮤니티 운영 3년, 도시별 커뮤니티를 단독으로 담당. 유입과 활성화 성과가 직무 핵심 요건과 높게 일치합니다.",
     work: [
       {
-        period: "2026–현재",
-        primary: "NERV 일본 지부",
-        secondary: "에반게리온 초호기 파일럿",
-        summary: "사도 요격과 편대 협동 작전을 담당했으며 야시마 작전에서 결정적인 저격을 맡았다.",
+        period: "2023–현재",
+        primary: "스광 라이프",
+        secondary: "커뮤니티 운영",
+        summary:
+          "40개 이상의 도시별 그룹의 유입과 활성화를 맡고 ‘주말 매장 체크인’ 등 캠페인을 주도했습니다.",
       },
       {
-        period: "2021–2026",
-        primary: "제2신도쿄시",
-        secondary: "첼로 교실",
-        summary: "5년간 첼로를 연주하며 오랜 집중력과 안정적인 리듬감을 길렀다.",
+        period: "2021–2023",
+        primary: "차위 티",
+        secondary: "프라이빗 트래픽 운영 어시스턴트",
+        summary: "매장 WeCom 그룹 구축을 돕고 일일 콘텐츠 일정과 프로모션을 운영했습니다.",
       },
     ],
     workTitle: "경력",
@@ -528,29 +640,30 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     evaluationDetails: "평가 상세",
     fullscreenResume: "이력서 전체 화면 보기",
     history: [
-      { label: "지원 동기", value: "인정받고 싶고, 전선 요격을 더 폭넓게 맡고 싶습니다." },
+      {
+        label: "지원 동기",
+        value: "더 큰 무대에서 커뮤니티 성장의 전 과정을 맡고 싶습니다.",
+      },
       {
         label: "현재 상태와 입사 시기",
-        value: "현재 NERV에서 대기 중이며 오퍼 확정 후 즉시 제3신도쿄시에 부임할 수 있습니다.",
+        value: "재직 중이며 오퍼 확정 후 2주 이내 입사 가능합니다.",
       },
       {
         label: "보상 현황과 기대",
-        value: "현재 월 ¥30,000, 희망 ¥32,000–35,000, 위험 수당 별도.",
+        value: "현재 월 ¥16,000, 희망 ¥18,000–20,000.",
       },
       {
         label: "성과·인상·승진",
-        value:
-          "긴급 소집된 파일럿에서 주력 파일럿으로 성장했으며 작전 복기와 편대 훈련에 참여합니다.",
+        value: "작년 평가 A, 운영 어시스턴트에서 도시 커뮤니티 책임자로 승진.",
       },
       {
         label: "최근 경력",
-        value:
-          "NERV 일본 지부 에반게리온 초호기 파일럿으로 사도 요격, 편대 협동, 싱크로 테스트를 담당.",
+        value: "스광 라이프 커뮤니티 운영으로 도시별 그룹의 유입·활성화·여론 대응을 담당.",
       },
       {
         label: "대표 프로젝트",
         value:
-          "야시마 작전에서 결정적 저격; 신경 접속 기동 시간을 3.2초에서 1.4초로 줄이고 2주간 P75 싱크로 곡선으로 검증.",
+          "‘주말 매장 체크인’으로 3주 만에 신규 4,200명, 월간 활성 비율 18%→36%를 3개월간 검증.",
       },
     ],
     historyRoundLabel: "AI 첫 면접 · 86점 · 대면 면접 추천",
@@ -561,7 +674,8 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     participants: "참석 인원",
     questions: "면접 질문",
     recording: "녹화 중",
-    referenceNote: "AI 첫 면접에서 확인된 답변을 바탕으로 작전 세부와 판단 근거를 계속 확인합니다.",
+    referenceNote:
+      "AI 1차 면접에서 확인한 답변을 바탕으로 프로젝트 세부 사항과 판단 근거를 계속 확인합니다.",
     referenceQuestion: (index: number) => `참고 질문 ${index}`,
     review: "평가",
     reviewDescription: "입력 내용은 매초 자동 저장되며, 회의 후 보완해 제출합니다.",
@@ -621,27 +735,27 @@ export const koDemoScreenCopy: DemoScreenCopy = {
     aiTranscript: "평가에서 대화로 돌아가 답변 근거 확인",
     backToMaterials: "회의 자료 보기로 돌아가기",
     backToMeeting: "후보자 맥락을 유지한 채 화상 회의로 복귀",
-    candidate: "이카리 신지 · 에반게리온 초호기 파일럿 상세 보기",
+    candidate: "이카리 신지 · 커뮤니티 운영, 전체 프로필 보기",
     detailBack: "채용 데스크로 돌아오면 같은 기록이 오퍼 협상 단계에 있음",
     enterInterview: "후보자가 전용 링크로 음성 면접에 참여",
-    enterRoom: "이카리 신지의 작전 재면접 회의 참여",
+    enterRoom: "신지의 업무 면접에 참여",
     evaluation: "이력서 평가: 적극 추천, 6차원 근거 확인 가능",
     finishAi: "AI 첫 면접 완료, 이카리 신지의 결과로 복귀",
     finishHuman: "재면접 완료, 이카리 신지의 기록과 평가로 복귀",
-    humanAnalysis: "등급 A, 전문 역량 우수, 초호기 전속 파일럿 제안",
-    humanResult: "작전 재면접 A등급, 합격",
+    humanAnalysis: "평가 A, 전문 역량 우수, 도시 커뮤니티 책임자로 추천",
+    humanResult: "업무 면접 A 등급, 통과",
     humanSchedule: "같은 기록에서 대면 면접 일정 확인",
-    initialInfo: "첫 면접에서 수집한 작전·급여·부임 정보 확인",
+    initialInfo: "1차 면접에서 수집한 프로젝트·연봉·입사 시기 확인",
     launch: "같은 후보자의 AI 첫 면접 시작",
     resumeEvaluation: "AI 이력서 평가로 적합 근거와 리스크 확인",
-    resumeFullscreen: "이력서를 확대해 작전 경험 확인",
+    resumeFullscreen: "이력서를 확대해 같은 후보자의 프로젝트 경력 확인",
     roomMaterials: "회의를 떠나지 않고 후보자 자료 확인",
     roomQuestions: "참고 질문을 펼쳐 근거를 바탕으로 추가 질문",
     roomReview: "회의 안에서 면접관 평가표 열기",
     scheduleConfirmed: "면접 일정과 면접관 확정",
-    transitionHuman: "이카리 신지를 대면 면접으로 넘기고 작전 재면접 일정 잡기",
+    transitionHuman: "신지를 대면 면접으로 넘기고 업무 면접 일정 잡기",
     transitionOffer: "대면 면접 합격, 같은 후보자의 오퍼 협상으로",
-    turnOne: "AI가 야시마 작전을 계속 파고들어 구체적인 기여를 기록",
-    turnTwo: "싱크로율 데이터를 추가 질문하고 원래 답변과 근거를 보존",
+    turnOne: "AI가 캠페인을 계속 질문해 구체적인 기여를 기록",
+    turnTwo: "월간 활성 기준을 추가로 묻고 원래 답변과 근거를 보존",
   },
 };

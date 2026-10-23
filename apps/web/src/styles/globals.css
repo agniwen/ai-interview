@@ -174,6 +174,56 @@
   --grain-4: #f3aa3a;
 }
 
+/* 晨空蓝到天蓝，对齐首屏天空的浅部。 Morning sky to azure, the light end of the hero sky. */
+.home-grain[data-palette="sky"] {
+  --grain-top: #e3edff;
+  --grain-bottom: #2b5fc9;
+  --grain-1: #eef5ff;
+  --grain-2: #b9d6fc;
+  --grain-3: #5e9fff;
+  --grain-4: #2a5bd0;
+}
+
+/* 天蓝到湖蓝，sky 向 harbor 过渡的第一步。 Sky to cerulean, the first step from sky toward harbor. */
+.home-grain[data-palette="glacier"] {
+  --grain-top: #9fc0e4;
+  --grain-bottom: #1d4f8f;
+  --grain-1: #b4cfec;
+  --grain-2: #8ec0e8;
+  --grain-3: #4c95d4;
+  --grain-4: #1f5596;
+}
+
+/* 湖蓝到青蓝，sky 向 harbor 过渡的第二步。 Cerulean to teal blue, the second step toward harbor. */
+.home-grain[data-palette="lagoon"] {
+  --grain-top: #b6d0da;
+  --grain-bottom: #144259;
+  --grain-1: #c3d9e1;
+  --grain-2: #8fc6cc;
+  --grain-3: #3d88a8;
+  --grain-4: #174b66;
+}
+
+/* 雾紫到靛紫，首屏蓝向紫偏一格。 Misty lilac to indigo, one step from the hero blue toward violet. */
+.home-grain[data-palette="lilac"] {
+  --grain-top: #dfe1f7;
+  --grain-bottom: #2d2f78;
+  --grain-1: #eaebfb;
+  --grain-2: #b3baf2;
+  --grain-3: #7479d6;
+  --grain-4: #35378f;
+}
+
+/* 天蓝到深靛，首屏天空的暗部。 Azure to deep indigo, the darker end of the hero sky. */
+.home-grain[data-palette="azure"] {
+  --grain-top: #8fb2f8;
+  --grain-bottom: #0d1a52;
+  --grain-1: #b8d0f7;
+  --grain-2: #6f9bff;
+  --grain-3: #2a5bff;
+  --grain-4: #1b3a9c;
+}
+
 /* 灰蓝到深棕。 Grey-blue to deep brown. */
 .home-grain[data-palette="sand"] {
   --grain-top: #7f98a8;

@@ -288,7 +288,7 @@ const advanced =
 export const auth = betterAuth({
   account: { accountLinking: feishuAccountLinking },
   advanced,
-  appName: "招聘 AI 协同工作台",
+  appName: "新一代招聘智能体",
   baseURL,
   database: drizzleAdapter(db, {
     provider: "pg",

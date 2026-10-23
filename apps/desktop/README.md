@@ -1,4 +1,4 @@
-# Echo (AI Hiring Copilot Desktop)
+# Echo (Deepround Desktop)
 
 Electron desktop app for Echo (`@app/desktop`) — HR–candidate conversation capture and transcription (electron-vite + React + TypeScript).
 

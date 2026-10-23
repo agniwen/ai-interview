@@ -38,13 +38,13 @@ const CANDIDATE_REVIEW_VALUES = {
   skillMatch: 92,
   stability: 78,
 } as const;
-// 每个故事面板一组颗粒渐变配色与细线纹样；AI 面试配声波线。
-// Each story panel gets its own grain palette and line pattern; the AI interview uses sound waves.
+// 四个故事面板按顺序从首屏天蓝过渡到雾蓝绿；AI 面试配声波线。
+// The four story panels step from the hero sky blue to misty teal in order; the AI interview uses sound waves.
 const STORY_ARTWORK = {
-  calibration: { palette: "ember", pattern: "lens" },
-  evidence: { palette: "dusk", pattern: "dots" },
-  human: { palette: "moss", pattern: "contours" },
-  interview: { palette: "harbor", pattern: "waves" },
+  calibration: { palette: "harbor", pattern: "lens" },
+  evidence: { palette: "sky", pattern: "dots" },
+  human: { palette: "lagoon", pattern: "contours" },
+  interview: { palette: "glacier", pattern: "waves" },
 } satisfies Record<Story["id"], { palette: StageArtworkPalette; pattern: StageArtworkPattern }>;
 function CandidateScoreCard() {
   const copy = getHomeDemoCopy().feature;
@@ -399,14 +399,6 @@ function TeamCalibrationCard() {
 function getStories(): Story[] {
   return [
     {
-      description: messages.home_feature_chat_description(),
-      id: "interview",
-      label: messages.home_feature_chat_label(),
-      points: [messages.home_feature_chat_point_one(), messages.home_feature_chat_point_two()],
-      title: messages.home_feature_chat_title(),
-      visual: <AiInterviewVoiceChat />,
-    },
-    {
       description: messages.home_feature_evidence_description(),
       id: "evidence",
       label: messages.home_feature_evidence_label(),
@@ -416,6 +408,14 @@ function getStories(): Story[] {
       ],
       title: messages.home_feature_evidence_title(),
       visual: <CandidateScoreCard />,
+    },
+    {
+      description: messages.home_feature_chat_description(),
+      id: "interview",
+      label: messages.home_feature_chat_label(),
+      points: [messages.home_feature_chat_point_one(), messages.home_feature_chat_point_two()],
+      title: messages.home_feature_chat_title(),
+      visual: <AiInterviewVoiceChat />,
     },
     {
       description: messages.home_feature_human_description(),

@@ -162,7 +162,7 @@ it("keeps the identity while showing evaluation, round and Offer scenes", async 
     copy.round.detailedAnalysis,
   );
   expect(seen.get("[data-demo-transition-offer]")).toContain(copy.offer.progress.label);
-  expect(seen.get("[data-demo-transition-offer]")).toContain("34,000");
+  expect(seen.get("[data-demo-transition-offer]")).toContain("19,000");
 });
 
 it("renders every demo scene in the visitor's language without Chinese leftovers", async () => {

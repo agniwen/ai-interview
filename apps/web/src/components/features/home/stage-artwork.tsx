@@ -18,7 +18,18 @@ import { useEffect, useId, useRef } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 
 /** 色环上相邻的配色组，定义见 globals.css。 Analogous palettes, defined in globals.css. */
-export type StageArtworkPalette = "dusk" | "ember" | "harbor" | "moss" | "night" | "sand";
+export type StageArtworkPalette =
+  | "azure"
+  | "dusk"
+  | "ember"
+  | "glacier"
+  | "harbor"
+  | "lagoon"
+  | "lilac"
+  | "moss"
+  | "night"
+  | "sand"
+  | "sky";
 export type StageArtworkPattern = "contours" | "dots" | "lens" | "rays" | "waves";
 
 const NOISE_TILE = 128;

@@ -134,7 +134,7 @@ function EmailFooter({ companyName }: { companyName?: string }) {
           margin: "16px 0 0",
         }}
       >
-        {company ?? "AI 招聘"} · Powered by AI Recruitment
+        {company ?? "AI 招聘"} · Powered by Deepround
       </Text>
     </>
   );

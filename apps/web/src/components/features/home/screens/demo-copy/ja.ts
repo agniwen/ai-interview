@@ -10,24 +10,33 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     candidateInfo: "候補者情報",
     completed: "完了",
     contributionBody:
-      "初号機の狙撃ポジションを担当し、陽電子砲の再充填後に決定的な第二射を命中させた。",
-    contributionTitle: "ヤシマ作戦での個人の貢献",
+      "企画テーマ・ルール設計・振り返りを担当し、3 週間で新規 4,200 人、来店利用率 27% を達成。",
+    contributionTitle: "「週末来店チェックイン」での個人の貢献",
     conversationLabel: "対話",
     conversationQuestions: "対話質問",
     conversationValue: "候補者の回答 12 回",
     copyLink: "面接リンクをコピー",
     endTime: "終了時刻",
     formAnswers: [
-      { label: "経験年数", value: "実戦 1 年" },
-      { label: "希望給与", value: "¥32,000–35,000 / 月" },
-      { label: "入社可能時期", value: "オファー確定後すぐに第3新東京市へ着任可能" },
+      {
+        label: "経験年数",
+        value: "3 年",
+      },
+      {
+        label: "希望給与",
+        value: "月 ¥18,000–20,000",
+      },
+      {
+        label: "入社可能時期",
+        value: "オファー確定後 2 週間以内",
+      },
     ],
     formQuestions: "フォーム質問",
     hideTranscript: "対話記録を閉じる",
     itemCount: (count: number) => `${count} 件`,
     recommendBadge: "推奨",
     resultMarkdown:
-      "**対面面接への進行を推奨。** 碇シンジはヤシマ作戦の狙撃計画、緊急脱出の手順、シンクロ率向上の方法を具体的に説明できた。貢献は明確で、神経接続の起動時間を 3.2 秒から 1.4 秒に短縮し、2 週間のシンクロテストデータで裏付けている。対面面接では高圧下での作戦判断を重点的に確認する。",
+      "**対面面接へ進めることを推奨。** シンジは「週末来店チェックイン」の企画・実行・振り返りと、コミュニティでの炎上対応の流れを明確に説明できました。個人の貢献が具体的で、月間アクティブ率は 18% から 36% に向上し、3 か月連続のデータで裏付けられています。対面面接では部門横断の連携と予算管理を重点的に確認します。",
     resultTitle: "面接結果",
     roundButton: "第 1 回 · AI 初回面接 · 10/08 11:00",
     scoreLabel: "スコア",
@@ -51,19 +60,19 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
   conversation: [
     {
       answer:
-        "初号機の狙撃ポジションを担当し、零号機が盾で援護しました。陽電子砲は日本中の電力を使用します。一射目は使徒の干渉で逸れましたが、20 秒の再充填後に二射目を撃ち、第5使徒のコアを貫きました。",
-      question: "ヤシマ作戦について、あなたが担当した部分を具体的に教えてください。",
+        "拾光ライフで 40 以上の都市別ユーザーグループを担当し、新規参加 SOP と KOC の段階別インセンティブを整備しました。「週末来店チェックイン」は企画から振り返りまで一人で担当し、3 週間で新規 4,200 人、来店利用率 27% でした。",
+      question: "担当したコミュニティ成長施策と、その中でのあなたの担当部分を教えてください。",
     },
     {
       answer:
-        "まず MAGI が示す神経接続のエラー率で戦闘継続を判断します。アンビリカルケーブルが切断されると内部電源は 5 分しか持たないので、回収ルートを事前に確認します。閾値を超えたら作戦部がエントリープラグを緊急射出します。",
-      question: "戦闘中にシンクロ率が乱れたとき、どう対処し、どう脱出しますか？",
+        "まずグループ内で統一した回答と対応期限を示し、感情の拡散を防ぎます。同時にサポートと事業部門で臨時の対応グループを作り、30 分以内に対応策を出します。後で典型的な問題を FAQ とお知らせにまとめ、毎月クレーム率を振り返ります。",
+      question: "グループで苦情やネガティブな反応が集中したとき、どう対応しますか？",
     },
     {
       answer:
-        "赤木博士が同じテストプラグ条件で 2 週間シンクログラフを記録し、P75 値を比較して LCL 濃度の影響を除外しました。神経接続の起動時間も 3.2 秒から 1.4 秒に短縮しています。",
+        "定義は「その月にグループで発言またはイベントに参加したメンバーの割合」で、bot と社員アカウントは除外しています。施策を行っていない対照グループと比較してセール期の自然増を除き、3 か月連続で 33% 以上を維持しました。",
       question:
-        "シンクロ率が 41.3% から 70% 以上に上がりました。データの妥当性をどう確認しましたか？",
+        "月間アクティブ率が 18% から 36% に上がりました。データの有効性をどう確認しましたか？",
     },
   ],
   desk: {
@@ -79,165 +88,231 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
   deskRecords: {
     "00001": {
       detail: "最終面接 · 評価待ち",
-      education: [{ period: "2025–2027", primary: "第3新東京市立第壱中学校", secondary: "2年A組" }],
-      focus: [
+      education: [
         {
-          content: "零号機の長期テストパイロットとして、安定した操縦とシンクロテストの実績がある。",
-          kind: "matching",
-          point: "機体操縦",
-        },
-        {
-          content: "ヤシマ作戦で盾を構え初号機を守り、編隊の防御を担った。",
-          kind: "matching",
-          point: "防御支援",
-        },
-        {
-          content:
-            "履歴書に本人の動機の記載が少なく、最終面接でコミュニケーションと協調性を確認したい。",
-          kind: "risk",
-          point: "意思疎通",
+          period: "2018–2022",
+          primary: "南京大学",
+          secondary: "中国語文学 · 学士",
         },
       ],
-      job: "NERV 日本支部 / エヴァ零号機パイロット",
+      focus: [
+        {
+          content: "コンテンツ運営 3 年、長文記事と短尺動画の企画が得意で安定して制作できる。",
+          kind: "matching" as const,
+          point: "コンテンツ企画",
+        },
+        {
+          content: "閲覧・完視聴・転換データを毎週振り返り、企画に反映している。",
+          kind: "matching" as const,
+          point: "データ振り返り",
+        },
+        {
+          content: "志望動機の記述が少なく、最終面接で協働意欲を確認したい。",
+          kind: "risk" as const,
+          point: "主体的な発信",
+        },
+      ],
+      job: "雲帆テック / コンテンツ運営",
       name: "綾波レイ",
       stage: "対面面接",
       summary:
-        "ファーストチルドレン。零号機の長期テストパイロットで、ヤシマ作戦では盾で援護し、命令を確実に遂行。",
+        "コンテンツ運営 3 年、長文記事と短尺動画の企画が得意。実行は安定、志望動機の記述は少なめ。",
       verdict: "推奨",
       work: [
-        { period: "2025–現在", primary: "NERV 日本支部", secondary: "エヴァ零号機パイロット" },
-        { period: "2015–2025", primary: "NERV 本部", secondary: "シンクロテスト被験者" },
+        {
+          period: "2022–現在",
+          primary: "知行アカデミー",
+          secondary: "コンテンツ運営",
+        },
+        {
+          period: "2021–2022",
+          primary: "青禾出版 新メディア部",
+          secondary: "編集インターン",
+        },
       ],
     },
     "00002": {
       detail: "二次面接 · 設定済み",
-      education: [{ period: "2024–2025", primary: "ドイツの大学", secondary: "飛び級で卒業" }],
-      focus: [
+      education: [
         {
-          content: "第七使徒戦で弐号機の主攻を務め、近接戦闘の実績が際立つ。",
-          kind: "matching",
-          point: "近接戦闘",
-        },
-        {
-          content: "浅間山火口での D 型装備潜行を完遂している。",
-          kind: "matching",
-          point: "特殊環境",
-        },
-        {
-          content: "単独行動の傾向があり、編隊連携と命令遵守を二次面接で確認したい。",
-          kind: "risk",
-          point: "編隊連携",
+          period: "2016–2020",
+          primary: "復旦大学",
+          secondary: "マーケティング · 学士",
         },
       ],
-      job: "NERV 日本支部 / エヴァ弐号機パイロット",
+      focus: [
+        {
+          content: "1 回で 1.2 万人が参加したオンラインチャレンジを主導。",
+          kind: "matching" as const,
+          point: "イベント企画",
+        },
+        {
+          content: "海外の中国語ユーザーコミュニティを運営し、複数タイムゾーンに慣れている。",
+          kind: "matching" as const,
+          point: "海外コミュニティ",
+        },
+        {
+          content: "単独で進めがちなため、部門横断の協働スタイルを二次面接で確認したい。",
+          kind: "risk" as const,
+          point: "協働",
+        },
+      ],
+      job: "雲帆テック / シニアコミュニティ運営",
       name: "惣流・アスカ・ラングレー",
       stage: "対面面接",
       summary:
-        "セカンドチルドレン。ドイツ支部でパイロット訓練を修了し、近接戦と特殊環境での戦闘経験が際立つ。",
+        "コミュニティ・イベント運営 5 年。ゼロからのコミュニティ立ち上げが得意で、企画力が高い。",
       verdict: "推奨",
       work: [
-        { period: "2026–現在", primary: "NERV 日本支部", secondary: "エヴァ弐号機パイロット" },
-        { period: "2016–2026", primary: "NERV ドイツ支部", secondary: "パイロット訓練生" },
+        {
+          period: "2022–現在",
+          primary: "海程セレクト",
+          secondary: "コミュニティ運営リーダー",
+        },
+        {
+          period: "2020–2022",
+          primary: "啓明エデュケーション",
+          secondary: "イベント運営",
+        },
       ],
     },
     "00004": {
       detail: "未処理",
-      education: [{ period: "2025–2027", primary: "第3新東京市立第壱中学校", secondary: "2年A組" }],
-      focus: [
+      education: [
         {
-          content: "体力と格闘の基礎が確かで、高強度の訓練に向く。",
-          kind: "matching",
-          point: "体力",
-        },
-        {
-          content: "実戦でのシンクロ記録がなく、作戦経験はテストで補う必要がある。",
-          kind: "risk",
-          point: "実戦経験",
-        },
-        {
-          content: "臨時選抜の予備パイロットで、適格者としての資質は要確認。",
-          kind: "risk",
-          point: "選抜経緯",
+          period: "2020–2024",
+          primary: "広州体育学院",
+          secondary: "スポーツ経済・マネジメント · 学士",
         },
       ],
-      job: "NERV 米国第1支部 / エヴァ参号機パイロット",
+      focus: [
+        {
+          content: "学内サークルでのイベント運営経験が豊富で、ユーザーとの対話が得意。",
+          kind: "matching" as const,
+          point: "ユーザーとの対話",
+        },
+        {
+          content: "オンライン運営の一貫したプロジェクト経験がなく、データ分析力も補う必要がある。",
+          kind: "risk" as const,
+          point: "運営経験",
+        },
+        {
+          content: "新卒のため、運営職の理解度を確認したい。",
+          kind: "risk" as const,
+          point: "職務理解",
+        },
+      ],
+      job: "雲帆テック / ユーザー運営",
       name: "鈴原トウジ",
       stage: "書類選考",
-      summary:
-        "フォースチルドレン。急遽選ばれた候補パイロットで、体力は高いが実戦でのシンクロ記録はまだない。",
+      summary: "新卒。学内イベントの運営経験は豊富だが、オンライン運営の一貫した実績はまだない。",
       verdict: "保留",
       work: [
-        { period: "2026–現在", primary: "NERV 日本支部", secondary: "参号機候補パイロット" },
-        { period: "2024–2026", primary: "第壱中学校バスケ部", secondary: "レギュラー" },
+        {
+          period: "2023–2024",
+          primary: "疾風スポーツ",
+          secondary: "店舗イベントインターン",
+        },
+        {
+          period: "2021–2024",
+          primary: "大学バスケットボール部",
+          secondary: "部長",
+        },
       ],
     },
     "00005": {
       detail: "合格",
-      education: [{ period: "—", primary: "SEELE 直属機関", secondary: "経歴は未確認" }],
-      focus: [
+      education: [
         {
-          content: "シンクロ率を自由に設定でき、要件を大きく上回る。",
-          kind: "matching",
-          point: "シンクロ率",
-        },
-        {
-          content: "SEELE から直接派遣されており、身元と経緯の確認が必要。",
-          kind: "risk",
-          point: "派遣経緯",
-        },
-        {
-          content: "NERV での長期的な意向が履歴書にないため、立場を確認したい。",
-          kind: "risk",
-          point: "長期意向",
+          period: "2015–2019",
+          primary: "エディンバラ大学",
+          secondary: "心理学 · 学士",
         },
       ],
-      job: "NERV 日本支部 / エヴァ弐号機パイロット（候補）",
+      focus: [
+        {
+          content: "ユーザーリサーチと心理学の素養があり、動機を素早く読み取れる。",
+          kind: "matching" as const,
+          point: "ユーザー理解",
+        },
+        {
+          content: "直近 2 年はフリーランスのため、職歴を重点的に確認したい。",
+          kind: "risk" as const,
+          point: "経歴の連続性",
+        },
+        {
+          content: "長期的なキャリアプランの記載がなく、定着性を確認したい。",
+          kind: "risk" as const,
+          point: "長期的な意向",
+        },
+      ],
+      job: "雲帆テック / コミュニティ運営",
       name: "渚カヲル",
       stage: "書類選考",
       summary:
-        "フィフスチルドレン。SEELE から直接派遣され、シンクロ率を自由に設定できる。身元と派遣経緯は重点確認が必要。",
+        "心理学の素養がありユーザー理解に強い。直近 2 年はフリーランスで、経歴の連続性は要確認。",
       verdict: "保留",
       work: [
-        { period: "2026–現在", primary: "NERV 日本支部", secondary: "候補パイロット" },
-        { period: "—", primary: "SEELE", secondary: "直接派遣" },
+        {
+          period: "2024–現在",
+          primary: "フリーランス",
+          secondary: "コミュニティコンサルタント",
+        },
+        {
+          period: "2019–2024",
+          primary: "エコーソーシャル",
+          secondary: "ユーザーリサーチャー",
+        },
       ],
     },
     "00006": {
       detail: "給与交渉中",
       education: [
-        { period: "2018–2022", primary: "NERV ユーロ支部", secondary: "パイロット養成課程" },
+        {
+          period: "2014–2018",
+          primary: "上海外国語大学",
+          secondary: "英語 · 学士",
+        },
       ],
       focus: [
         {
-          content: "状況変化への対応が速く、緊急時に機体を引き継げる。",
-          kind: "matching",
+          content: "ライブ配信とコミュニティの連動経験が豊富で、突発対応が速い。",
+          kind: "matching" as const,
           point: "臨機応変",
         },
         {
-          content: "複数の機体の搭乗経験があり、機体を問わず適応できる。",
-          kind: "matching",
-          point: "多機種適応",
+          content: "WeCom・小紅書・抖音のコミュニティを同時に運営。",
+          kind: "matching" as const,
+          point: "マルチプラットフォーム",
         },
         {
-          content: "無許可で弐号機に搭乗した経緯があり、手続き順守の意識を確認したい。",
-          kind: "risk",
-          point: "許可手続き",
+          content: "承認なしでクーポンを配布したことがあり、プロセス意識を確認したい。",
+          kind: "risk" as const,
+          point: "プロセス順守",
         },
       ],
-      job: "NERV ユーロ支部 / エヴァ8号機パイロット",
+      job: "雲帆テック / プライベートトラフィック運営",
       name: "真希波・マリ・イラストリアス",
       stage: "オファー交渉",
       summary:
-        "ユーロ支部から転入し、臨機応変な対応が得意。無許可で弐号機に搭乗し作戦を完遂した経験がある。",
+        "プライベートトラフィックとライブ配信の運営 6 年、マルチプラットフォームに強い。プロセス意識は要確認。",
       verdict: "推奨",
       work: [
-        { period: "2026–現在", primary: "NERV ユーロ支部", secondary: "エヴァ8号機パイロット" },
-        { period: "2022–2026", primary: "NERV ユーロ支部", secondary: "試験機パイロット" },
+        {
+          period: "2021–現在",
+          primary: "沐光コスメ",
+          secondary: "プライベートトラフィック運営主任",
+        },
+        {
+          period: "2018–2021",
+          primary: "スターキャストメディア",
+          secondary: "ライブ配信運営",
+        },
       ],
     },
   },
   detail: {
-    activityNote: "葛城ミサト · 履歴書を登録し、エヴァ初号機パイロットに関連付けました",
+    activityNote: "葛城ミサト · 履歴書を登録し、コミュニティ運営の職務に紐付け",
     activityTab: "アクティビティ",
     aiEvaluationTab: "AI 評価",
     aiInterviewTab: "AI 初回面接",
@@ -251,7 +326,7 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     launchAi: "AI 初回面接を開始",
     markClosed: "終了にする",
     overviewSummary:
-      "サードチルドレン。14 回の使徒迎撃作戦に参加し、神経接続の起動時間を 3.2 秒から 1.4 秒に短縮。",
+      "コミュニティ運営 3 年、40 以上の都市別グループを担当。月間アクティブ率を 18% から 36% に向上。",
     overviewTab: "概要",
     previewResume: "履歴書をプレビュー",
     profileFields: {
@@ -277,7 +352,7 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     },
     tabsLabel: "候補者詳細",
     viewEvaluationDetails: "AI 評価の詳細を見る",
-    workYears: "実戦 1 年",
+    workYears: "3 年",
   },
   dialog: {
     aiQuestions: "AI 面接の質問",
@@ -288,7 +363,7 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     invitationLabel: "候補者専用の面接リンク",
     invitationValidity: "有効期限：7 日 · 第 1 回 AI 初回面接を開始済み",
     overviewTab: "履歴書の概要",
-    questionKinds: ["作戦経験", "緊急対応", "シンクロ性能"],
+    questionKinds: ["プロジェクト経験", "炎上対応", "データ振り返り"],
     questionLabel: (index: number, kind: string) => `質問 ${index} · ${kind}`,
     questionsTab: "面接の質問",
     resumeDetails: "履歴書の詳細",
@@ -303,64 +378,63 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
       start: "開始時刻",
     },
     scheduleFocusBody:
-      "AI 初回面接で確認した作戦上の根拠をもとに、狙撃判断・緊急脱出・シンクロ率データを検証します。候補者と面接官の双方が日程を確認済みです。",
+      "AI 初回面接で確認したプロジェクトの根拠をもとに、イベント企画・炎上対応・データ定義を検証します。候補者と面接官の双方がこの日程を確認済みです。",
     scheduleFocusTitle: "面接の重点",
     structuredResume: "構造化履歴書",
     viewCandidatePage: "候補者の面接ページを見る",
   },
   evaluation: {
     conciseOverall:
-      "碇シンジはサードチルドレンで、初号機での初出撃で第3使徒を撃退した。シンクロ率は安定し実戦経験も揃っており、エヴァパイロットに必要な反応速度と作戦遂行力を備える。面接への進行を推奨。",
+      "シンジはローカルサービスのコミュニティ運営を 3 年経験し、40 以上の都市別グループを単独で担当。新規獲得・活性化・振り返りのいずれも定量的な成果があり、コミュニティ運営職との適合度は高い。面接へ進めることを推奨。",
     dimensions: {
       educationBackground:
-        "第3新東京市立第壱中学校に在学中。NERV のパイロット基礎訓練を受けており、学業面は職務要件に概ね合致。",
+        "華東師範大学 新聞・コミュニケーション学部卒。コンテンツ企画とユーザーとの対話の基礎があり、職務要件に合致。",
       experienceRelevance:
-        "近接戦・狙撃・水中戦を含む 14 回の使徒迎撃作戦に参加。職務に直結する経験。",
+        "コミュニティ・プライベートトラフィック運営 3 年。獲得・活性化・イベント・炎上対応を網羅し、職務と直接関連。",
       potential:
-        "急遽招集されたパイロットから自ら出撃を志願する主力パイロットへ成長し、最高シンクロ率は 400% に達した。",
+        "運営アシスタントから都市コミュニティ責任者に成長し、SOP やインセンティブ制度を自ら整備。今後の成長が期待できる。",
       projectMatch:
-        "ヤシマ作戦と第7使徒への二機同時殲滅作戦に参加。単機狙撃と編隊連携の双方をカバー。",
+        "「週末来店チェックイン」などを企画から振り返りまで主導し、イベント運営の要件に合致。",
       skillMatch:
-        "エントリープラグ操作、ATフィールド中和、陽電子砲狙撃に習熟。神経接続の起動時間を 3.2 秒から 1.4 秒に短縮。",
-      stability:
-        "「逃げちゃダメだ」と繰り返し、継続的に出動している。家出の記録が一度あるが、長期的な出勤は安定。",
+        "WeCom SCRM、アンケート、ダッシュボードを使いこなし、セグメント運営とデータ振り返りを単独で行える。",
+      stability: "2 社でそれぞれ 2 年・3 年勤務し、退職理由も明確。全体として定着性は良好。",
     },
     judgment:
-      "**強く推奨。** 神経シンクロ、ATフィールド中和、複数機での連携経験がエヴァ初号機パイロット職と高く合致し、単独で前線迎撃を担える。",
+      "**強く推奨。** コミュニティ構築、イベント企画、データ振り返りの経験がコミュニティ運営職と高く合致し、都市別コミュニティ群を単独で担当できる。",
     matchingEvidence: [
       {
-        content: "複数機での連携作戦の記録があり、職務に求められる編隊連携をカバー。",
-        jobRequirement: "複数機で使徒を迎撃した経験",
-        point: "複数機連携",
-        resumeEvidence: "零号機・弐号機と連携し第7使徒を二機同時攻撃で殲滅",
+        content: "イベントの企画から実施までの記録があり、成果が定量化されている。",
+        jobRequirement: "コミュニティイベントを単独で企画・実施した経験",
+        point: "イベント企画",
+        resumeEvidence: "「週末来店チェックイン」を主導し、3 週間で新規 4,200 人、来店利用率 27%",
       },
       {
-        content: "シンクロ率の向上が定量的に記録され、神経接続の安定性要件を満たす。",
-        jobRequirement: "シンクロ率 60% 以上で安定",
-        point: "シンクロ率",
-        resumeEvidence: "初搭乗 41.3%、3 か月以内に 70% 以上で安定",
+        content: "活性度の向上が定量的に記録されており、活性化の要件を満たす。",
+        jobRequirement: "コミュニティの活性度と定着率を継続的に高められる",
+        point: "コミュニティ活性化",
+        resumeEvidence: "月間アクティブ率を 18% から 36% に向上、3 か月連続で 33% 以上",
       },
       {
-        content: "重要な局面での長距離狙撃経験があり、武器操作も十分。",
-        jobRequirement: "陽電子砲などの長距離兵器に習熟",
-        point: "長距離狙撃",
-        resumeEvidence: "ヤシマ作戦で陽電子砲による決定的な第二射を命中",
+        content: "運営規模が要件に達しており、セグメント運営の経験もある。",
+        jobRequirement: "1 万人以上のコミュニティ運営経験",
+        point: "コミュニティ規模",
+        resumeEvidence: "40 以上の都市別グループ、累計メンバー 2.6 万人を担当",
       },
     ],
     risks: [
       {
         content:
-          "初号機暴走時の対処が履歴書に記載されておらず、無断で搭乗任務を離れた記録が一度ある。対面面接で重点確認が必要。",
-        jobRequirement: "高圧下でも安定した判断ができること",
-        point: "精神的安定性",
+          "プロダクトやサポートとの協働方法の記載がなく、プロジェクトも単独推進が中心。対面面接で重点的に確認が必要。",
+        jobRequirement: "プロダクト・サポートなど他チームと連携して推進できる",
+        point: "部門横断の協働",
         resumeEvidence: null,
       },
     ],
-    seniorityLevel: "エヴァ初号機専属パイロット",
-    seniorityRationale: "単独で前線迎撃を担い、複数機作戦では作戦部の指揮に従って連携できる。",
+    seniorityLevel: "コミュニティ運営（ミドル）",
+    seniorityRationale: "都市別コミュニティ群を単独で担当し、グロースチームの施策を支援できる。",
     teamRationale:
-      "初号機の主パイロットとして重要な迎撃任務を担い、零号機・弐号機のパイロットと迎撃編隊を組むのに適する。",
-    teamSuggestion: "主力パイロット / 前線迎撃",
+      "主要都市のユーザーグループとコミュニティイベントを担当し、コンテンツ・グロースチームと連携する役割に適する。",
+    teamSuggestion: "コミュニティ運営 / 都市コミュニティ責任者",
   },
   evaluationUi: {
     basis: {
@@ -395,36 +469,36 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
   },
   humanEvaluation: {
     detailedAnalysis:
-      "作戦判断：単機狙撃と編隊援護の役割を区別でき、撤退計画が明確。\nシンクロ性能：シンクログラフの計測方法を説明でき、訓練や LCL 条件の影響を理解している。\n連携：零号機・弐号機のパイロットと息が合い、作戦部のリアルタイム指示を遂行できる。",
+      "イベント企画：目標・予算・振り返り指標を明確に説明でき、判断に根拠がある。\nデータ定義：月間アクティブの定義と対照群の設計を説明でき、セール期などの影響を除外している。\n協働：サポートや事業部門との連携フローが明確で、課題をクローズまで導ける。",
     overallEvaluation:
-      "**作戦再面接の合格を推奨。** 碇シンジはヤシマ作戦での狙撃判断とシンクロ率変動時の撤退計画を明確に説明し、シンクロデータの検証方法も信頼できる。エヴァ初号機パイロット職に適合。",
+      "**業務面接の通過を推奨。** シンジはコミュニティイベントの企画と振り返り、炎上対応の流れを明確に説明でき、データ定義の検証方法も信頼できる。コミュニティ運営職に適合。",
     professionalSkill: "優",
     rating: "A",
     risks:
-      "高圧下でときどき逃避傾向が見られ、作戦部長による継続的なフォローが必要。暴走時の対処は別途評価。",
-    rolePosition: "主力パイロット / 前線迎撃",
-    salaryRecommendation: "月給 ¥32,000–35,000、別途パイロット危険手当",
+      "部門横断で進める際は慎重で、リソース調整に上長の支援が必要。大規模イベントの予算管理経験は限定的。",
+    rolePosition: "コミュニティ運営 / 都市コミュニティ責任者",
+    salaryRecommendation: "月給 ¥18,000–20,000、別途四半期業績賞与",
     strengths:
-      "シンクロ率が安定して向上；重要な局面で出撃できる；MAGI のデータに基づき判断；編隊意識が高い。",
+      "イベントを一貫して回せる、データ定義が明確、ダッシュボードをもとに戦略を調整できる、ユーザー対応が丁寧。",
   },
   humanInterview: {
     focusItems: [
-      "単機狙撃と編隊援護はどう分担しますか？",
-      "シンクロ率異常時に撤退をどう判断しますか？",
-      "シンクロ訓練が実戦に効いていることをどう確認しますか？",
+      "「週末来店チェックイン」の目標と予算をどう設定しましたか？",
+      "苦情が集中したとき、サポートとどう連携しますか？",
+      "活性化施策が月間アクティブに与えた実際の効果をどう検証しますか？",
     ],
-    focusNote: "AI 初回面接で確認した作戦上の根拠をもとに、重要な判断を深掘りします。",
+    focusNote: "AI 初回面接で確認したプロジェクトの根拠をもとに、重要な判断を深掘りします。",
     focusTitle: "今回の面接の重点",
     history: "過去の面接",
     pending: "対応待ち",
     progressDescription: "面接日程、各回の結果、面接評価を確認",
     progressTitle: "対面面接の進捗",
-    roundLabel: "作戦再面接",
+    roundLabel: "業務面接",
     schedule: "面接を設定",
   },
   job: {
-    label: "NERV 日本支部 / エヴァ初号機パイロット",
-    title: "エヴァ初号機パイロット",
+    label: "雲帆テック / コミュニティ運営",
+    title: "コミュニティ運営",
   },
   liveInterview: {
     camera: "カメラ",
@@ -446,25 +520,65 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     copyLink: "オファーリンクをコピー",
     edit: "編集",
     expectations: [
-      { label: "希望月給", value: "¥ 35,000" },
-      { label: "現在の月給", value: "¥ 30,000" },
-      { label: "本採用後の給与", value: "¥ 34,000" },
-      { label: "試用期間の給与", value: "¥ 34,000" },
-      { label: "最短入社日", value: "2026/11/02" },
-      { label: "備考", value: "作戦再面接に合格、待遇は合意済み" },
+      {
+        label: "希望月給",
+        value: "¥ 20,000",
+      },
+      {
+        label: "現在の月給",
+        value: "¥ 16,000",
+      },
+      {
+        label: "本採用後の給与",
+        value: "¥ 19,000",
+      },
+      {
+        label: "試用期間の給与",
+        value: "¥ 19,000",
+      },
+      {
+        label: "最短入社日",
+        value: "2026/11/02",
+      },
+      {
+        label: "備考",
+        value: "業務面接を通過、待遇は合意済み",
+      },
     ],
     expectationsNote: "オファー前に候補者の希望を集め、交渉の参考にします。",
     expectationsTitle: "候補者の希望",
     fields: [
-      { label: "職位", value: "エヴァ初号機専属パイロット" },
-      { label: "基本月給", value: "¥ 34,000" },
-      { label: "年間賞与", value: "¥ 68,000" },
-      { label: "福利厚生", value: "NERV 本部の宿舎と学業手当" },
-      { label: "入社予定日", value: "2026/11/02" },
-      { label: "オファー有効期限", value: "2026/10/16" },
-      { label: "メール状況", value: "shinji@nerv.example に送信済み · 10/10 10:05" },
+      {
+        label: "職位",
+        value: "コミュニティ運営（ミドル）",
+      },
+      {
+        label: "基本月給",
+        value: "¥ 19,000",
+      },
+      {
+        label: "年間賞与",
+        value: "¥ 38,000",
+      },
+      {
+        label: "福利厚生",
+        value: "補足医療保険と年次健康診断",
+      },
+      {
+        label: "入社予定日",
+        value: "2026/11/02",
+      },
+      {
+        label: "オファー有効期限",
+        value: "2026/10/16",
+      },
+      {
+        label: "メール状況",
+        value: "shinji@example.com に送信済み · 10/10 10:05",
+      },
     ],
-    notes: "作戦再面接に合格し、待遇は作戦部長と確認済み。試用期間 3 か月、給与は 100% 支給。",
+    notes:
+      "業務面接を通過し、待遇はユーザーグロース部の責任者と確認済み。試用期間 3 か月、給与は 100% 支給。",
     notesLabel: "備考",
     progress: {
       current: (label: string) => `現在：${label}`,
@@ -484,25 +598,34 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     recruiter: "葛城ミサト",
   },
   resume: {
-    education: [{ period: "2025–2027", primary: "第3新東京市立第壱中学校", secondary: "2年A組" }],
+    education: [
+      {
+        period: "2017–2021",
+        primary: "華東師範大学",
+        secondary: "新聞・コミュニケーション学 · 学士",
+      },
+    ],
     educationTitle: "学歴",
-    fileName: "碇シンジ_エヴァパイロット.pdf",
-    previewSubtitle: "実戦 1 年 · シンクロ率調整 · ATフィールド · 陽電子砲狙撃",
-    skills: ["シンクロ率調整", "ATフィールド中和", "陽電子砲狙撃", "使徒迎撃"],
+    fileName: "碇シンジ_コミュニティ運営.pdf",
+    previewSubtitle: "3 年 · コミュニティ構築 · イベント企画 · データ振り返り",
+    skills: ["セグメント運営", "イベント企画", "WeCom SCRM", "データ振り返り"],
     skillsTitle: "スキル",
-    summary: "サードチルドレン。初出撃で第3使徒を撃退し、シンクロ率は職務の中核要件と高く合致。",
+    summary:
+      "コミュニティ運営 3 年、都市別コミュニティ群を単独で担当。獲得と活性化の成果が職務の中核要件と高く合致。",
     work: [
       {
-        period: "2026–現在",
-        primary: "NERV 日本支部",
-        secondary: "エヴァ初号機パイロット",
-        summary: "使徒迎撃と編隊作戦を担当。ヤシマ作戦で決定的な狙撃を担った。",
+        period: "2023–現在",
+        primary: "拾光ライフ",
+        secondary: "コミュニティ運営",
+        summary:
+          "40 以上の都市別グループの獲得と活性化を担当し、「週末来店チェックイン」などのイベントを主導。",
       },
       {
-        period: "2021–2026",
-        primary: "第2新東京市",
-        secondary: "チェロ教室",
-        summary: "5 年間チェロを続け、長時間の集中力と安定したリズム感を培った。",
+        period: "2021–2023",
+        primary: "茶嶼ティー",
+        secondary: "プライベートトラフィック運営アシスタント",
+        summary:
+          "店舗の WeCom グループ立ち上げを支援し、日々のコンテンツ配信とキャンペーンを担当。",
       },
     ],
     workTitle: "職歴",
@@ -520,24 +643,30 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     evaluationDetails: "評価の詳細",
     fullscreenResume: "履歴書を全画面で見る",
     history: [
-      { label: "志望動機", value: "認められたい。前線迎撃をより幅広く担いたい。" },
+      {
+        label: "志望動機",
+        value: "より大きな環境で、コミュニティ成長の一連の流れを担いたい。",
+      },
       {
         label: "現状と入社時期",
-        value: "現在 NERV で待機中。オファー確定後すぐに第3新東京市へ着任可能。",
+        value: "在職中。オファー確定後 2 週間以内に入社可能。",
       },
-      { label: "給与の現状と希望", value: "現在月給 ¥30,000、希望 ¥32,000–35,000、別途危険手当。" },
+      {
+        label: "給与の現状と希望",
+        value: "現在の月給 ¥16,000、希望は ¥18,000–20,000。",
+      },
       {
         label: "実績・昇給・昇進",
-        value: "急遽招集されたパイロットから主力パイロットへ。作戦の振り返りと編隊訓練に参加。",
+        value: "昨年の評価は A。運営アシスタントから都市コミュニティ責任者に昇進。",
       },
       {
         label: "直近の職歴",
-        value: "NERV 日本支部のエヴァ初号機パイロット。使徒迎撃、編隊連携、シンクロテストを担当。",
+        value: "拾光ライフのコミュニティ運営として、都市別グループの獲得・活性化・炎上対応を担当。",
       },
       {
         label: "注目プロジェクト",
         value:
-          "ヤシマ作戦で決定的な狙撃。神経接続の起動時間を 3.2 秒から 1.4 秒に短縮し、2 週間の P75 シンクログラフで検証。",
+          "「週末来店チェックイン」で 3 週間に新規 4,200 人。月間アクティブ率を 18% から 36% に向上し、3 か月で検証。",
       },
     ],
     historyRoundLabel: "AI 初回面接 · 86 点 · 対面面接を推奨",
@@ -548,7 +677,8 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     participants: "参加人数",
     questions: "面接質問",
     recording: "録画中",
-    referenceNote: "AI 初回面接で確認した回答をもとに、作戦の詳細と判断の背景を確認します。",
+    referenceNote:
+      "AI 初回面接で確認した回答をもとに、プロジェクトの詳細と判断の取捨を引き続き確認します。",
     referenceQuestion: (index: number) => `参考質問 ${index}`,
     review: "評価",
     reviewDescription: "入力内容は毎秒自動保存されます。会議後に仕上げて提出してください。",
@@ -608,27 +738,27 @@ export const jaDemoScreenCopy: DemoScreenCopy = {
     aiTranscript: "評価から対話に戻り、回答の根拠を確認",
     backToMaterials: "会議資料ビューに戻る",
     backToMeeting: "候補者の文脈を保ったままビデオ会議に戻る",
-    candidate: "碇シンジ · エヴァ初号機パイロットの詳細を開く",
+    candidate: "碇シンジ · コミュニティ運営、プロフィール全体を表示",
     detailBack: "採用デスクに戻ると、同じ記録がオファー交渉に進んでいる",
     enterInterview: "候補者は専用リンクから音声面接に参加",
-    enterRoom: "碇シンジの作戦再面接に参加",
+    enterRoom: "シンジの業務面接に参加",
     evaluation: "履歴書評価：強く推奨、6 軸の根拠を確認できる",
     finishAi: "AI 初回面接が完了し、碇シンジの結果に戻る",
     finishHuman: "再面接が完了し、碇シンジの記録と評価に戻る",
-    humanAnalysis: "評価 A、専門スキル優、初号機専属パイロットを提案",
-    humanResult: "作戦再面接は A 評価で合格",
+    humanAnalysis: "評価 A、専門スキル優。都市コミュニティ責任者を推奨",
+    humanResult: "業務面接は A 評価、合格",
     humanSchedule: "同じ記録で対面面接の予定を確認",
-    initialInfo: "初回面接で集めた作戦・給与・着任情報を確認",
+    initialInfo: "初回面接で集めたプロジェクト・給与・入社時期を確認",
     launch: "同じ候補者の AI 初回面接を開始",
     resumeEvaluation: "AI 履歴書評価で適合の根拠とリスクを確認",
-    resumeFullscreen: "履歴書を拡大し、作戦経験を確認",
+    resumeFullscreen: "履歴書を拡大し、同じ候補者のプロジェクト経験を確認",
     roomMaterials: "会議を離れずに候補者資料を確認",
     roomQuestions: "参考質問を開き、根拠をもとに深掘り",
     roomReview: "会議内で面接官の評価フォームを開く",
     scheduleConfirmed: "面接日程と面接官を確認済み",
-    transitionHuman: "碇シンジを対面面接に進め、作戦再面接を設定",
+    transitionHuman: "シンジを対面面接に進め、業務面接を設定",
     transitionOffer: "対面面接に合格し、同じ候補者のオファー交渉へ",
-    turnOne: "AI がヤシマ作戦を深掘りし、具体的な貢献を記録",
-    turnTwo: "シンクロ率データを追及し、元の回答と根拠を保持",
+    turnOne: "AI がイベントについて深掘りし、具体的な貢献を記録",
+    turnTwo: "月間アクティブの定義を追加で確認し、元の回答と根拠を保持",
   },
 };

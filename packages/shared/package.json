@@ -2,7 +2,7 @@
   "name": "@app/shared",
   "version": "0.0.0",
   "private": true,
-  "description": "Isomorphic product contracts, validation schemas, state machines, and utilities shared across AI Hiring Copilot runtimes",
+  "description": "Isomorphic product contracts, validation schemas, state machines, and utilities shared across Deepround runtimes",
   "type": "module",
   "exports": {
     "./utils": "./src/utils/index.ts",

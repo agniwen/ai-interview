@@ -2,7 +2,7 @@
 
 /*
  * MCP Apps 标准样式变量（SEP-1865 Theming）。宿主下发时由 useHostStyles 覆盖到 :root；
- * 未下发的变量回退到 AI Hiring Copilot 自己的设计变量（Radix gray / blue 色阶，light-dark 双值）。
+ * 未下发的变量回退到 Deepround 自己的设计变量（Radix gray / blue 色阶，light-dark 双值）。
  * Standard MCP Apps style variables with fallbacks to the product's own tokens.
  */
 :root {

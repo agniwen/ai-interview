@@ -1,9 +1,15 @@
-// 用途：以统一插画和局部 UI 讲清从岗位基准到团队决策的完整招聘流程。
-// Purpose: explains the hiring workflow with one shared illustration and focused UI blocks.
+// 用途：按角色切换（HR / 用人经理 / 候选人），每个角色配一块局部 UI 与一组颗粒渐变背景。
+// Purpose: role tabs (HR / hiring manager / candidate), each with a focused UI block and grain backdrop.
 "use client";
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import {
+  IconBriefcase,
+  IconCircleCheckFilled,
+  IconMicrophone,
+  IconUsers,
+} from "@tabler/icons-react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as messages from "@/paraglide/messages";
@@ -13,33 +19,30 @@ import type { StageArtworkPalette, StageArtworkPattern } from "./stage-artwork";
 import { StageArtwork } from "./stage-artwork";
 import { Section, SectionHeader } from "./section";
 
-// 每一步换一组颗粒渐变配色与纹样，颜色平滑过渡、纹样淡入。
-// Each step switches grain palette and pattern; colours transition and the pattern fades in.
-const PROCESS_ARTWORK: readonly { palette: StageArtworkPalette; pattern: StageArtworkPattern }[] = [
-  { palette: "sand", pattern: "rays" },
-  { palette: "dusk", pattern: "dots" },
-  { palette: "harbor", pattern: "waves" },
-  { palette: "night", pattern: "lens" },
-];
+// 每个角色换一组颗粒渐变配色与纹样，颜色平滑过渡、纹样淡入。
+// Each role switches grain palette and pattern; colours transition and the pattern fades in.
+const ROLE_ARTWORK = {
+  candidate: { palette: "harbor", pattern: "waves" },
+  hr: { palette: "lilac", pattern: "rays" },
+  manager: { palette: "dusk", pattern: "dots" },
+} as const satisfies Record<
+  StepValue,
+  { palette: StageArtworkPalette; pattern: StageArtworkPattern }
+>;
 
-type StepValue = "decision" | "interview" | "role" | "screening";
+type StepValue = "candidate" | "hr" | "manager";
 
 interface Step {
+  Icon: ComponentType<SVGProps<SVGSVGElement>>;
   body: string;
   demo: ReactNode;
   label: string;
-  number: string;
   title: string;
   value: StepValue;
 }
 
 const STEP_DURATION_MS = 5000;
-const STEP_VALUES = [
-  "role",
-  "screening",
-  "interview",
-  "decision",
-] as const satisfies readonly StepValue[];
+const STEP_VALUES = ["hr", "manager", "candidate"] as const satisfies readonly StepValue[];
 
 function StepProgress({
   active,
@@ -71,56 +74,8 @@ function StepProgress({
   );
 }
 
-function RoleBlueprintBlock() {
-  const copy = getHomeDemoCopy().process.role;
-
-  return (
-    <div className="w-full max-w-[44rem]" data-process-ui-block>
-      <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
-        <div className="flex min-w-0 items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-base">{copy.title}</p>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
-          </div>
-          <span className="shrink-0 text-[12px] text-muted-foreground">{copy.updated}</span>
-        </div>
-
-        <div className="grid sm:grid-cols-[minmax(0,1.35fr)_minmax(9rem,0.65fr)]">
-          <div className="space-y-3.5 px-4 py-4 sm:border-r">
-            <p className="font-medium text-[12px] text-muted-foreground">{copy.weights}</p>
-            {copy.criteria.map(([label, value, width]) => (
-              <div key={label}>
-                <div className="flex items-center justify-between gap-3 text-[13px]">
-                  <span>{label}</span>
-                  <span className="font-medium tabular-nums">{value}</span>
-                </div>
-                <div className="mt-1.5 h-1 overflow-hidden bg-muted">
-                  <div className={cn("h-full bg-primary/72", width)} />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="divide-y divide-border/70 border-t sm:border-t-0">
-            <div className="px-3.5 py-3.5">
-              <p className="font-medium text-[12px] text-muted-foreground">
-                {copy.hardRequirementsLabel}
-              </p>
-              <p className="mt-2 text-[13px] leading-relaxed">{copy.hardRequirements}</p>
-            </div>
-            <div className="px-3.5 py-3.5">
-              <p className="font-medium text-[12px] text-muted-foreground">{copy.scopeLabel}</p>
-              <p className="mt-2 text-[13px] leading-relaxed">{copy.scope}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function EvidenceScreeningBlock() {
-  const copy = getHomeDemoCopy().process.evidence;
+  const copy = getHomeDemoCopy().roles.manager;
 
   return (
     <div className="w-full max-w-[44rem]" data-process-ui-block>
@@ -170,112 +125,89 @@ function EvidenceScreeningBlock() {
   );
 }
 
-function InterviewGuideBlock() {
-  const copy = getHomeDemoCopy().process.interview;
+const STAGE_TONE = {
+  ai: "bg-primary/10 text-primary",
+  hired: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+  human: "bg-amber-500/14 text-amber-700 dark:text-amber-300",
+  screening: "bg-muted text-foreground/70",
+} as const;
+
+function HrPipelineBlock() {
+  const copy = getHomeDemoCopy().roles.hr;
 
   return (
     <div className="w-full max-w-[44rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-base">{copy.title}</p>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
-          </div>
-          <span className="shrink-0 text-[12px] text-muted-foreground">{copy.count}</span>
+        <div className="border-b px-4 py-3">
+          <p className="truncate font-semibold text-base">{copy.title}</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
         </div>
-
-        <div className="grid grid-cols-[minmax(9rem,0.7fr)_minmax(0,1.3fr)] border-b bg-muted/24 px-4 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
-          <span>{copy.headers[0]}</span>
-          <span>{copy.headers[1]}</span>
-        </div>
-        <div className="divide-y divide-border/65 px-4">
-          {copy.questions.map(([label, question, source], index) => (
-            <div
-              className="grid grid-cols-[minmax(9rem,0.7fr)_minmax(0,1.3fr)] gap-4 py-3"
-              key={label}
-            >
-              <div className="flex min-w-0 items-start gap-2.5">
-                <span className="font-mono text-[12px] text-primary leading-6">0{index + 1}</span>
-                <div className="min-w-0">
-                  <p className="font-medium text-[13px]">{label}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{source}</p>
-                </div>
-              </div>
-              <p className="text-[13px] text-foreground/72 leading-relaxed">{question}</p>
-            </div>
+        <div className="grid grid-cols-[minmax(6rem,0.8fr)_minmax(6rem,0.8fr)_minmax(0,1.2fr)] bg-muted/24 px-4 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
+          {copy.headers.map((header) => (
+            <span key={header}>{header}</span>
           ))}
         </div>
-
-        <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-[12px] text-muted-foreground">
-          <span>{copy.footers[0]}</span>
-          <span>{copy.footers[1]}</span>
+        <div className="divide-y divide-border/65 px-4">
+          {copy.rows.map(([name, stage, stageLabel, next]) => (
+            <div
+              className="grid grid-cols-[minmax(6rem,0.8fr)_minmax(6rem,0.8fr)_minmax(0,1.2fr)] items-center py-3 text-[13px]"
+              key={name}
+            >
+              <span className="flex min-w-0 items-center gap-2 font-medium">
+                <Avatar className="size-6" label={name} seed={`candidate:${name}`} size="sm">
+                  <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <span className="truncate">{name}</span>
+              </span>
+              <span>
+                <span
+                  className={cn(
+                    "inline-flex rounded-full px-2 py-0.5 font-medium text-[12px]",
+                    STAGE_TONE[stage],
+                  )}
+                >
+                  {stageLabel}
+                </span>
+              </span>
+              <span className="truncate text-muted-foreground">{next}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-function TeamDecisionBlock() {
-  const copy = getHomeDemoCopy().process.decision;
+function CandidateInviteBlock() {
+  const copy = getHomeDemoCopy().roles.candidate;
 
   return (
-    <div className="w-full max-w-[44rem]" data-process-ui-block>
+    <div className="w-full max-w-[26rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-[10px] border border-transparent bg-card shadow-large">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <p className="font-semibold text-base">{copy.title}</p>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">{copy.subtitle}</p>
-          </div>
-          <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            {copy.collected}
+        <div className="px-5 pt-5 pb-4">
+          <p className="text-[12px] text-muted-foreground">{copy.inviter}</p>
+          <p className="mt-1 font-semibold text-lg">{copy.title}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{copy.duration}</p>
+        </div>
+        <div className="border-t px-5 py-4">
+          <p className="font-medium text-[12px] text-muted-foreground">{copy.checksTitle}</p>
+          <ul className="mt-2.5 space-y-2">
+            {copy.checks.map(([label, status]) => (
+              <li className="flex items-center justify-between gap-3 text-[13px]" key={label}>
+                <span className="flex items-center gap-2">
+                  <IconCircleCheckFilled aria-hidden="true" className="size-4 text-emerald-500" />
+                  {label}
+                </span>
+                <span className="text-muted-foreground">{status}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="border-t px-5 py-4">
+          <span className="flex h-10 w-full items-center justify-center rounded-full bg-foreground font-medium text-[14px] text-background">
+            {copy.start}
           </span>
-        </div>
-
-        <div className="grid grid-cols-[5.5rem_minmax(6rem,0.65fr)_minmax(0,1fr)] bg-muted/24 px-4 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
-          <span>{copy.headers[0]}</span>
-          <span>{copy.headers[1]}</span>
-          <span>{copy.headers[2]}</span>
-        </div>
-        <div className="divide-y divide-border/65 px-4">
-          {copy.verdicts.map(([name, verdict, note]) => (
-            <div
-              className="grid grid-cols-[5.5rem_minmax(6rem,0.65fr)_minmax(0,1fr)] items-center py-3 text-[13px]"
-              key={name}
-            >
-              <span className="flex items-center gap-1.5 font-medium">
-                <Avatar className="size-5" label={name} seed={`interviewer:${name}`} size="sm">
-                  <AvatarFallback>{name}</AvatarFallback>
-                </Avatar>
-                {name}
-              </span>
-              <span className="font-medium text-primary">{verdict}</span>
-              <span className="text-muted-foreground">{note}</span>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="border-t bg-primary/[0.035] px-4 py-3 dark:bg-white/[0.025]"
-          data-process-decision-summary
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="shrink-0">
-              <p className="text-[12px] text-muted-foreground">{copy.finalDecision}</p>
-              <p className="mt-1 font-semibold text-base">{copy.finalValue}</p>
-            </div>
-            <div className="grid flex-1 grid-cols-3 gap-3">
-              {copy.facts.map(([label, value]) => (
-                <div className="border-border/70 border-l pl-3 text-right" key={label}>
-                  <p className="font-semibold text-base tabular-nums leading-none">{value}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <p className="mt-2.5 border-border/70 border-t pt-2 text-[12px] text-muted-foreground leading-relaxed">
-            {copy.summary}
-          </p>
+          <p className="mt-2.5 text-center text-[12px] text-muted-foreground">{copy.note}</p>
         </div>
       </div>
     </div>
@@ -285,43 +217,35 @@ function TeamDecisionBlock() {
 function getSteps(): Step[] {
   return [
     {
-      body: messages.home_process_scale_body(),
-      demo: <RoleBlueprintBlock />,
-      label: messages.home_process_scale_label(),
-      number: "01",
-      title: messages.home_process_scale_title(),
-      value: "role",
+      Icon: IconBriefcase,
+      body: messages.home_persona_hr_description(),
+      demo: <HrPipelineBlock />,
+      label: messages.home_persona_hr_role(),
+      title: messages.home_persona_hr_title(),
+      value: "hr",
     },
     {
-      body: messages.home_process_evidence_body(),
+      Icon: IconUsers,
+      body: messages.home_persona_manager_description(),
       demo: <EvidenceScreeningBlock />,
-      label: messages.home_process_evidence_label(),
-      number: "02",
-      title: messages.home_process_evidence_title(),
-      value: "screening",
+      label: messages.home_persona_manager_role(),
+      title: messages.home_persona_manager_title(),
+      value: "manager",
     },
     {
-      body: messages.home_process_interview_body(),
-      demo: <InterviewGuideBlock />,
-      label: messages.home_process_interview_label(),
-      number: "03",
-      title: messages.home_process_interview_title(),
-      value: "interview",
-    },
-    {
-      body: messages.home_process_consensus_body(),
-      demo: <TeamDecisionBlock />,
-      label: messages.home_process_consensus_label(),
-      number: "04",
-      title: messages.home_process_consensus_title(),
-      value: "decision",
+      Icon: IconMicrophone,
+      body: messages.home_persona_candidate_description(),
+      demo: <CandidateInviteBlock />,
+      label: messages.home_persona_candidate_role(),
+      title: messages.home_persona_candidate_title(),
+      value: "candidate",
     },
   ];
 }
 
-export function ProcessTabs() {
+export function RoleTabs() {
   const steps = getSteps();
-  const [activeValue, setActiveValue] = useState<StepValue>("role");
+  const [activeValue, setActiveValue] = useState<StepValue>("hr");
   const [cycleKey, setCycleKey] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -380,13 +304,13 @@ export function ProcessTabs() {
   const reducedMotion = prefersReducedMotion ?? false;
 
   return (
-    <Section className="overflow-hidden">
+    <Section className="overflow-hidden" id="roles">
       <div ref={sectionRef}>
-        <SectionHeader title={messages.home_process_title()} lead={messages.home_process_lead()} />
+        <SectionHeader title={messages.home_roles_title()} lead={messages.home_roles_lead()} />
 
         <div className="mt-10 grid items-start gap-8 lg:mt-12 lg:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.32fr)] lg:gap-12 xl:gap-16">
           <div
-            aria-label={messages.home_process_aria()}
+            aria-label={messages.home_roles_aria()}
             className="min-w-0"
             data-cycle-duration={STEP_DURATION_MS}
             role="tablist"
@@ -395,24 +319,24 @@ export function ProcessTabs() {
               const isActive = step.value === activeValue;
               return (
                 <button
-                  aria-controls="process-demo-panel"
+                  aria-controls="role-demo-panel"
                   aria-selected={isActive}
                   className="group block w-full py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-4 active:opacity-80 lg:py-5"
-                  data-process-step={step.value}
+                  data-role-step={step.value}
                   key={step.value}
                   onClick={() => activateStep(step.value)}
                   role="tab"
                   type="button"
                 >
                   <div className="flex items-center gap-3">
-                    <span
+                    <step.Icon
+                      aria-hidden="true"
                       className={cn(
-                        "font-mono text-sm transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
-                        isActive ? "text-primary" : "text-foreground/70",
+                        "size-[18px] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
+                        isActive ? "text-primary" : "text-foreground/60",
                       )}
-                    >
-                      {step.number}
-                    </span>
+                      strokeWidth={1.5}
+                    />
                     <span
                       className={cn(
                         "font-medium text-sm transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
@@ -464,10 +388,10 @@ export function ProcessTabs() {
           <div
             aria-live="polite"
             className="relative min-h-[27rem] overflow-hidden rounded-[12px] [&_[data-slot=badge]]:rounded-[8px] sm:min-h-[32rem] lg:sticky lg:top-24 lg:min-h-0 lg:self-stretch"
-            id="process-demo-panel"
+            id="role-demo-panel"
             role="tabpanel"
           >
-            <StageArtwork {...(PROCESS_ARTWORK[activeIndex] ?? PROCESS_ARTWORK[0])} />
+            <StageArtwork {...ROLE_ARTWORK[activeStep.value]} />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/[0.04] dark:to-black/15" />
 
             <div className="absolute inset-0 grid place-items-center p-4 sm:p-7 lg:p-8">

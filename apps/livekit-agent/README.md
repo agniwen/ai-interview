@@ -1,7 +1,7 @@
 # Voice Interview Agent
 
-Python LiveKit agent that conducts the live interview half of **AI Recruitment
-Copilot**. The web app (`../web/`) handles auth, resume upload/parsing,
+Python LiveKit agent that conducts the live interview half of **Deepround**.
+The web app (`../web/`) handles auth, resume upload/parsing,
 screening chat, and interview scheduling; this agent joins a LiveKit room and
 runs the actual voice conversation, then reports the transcript back to web.
 

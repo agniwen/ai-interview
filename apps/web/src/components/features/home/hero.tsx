@@ -1,6 +1,7 @@
 "use client";
 
 import { IconArrowUpRight } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import * as messages from "@/paraglide/messages";
 import { LeadText } from "./section";
@@ -10,23 +11,57 @@ interface HeroProps {
   onWorkbench: () => void;
 }
 
-// 入场动画用 CSS（tw-animate-css），SSR 文本无需等水合即可显示。body 上的 OverlayScrollbars
-// 初始化会重插节点，CSS 动画随之重播；它在 html 上标记 data-overlayscrollbars 后关闭动画。
-// CSS entrance animations keep SSR text visible without waiting for hydration. Body
-// OverlayScrollbars re-inserts nodes, which would replay them, so they switch off once
-// it marks html with data-overlayscrollbars.
+// 入场动画用 CSS（tw-animate-css），SSR 文本无需等水合即可显示。CSS 动画在节点重插（body 上的
+// OverlayScrollbars 初始化）或样式表替换（开发环境的样式注入）时会从头重播，表现为首屏“跳一下”。
+// 因此入场只播一次：播完（或水合时已播完）就给首屏标记 data-entered，此后关闭动画；
+// OverlayScrollbars 在 html 上的标记作为同一保护的兜底。
+// CSS entrances keep SSR text visible before hydration, but CSS animations replay when nodes are
+// re-inserted (body OverlayScrollbars init) or stylesheets are swapped (dev style injection), which
+// shows as a jump. They play once: after they finish (or if already finished at hydration) the hero
+// is marked data-entered and animation is switched off; the OverlayScrollbars html mark is a fallback.
 const ENTER =
-  "animate-in fade-in fill-mode-both duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none in-data-overlayscrollbars:animate-none";
+  "animate-in fade-in fill-mode-both duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none in-data-entered:animate-none in-data-overlayscrollbars:animate-none";
+
+/** 首屏入场动画全部结束（含水合前已结束）后返回 true。 True once every hero entrance has finished. */
+function useEntranceFinished() {
+  const rootRef = useRef<HTMLElement>(null);
+  const [finished, setFinished] = useState(false);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+    let active = true;
+    // jsdom 等环境没有 getAnimations。 Some environments (e.g. jsdom) lack getAnimations.
+    const animations = "getAnimations" in root ? root.getAnimations({ subtree: true }) : [];
+    async function markWhenFinished() {
+      await Promise.allSettled(animations.map((animation) => animation.finished));
+      if (active) {
+        setFinished(true);
+      }
+    }
+    void markWhenFinished();
+    return () => {
+      active = false;
+    };
+  }, []);
+  return { finished, rootRef };
+}
 
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
+  const { finished, rootRef } = useEntranceFinished();
   return (
     // 居中排版：两行粗体大标题、居中说明段、加大的胶囊按钮，对标 shaders.com 官方示例。
     // Centered layout: bold two-line headline, centered lead and large pill CTAs.
-    <section className="relative flex w-full flex-col items-center text-center">
+    <section
+      className="relative flex w-full flex-col items-center text-center"
+      data-entered={finished ? "" : undefined}
+      ref={rootRef}
+    >
       <h1
-        className={`${ENTER} slide-in-from-bottom-[18px] font-semibold text-[clamp(2.25rem,4.6vw,4.75rem)] text-foreground leading-[1.08] tracking-[-0.045em] [text-wrap:balance] dark:text-white`}
+        className={`${ENTER} slide-in-from-bottom-[18px] font-semibold text-[clamp(2.25rem,4.6vw,4.75rem)] text-foreground leading-[1.22] tracking-[-0.045em] [text-wrap:balance] dark:text-white`}
       >
-        <span className="block">AI Hiring Copilot</span>
+        <span className="block">Deepround</span>
         <span className="block">{messages.home_hero_tagline()}</span>
       </h1>
 

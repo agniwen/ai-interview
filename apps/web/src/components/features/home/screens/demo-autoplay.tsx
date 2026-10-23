@@ -282,7 +282,7 @@ export const DemoAutoplay = memo(function DemoAutoplay() {
           />
         </svg>
         <span className="absolute top-7 left-5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-sm">
-          Copilot
+          Agent
         </span>
       </div>
       <div className="absolute right-5 bottom-4 rounded-full border bg-background/95 px-4 py-2 shadow-sm">
