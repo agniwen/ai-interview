@@ -99,7 +99,7 @@ export function InterviewResultTabContent({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pt-3">
       <InterviewRecordSelector
         onSelectedReportChange={onSelectedReportChange}
         reports={resultReports}
