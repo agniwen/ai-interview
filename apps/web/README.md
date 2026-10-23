@@ -1,6 +1,6 @@
 # @app/web
 
-Deepround 的招聘端 Web 应用，基于 TanStack Start、React、TanStack Router/Query、Vite 和 Tailwind CSS。它负责页面与浏览器状态，并在集成运行时把 `@app/server` 挂载到 `/api`。
+Hireseer 的招聘端 Web 应用，基于 TanStack Start、React、TanStack Router/Query、Vite 和 Tailwind CSS。它负责页面与浏览器状态，并在集成运行时把 `@app/server` 挂载到 `/api`。
 
 ## 职责
 

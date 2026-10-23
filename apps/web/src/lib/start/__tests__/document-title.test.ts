@@ -8,7 +8,7 @@ import {
 
 describe("formatDocumentTitle", () => {
   it("appends the application name", () => {
-    expect(formatDocumentTitle("登录")).toBe("登录 · Deepround");
+    expect(formatDocumentTitle("登录")).toBe("登录 · Hireseer");
   });
 
   it("does not append the application name twice", () => {
@@ -18,14 +18,14 @@ describe("formatDocumentTitle", () => {
 
 describe("resolveDocumentTitle", () => {
   it.each([
-    ["/", "Deepround"],
-    ["/unknown-page", "Deepround"],
-    ["/invite/invite-token", "加入工作区 · Deepround"],
-    ["/interview/interview-id", "AI 面试 · Deepround"],
-    ["/w/acme/agent", "招聘智能体 · Deepround"],
-    ["/w/acme/agent/session-id", "招聘智能体 · 对话 · Deepround"],
-    ["/w/acme/studio/dashboard", "Studio · Deepround"],
-    ["/platform/organizations", "平台管理 · Deepround"],
+    ["/", "Hireseer"],
+    ["/unknown-page", "Hireseer"],
+    ["/invite/invite-token", "加入工作区 · Hireseer"],
+    ["/interview/interview-id", "AI 面试 · Hireseer"],
+    ["/w/acme/agent", "Hireseer Agent"],
+    ["/w/acme/agent/session-id", "对话 · Hireseer Agent"],
+    ["/w/acme/studio/dashboard", "Studio · Hireseer"],
+    ["/platform/organizations", "平台管理 · Hireseer"],
   ])("resolves %s", (pathname, expectedTitle) => {
     expect(resolveDocumentTitle(pathname)).toBe(expectedTitle);
   });
@@ -37,6 +37,6 @@ describe("resolveDocumentTitle", () => {
         { pathname: "/platform" },
         { pathname: "/platform/organizations" },
       ]),
-    ).toEqual([{ title: "平台管理 · Deepround" }]);
+    ).toEqual([{ title: "平台管理 · Hireseer" }]);
   });
 });

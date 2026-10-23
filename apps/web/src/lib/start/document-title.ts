@@ -1,9 +1,10 @@
-const APPLICATION_NAME = "Deepround";
+const APPLICATION_NAME = "Hireseer";
+const AGENT_DISPLAY_NAME = `${APPLICATION_NAME} Agent`;
 export const ROOT_DOCUMENT_TITLE = APPLICATION_NAME;
 
 export function formatDocumentTitle(pageTitle: string): string {
   const normalizedTitle = pageTitle.trim();
-  if (normalizedTitle === APPLICATION_NAME) {
+  if (normalizedTitle === APPLICATION_NAME || normalizedTitle.endsWith(AGENT_DISPLAY_NAME)) {
     return normalizedTitle;
   }
   const applicationSuffix = ` · ${APPLICATION_NAME}`;
@@ -32,7 +33,7 @@ function resolveWorkspaceTitle(pathname: string): string | null {
   }
 
   if (area === "agent" || area === "chat") {
-    return page ? "招聘智能体 · 对话" : "招聘智能体";
+    return page ? `对话 · ${AGENT_DISPLAY_NAME}` : AGENT_DISPLAY_NAME;
   }
 
   if (area !== "studio") {

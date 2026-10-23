@@ -40,7 +40,7 @@ export default function HomeShell() {
         <header className="fixed inset-x-0 top-0 z-40 mx-auto flex w-full max-w-[105rem] items-center justify-between gap-4 px-6 pt-6 sm:px-8 lg:px-16 3xl:px-0">
           <div className="flex items-center gap-2.5 text-foreground">
             <RecruitmentCopilotMark className="size-7 sm:size-8" />
-            <span className="font-medium text-sm tracking-tight sm:text-base">Deepround</span>
+            <span className="font-medium text-sm tracking-tight sm:text-base">Hireseer</span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <LanguageToggle />

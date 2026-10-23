@@ -61,7 +61,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       <h1
         className={`${ENTER} slide-in-from-bottom-[18px] font-semibold text-[clamp(2.25rem,4.6vw,4.75rem)] text-foreground leading-[1.22] tracking-[-0.045em] [text-wrap:balance] dark:text-white`}
       >
-        <span className="block">Deepround</span>
+        <span className="block">Hireseer</span>
         <span className="block">{messages.home_hero_tagline()}</span>
       </h1>
 

@@ -37,7 +37,7 @@ function SelectWorkspaceRoute() {
   return (
     <div className="relative min-h-dvh bg-gradient-to-b from-background via-background to-muted/30">
       <header className="flex items-center justify-between px-6 py-4">
-        <span className=" text-muted-foreground text-sm">Deepround</span>
+        <span className=" text-muted-foreground text-sm">Hireseer</span>
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <UserMenu

@@ -1,6 +1,6 @@
 # @app/db-schema
 
-Deepround PostgreSQL 持久化模型的唯一 canonical 定义，包含 Drizzle tables/relations、数据库枚举和与持久化结构紧邻的值对象契约。
+Hireseer PostgreSQL 持久化模型的唯一 canonical 定义，包含 Drizzle tables/relations、数据库枚举和与持久化结构紧邻的值对象契约。
 
 ## 职责与边界
 

@@ -1,6 +1,6 @@
 # Voice Interview Agent
 
-Python LiveKit agent that conducts the live interview half of **Deepround**.
+Python LiveKit agent that conducts the live interview half of **Hireseer**.
 The web app (`../web/`) handles auth, resume upload/parsing,
 screening chat, and interview scheduling; this agent joins a LiveKit room and
 runs the actual voice conversation, then reports the transcript back to web.

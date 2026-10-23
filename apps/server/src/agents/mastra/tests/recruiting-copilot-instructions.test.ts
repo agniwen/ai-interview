@@ -5,7 +5,7 @@ describe("buildRecruitingCopilotInstructions", () => {
   it("keeps workspace chat generic when no record is focused", () => {
     const instructions = buildRecruitingCopilotInstructions();
 
-    expect(instructions).toContain("Deepround 招聘智能体");
+    expect(instructions).toContain("Hireseer Agent");
     expect(instructions).not.toContain("resume-1");
   });
 

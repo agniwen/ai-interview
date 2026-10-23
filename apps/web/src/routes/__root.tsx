@@ -25,7 +25,7 @@ import { getLocale, getTextDirection } from "@/paraglide/runtime";
 import { getSidebarInitialState } from "@/lib/start/sidebar-preferences";
 
 const ROOT_DESCRIPTION =
-  "Deepround 是面向招聘团队的新一代招聘智能体，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。Deepround — Next Recruiting Agent.";
+  "Hireseer 是面向招聘团队的新一代招聘智能体，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。Hireseer — Next Recruiting Agent.";
 const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString();
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

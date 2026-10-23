@@ -21,7 +21,7 @@ export function HomeFooter() {
       <Separator className="mb-10 bg-border" />
       <div className="flex flex-col gap-10 pb-10 md:flex-row md:items-start md:justify-between lg:pb-14">
         <p className="max-w-[10em] text-pretty font-medium text-[clamp(2rem,4vw,3.5rem)] text-foreground leading-[1.2] tracking-[-0.04em]">
-          Deepround
+          Hireseer
         </p>
         <div className="grid grid-cols-2 gap-x-16 gap-y-8 text-sm">
           <nav aria-label={m.home_footer_product()} className="flex flex-col gap-3">
@@ -46,7 +46,7 @@ export function HomeFooter() {
           </nav>
         </div>
       </div>
-      <p className="text-muted-foreground text-xs sm:text-sm">© {COPYRIGHT_YEAR} Deepround</p>
+      <p className="text-muted-foreground text-xs sm:text-sm">© {COPYRIGHT_YEAR} Hireseer</p>
     </footer>
   );
 }

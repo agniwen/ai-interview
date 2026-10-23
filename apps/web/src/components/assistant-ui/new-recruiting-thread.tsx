@@ -66,7 +66,7 @@ function RecruitingWelcomeBlobatar() {
       animate="always"
       background={false}
       className="text-primary [--welcome-blobatar-eye:#ffffff] dark:text-[#008FFF] dark:[--welcome-blobatar-eye:var(--background)]"
-      name="Deepround"
+      name="Hireseer Agent"
       palette={WELCOME_BLOBATAR_PALETTE}
       ref={ref}
       size={120}
@@ -235,7 +235,8 @@ export function NewRecruitingThread({
         </div>
         <NewRecruitingComposer disabled={disabled} onSubmit={onSubmit} />
         <p className="mx-auto mt-2 max-w-xl text-balance text-center text-muted-foreground text-xs">
-          Deepround 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 / 人才库候选人。
+          Hireseer Agent 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
+          人才库候选人。
         </p>
       </div>
     </div>

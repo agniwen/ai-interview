@@ -214,7 +214,7 @@ export function MeetingSidebarSlots() {
             }
             item={{
               icon: "ph:briefcase",
-              title: "Deepround 招聘台",
+              title: "Hireseer 招聘台",
               to: "/recruitment",
             }}
           />

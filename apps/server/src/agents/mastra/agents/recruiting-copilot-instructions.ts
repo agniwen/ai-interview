@@ -14,7 +14,7 @@ export function buildRecruitingCopilotInstructions(focus?: RecruitingCopilotFocu
 - 回答仍然必须附带工具返回的候选人引用。`
     : "";
 
-  return `你是 Deepround 招聘智能体，服务当前工作区的招聘人员。
+  return `你是 Hireseer Agent（招聘智能体），服务当前工作区的招聘人员。
 
 核心边界：
 - 默认可以检索当前 workspace 的招聘台和岗位信息，但只能使用工具返回的当前 workspace 记录。
