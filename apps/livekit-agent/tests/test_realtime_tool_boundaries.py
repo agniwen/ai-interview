@@ -111,8 +111,10 @@ async def test_late_tool_call_cannot_reopen_or_mutate_closed_interview():
 def test_single_answer_coverage_uses_plain_array_schema_for_realtime_provider():
     from qwen_realtime import _tool_schema
 
-    schema = _tool_schema(RealtimeInterviewAgent(context()).record_answer)
-    coverage = schema["function"]["parameters"]["properties"]["covered_topics"]
-    assert coverage["type"] == "array"
-    assert coverage["items"]["type"] == "string"
-    assert "anyOf" not in coverage
+    schema = _tool_schema(RealtimeInterviewAgent(context()).record_answers)
+    properties = schema["function"]["parameters"]["properties"]
+    item = properties["updates"]["items"]["properties"]
+    for coverage in (item["covered_topics"], properties["next_question_ids"]):
+        assert coverage["type"] == "array"
+        assert coverage["items"]["type"] == "string"
+        assert "anyOf" not in coverage

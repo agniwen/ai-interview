@@ -147,13 +147,38 @@ async def test_interview_records_cross_topic_answers_and_corrections():
             if event.type == "message" and event.item.role == "assistant"
         )
         assert "准备好" not in speech
-        await asyncio.wait_for(
+        corrected = await asyncio.wait_for(
             session.run(
                 user_input="更正一下，优化后的延迟是300毫秒，不是200毫秒。其他内容保持不变，我还没补充完。"
             ),
             90,
         )
         assert "300" in agent.question_outcomes[0].answer_summary
+        # The candidate hears that the correction was taken, without the value
+        # being read back to them.
+        reply = "".join(
+            event.item.text_content or ""
+            for event in corrected.events
+            if event.type == "message" and event.item.role == "assistant"
+        )
+        assert "更正" in reply, reply
+        assert any(e.type == "function_call" for e in corrected.events)
+        # Restating what is already recorded is not a correction; the candidate
+        # must not be told something was changed.
+        unchanged = await asyncio.wait_for(
+            session.run(user_input="更正一下，优化后的延迟是300毫秒。"), 90
+        )
+        reply = "".join(
+            event.item.text_content or ""
+            for event in unchanged.events
+            if event.type == "message" and event.item.role == "assistant"
+        )
+        assert "已为您更正" not in reply, reply
+        assert "不用改" in reply or "无误" in reply, reply
+        # The confirmation must not leave the candidate waiting in silence.
+        assert "？" in reply or "?" in reply, reply
+        assert "300" in agent.question_outcomes[0].answer_summary
+        assert "300" not in reply and "三百" not in reply, reply
         assert agent.question_outcomes[0].revision >= 2
         assert checkpoints
 
@@ -304,14 +329,14 @@ async def test_marks_a_topic_before_asking_without_inventing_an_answer():
 async def test_tool_error_returns_to_model_and_valid_retry_can_continue():
     interview = RealtimeInterviewAgent(context())
     save_tool = next(
-        tool for tool in interview.tools if tool.info.name == "record_answer"
+        tool for tool in interview.tools if tool.info.name == "record_answers"
     )
     async with configured_model() as model, AgentSession(llm=model) as session:
         await session.start(
             Agent(
                 instructions=(
-                    "你在做工具校验测试。收到事实后，必须先用 question_id=unknown 调用 record_answer，"
-                    "status=answered，answer_summary=负责订单服务。收到题号校验错误后，"
+                    "你在做工具校验测试。收到事实后，必须先调用 record_answers，updates 只含一项："
+                    "question_id=unknown，status=answered，answer_summary=负责订单服务。收到题号校验错误后，"
                     "改用 question_id=q1 重试，其他字段不变。保存成功后简短确认。"
                 ),
                 tools=[save_tool],
@@ -685,7 +710,81 @@ async def test_partial_refusal_keeps_salary_facts_and_stops_followup():
             },
         ],
     )
-    work = next(a for a in answers if a["question_id"] == "work")
+    work = next(a for a in answers["answers"] if a["question_id"] == "work")
     assert work["status"] == "skipped", work
     assert work["reason"]
     assert "9000" in work["answer_summary"] and "1.5" in work["answer_summary"], work
+
+
+async def test_saving_an_answer_moves_to_the_next_topic_in_the_same_call():
+    # Moving on is folded into the save, so a topic switch costs no extra
+    # model response before the next question is spoken.
+    agent = RealtimeInterviewAgent(context())
+    async with configured_model() as model, AgentSession(llm=model) as session:
+        await session.start(agent)
+        await asyncio.wait_for(session.run(user_input="准备好了。"), 60)
+        answered = await asyncio.wait_for(
+            session.run(
+                user_input="我在上家公司负责订单服务的后端开发和上线，把接口延迟从800毫秒优化到200毫秒。"
+            ),
+            90,
+        )
+        calls = [e.item.name for e in answered.events if e.type == "function_call"]
+        assert "record_answers" in calls, calls
+        assert "set_active_topics" not in calls, calls
+        state = await agent.get_interview_state()
+        assert "q2" in state["active_question_ids"], state
+
+
+def salary_context():
+    from dataclasses import replace
+
+    from dispatch_context import (
+        DispatchFollowUpContract,
+        DispatchFollowUpFacet,
+        DispatchQuestion,
+    )
+
+    return replace(
+        context(),
+        questions=(
+            DispatchQuestion(
+                "q1",
+                "最近一份工作的岗位和薪酬",
+                "medium",
+                "具体月薪、年薪",
+                None,
+                DispatchFollowUpContract(
+                    "all_required",
+                    (
+                        DispatchFollowUpFacet("a", "岗位"),
+                        DispatchFollowUpFacet("b", "具体月薪"),
+                        DispatchFollowUpFacet("c", "具体年薪"),
+                    ),
+                ),
+            ),
+            DispatchQuestion("q2", "离职原因", "easy", None, None),
+            DispatchQuestion("q3", "过去三年的绩效评级", "easy", None, None),
+        ),
+    )
+
+
+async def test_a_topic_implied_by_stated_numbers_is_not_chased():
+    # Monthly pay and the number of salaries settle the annual figure; asking
+    # for it again only stalls the interview.
+    agent = RealtimeInterviewAgent(salary_context())
+    async with configured_model() as model, AgentSession(llm=model) as session:
+        observe_transcript(session, agent)
+        await session.start(agent)
+        await asyncio.wait_for(session.run(user_input="准备好了。"), 60)
+        result = await asyncio.wait_for(
+            session.run(user_input="我是用户运营主管，月薪两万一，十三薪。"), 90
+        )
+        reply = "".join(
+            e.item.text_content or ""
+            for e in result.events
+            if e.type == "message" and e.item.role == "assistant"
+        )
+        assert "年薪" not in reply, reply
+        summary = agent.question_outcomes[0].answer_summary
+        assert "21000" in summary or "两万一" in summary, summary

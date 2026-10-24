@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 
 import pytest
@@ -176,7 +177,6 @@ def test_prompt_uses_information_goals_instead_of_old_pipeline_rules():
     assert {tool.info.name for tool in agent.tools} == {
         "get_interview_state",
         "set_active_topics",
-        "record_answer",
         "record_answers",
         "finish_interview",
     }
@@ -244,7 +244,7 @@ async def test_required_topics_keep_partial_answers_open_until_all_are_covered()
     )
     state = await agent.record_answers(updates=[partial])
     assert state["completed"] == 0
-    assert state["questions"][0]["missing_topics"] == ["加薪", "绩效"]
+    assert state["updated"]["q1"]["missing_topics"] == ["加薪", "绩效"]
     assert agent.question_outcomes[0].answer_summary == "没有晋升和嘉奖"
     assert agent.question_outcomes[0].status.value == "in_progress"
     await agent.record_answers(updates=[partial])
@@ -331,3 +331,186 @@ async def test_explicit_request_to_continue_blocks_model_finish_until_new_consen
         reason=reason, final_question_id="", final_answer_summary=""
     )
     assert agent._closing
+
+
+async def test_voice_tools_return_a_receipt_instead_of_the_full_checklist():
+    agent = RealtimeInterviewAgent(context())
+    topics = await agent.set_active_topics(question_ids=["q1"])
+    assert topics["active_question_ids"] == ["q1"]
+    assert set(topics["updated"]) == {"q1"}
+    saved = await agent.record_answers(
+        updates=[
+            AnswerUpdate(question_id="q2", status="answered", answer_summary="团队解散")
+        ]
+    )
+    assert "questions" not in saved
+    assert set(saved["updated"]) == {"q2"}
+    assert saved["updated"]["q2"]["status"] == "answered"
+    assert saved["completed"] == 1
+    assert saved["remaining_question_ids"] == ["q1"]
+    assert "remaining_seconds" in saved
+    full = await agent.get_interview_state()
+    assert [q["question_id"] for q in full["questions"]] == ["q1", "q2"]
+
+
+async def test_saved_answers_reach_instructions_without_a_new_candidate_turn():
+    agent = RealtimeInterviewAgent(context())
+    await agent.record_answers(
+        updates=[
+            AnswerUpdate(
+                question_id="q1", status="in_progress", answer_summary="负责订单服务"
+            )
+        ]
+    )
+    await agent._memory_sync_task
+    assert "负责订单服务" in agent.instructions
+    await agent.record_answers(
+        updates=[
+            AnswerUpdate(
+                question_id="q1", status="answered", answer_summary="负责支付服务"
+            )
+        ]
+    )
+    await agent._memory_sync_task
+    assert "负责支付服务" in agent.instructions
+    assert "负责订单服务" not in agent.instructions
+
+
+async def test_memory_keeps_one_copy_of_static_rules_and_omits_evidence_quotes():
+    async def extract(questions, turns):
+        return [
+            {
+                "question_id": "q2",
+                "status": "answered",
+                "answer_summary": "团队解散",
+                "evidence": [{"turn_id": "u1", "quote": "公司那边整个团队都解散了"}],
+            }
+        ]
+
+    agent = RealtimeInterviewAgent(context(), answer_extractor=extract)
+    agent.observe_turn("u1", "user", "公司那边整个团队都解散了", 1)
+    await agent.reconcile_answers()
+    await agent._memory_sync_task
+    assert "团队解散" in agent.instructions
+    assert "公司那边整个团队都解散了" not in agent.instructions
+    assert agent.instructions.count("交流方式：") == 1
+    assert agent.instructions.count("职责和成果") == 1
+
+
+async def test_long_question_ids_are_shown_to_the_model_as_short_codes():
+    first, second = (
+        "e674bb48-5447-448e-a658-4f07327f5ae2",
+        "b0ee1f81-ea48-4b02-9057-a1976999de2b",
+    )
+    seen = []
+
+    async def extract(questions, turns):
+        seen.extend(q["question_id"] for q in questions)
+        return [
+            {
+                "question_id": "q2",
+                "status": "answered",
+                "answer_summary": "没有补充",
+                "evidence": [{"turn_id": "u1", "quote": "没有补充"}],
+            }
+        ]
+
+    agent = RealtimeInterviewAgent(
+        replace(
+            context(),
+            questions=(
+                DispatchQuestion(first, "项目职责", "medium", None, None),
+                DispatchQuestion(second, "补充或反问", "easy", None, None),
+            ),
+        ),
+        answer_extractor=extract,
+    )
+    assert first not in agent.instructions
+    topics = await agent.set_active_topics(question_ids=["q1"])
+    assert topics["active_question_ids"] == ["q1"]
+    saved = await agent.record_answer(
+        question_id="q1", status="answered", answer_summary="负责订单服务"
+    )
+    assert set(saved["updated"]) == {"q1"}
+    assert saved["remaining_question_ids"] == ["q2"]
+    agent.observe_turn("u1", "user", "没有补充", 1)
+    await agent.reconcile_answers()
+    await agent._memory_sync_task
+    assert seen[:2] == ["q1", "q2"]
+    assert first not in agent.instructions
+    assert "q1｜answered｜负责订单服务" in agent.instructions
+    outcomes = {o.question_id: o.answer_summary for o in agent.question_outcomes}
+    assert outcomes == {first: "负责订单服务", second: "没有补充"}
+
+
+def test_closing_addresses_the_candidate_by_name():
+    from realtime_interview_agent import RealtimeClosingAgent
+
+    closing = RealtimeClosingAgent("祝您顺利", candidate_name="陈绮浈")
+    assert "陈绮浈" in closing.instructions
+
+
+async def test_evaluative_topics_are_judged_and_never_block_completion():
+    question = DispatchQuestion(
+        "q1",
+        "最近两份工作的离职原因",
+        "easy",
+        None,
+        None,
+        DispatchFollowUpContract(
+            "all_required",
+            (
+                DispatchFollowUpFacet("a", "上份工作离职原因"),
+                DispatchFollowUpFacet("b", "风险高频词标记"),
+            ),
+        ),
+    )
+    agent = RealtimeInterviewAgent(replace(context(), questions=(question,)))
+    state = await agent.record_answers(
+        updates=[
+            AnswerUpdate(
+                question_id="q1",
+                status="in_progress",
+                answer_summary="业务收缩",
+                covered_topics=["上份工作离职原因"],
+            )
+        ]
+    )
+    assert state["updated"]["q1"]["status"] == "answered"
+    assert state["updated"]["q1"]["missing_topics"] == []
+
+
+async def test_saving_can_move_to_the_next_topic_without_a_separate_call():
+    agent = RealtimeInterviewAgent(context())
+    receipt = await agent.record_answers(
+        updates=[
+            AnswerUpdate(question_id="q1", status="answered", answer_summary="负责订单")
+        ],
+        next_question_ids=["q2"],
+    )
+    assert receipt["active_question_ids"] == ["q2"]
+    # q2 was raised, so leaving now ends it as interrupted, not unasked.
+    agent.finalize_missing_question_outcomes("candidate_ended_round")
+    assert agent.question_outcomes[1].status.value == "interrupted"
+
+
+async def test_receipt_tells_whether_the_record_actually_changed():
+    agent = RealtimeInterviewAgent(context())
+    update = AnswerUpdate(question_id="q1", status="answered", answer_summary="带4人")
+    first = await agent.record_answers(updates=[update])
+    again = await agent.record_answers(updates=[update])
+    assert first["updated"]["q1"]["changed"] is True
+    assert again["updated"]["q1"]["changed"] is False
+
+
+async def test_state_warns_not_to_treat_unverified_answers_as_missing():
+    async def slow(questions, turns):
+        await asyncio.sleep(10)
+        return []
+
+    agent = RealtimeInterviewAgent(context(), answer_extractor=slow)
+    agent.observe_turn("u1", "user", "我说过了", 1)
+    state = await agent.get_interview_state()
+    assert state["reconciliation_status"] == "running"
+    assert "note" in state
+    agent._reconcile_task.cancel()

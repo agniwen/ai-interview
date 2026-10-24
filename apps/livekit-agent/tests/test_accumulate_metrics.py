@@ -71,10 +71,26 @@ def test_realtime_metrics_are_not_silently_discarded(monkeypatch):
             duration=2.0,
             ttft=0.3,
             request_id="r1",
+            input_token_details=SimpleNamespace(
+                text_tokens=70, audio_tokens=30, cached_tokens=40
+            ),
+            output_token_details=SimpleNamespace(text_tokens=5, audio_tokens=15),
         ),
     )
     assert state["session"]["llm"]["request_count"] == 1
     assert state["session"]["llm"]["total_tokens"] == 120
+    # Audio and text tokens have different prices, so both are kept.
+    assert {
+        k: v
+        for k, v in state["session"]["llm"].items()
+        if k.startswith(("input_", "output_"))
+    } == {
+        "input_text_tokens": 70,
+        "input_audio_tokens": 30,
+        "input_cached_tokens": 40,
+        "output_text_tokens": 5,
+        "output_audio_tokens": 15,
+    }
     assert state["turns"]["r1"]["llm_ttft"] == 0.3
 
 

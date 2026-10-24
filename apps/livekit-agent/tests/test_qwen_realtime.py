@@ -774,3 +774,170 @@ async def test_automatic_response_timeout_restores_instead_of_ending_interview()
         ] == ["我用豆包写初稿"]
     finally:
         await model.aclose()
+
+
+async def test_reply_waits_for_the_transcript_of_a_committed_turn(connected):
+    # Qwen drops the pending transcription of a committed turn when a new
+    # response starts first, e.g. the reply that follows a tool call.
+    session, socket, _ = connected
+    socket.feed("input_audio_buffer.speech_started", item_id="u1")
+    socket.feed("input_audio_buffer.speech_stopped", item_id="u1")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    # The automatic response to the turn only calls a tool and finishes
+    # before the transcription arrives.
+    socket.feed("response.created", response={"id": "r0"})
+    socket.feed("response.done", response={"id": "r0", "status": "completed"})
+    await eventually(lambda: "u1" in session._untranscribed and session._idle.is_set())
+    future = session.generate_reply()
+    await asyncio.sleep(0.05)
+    assert not any(e["type"] == "response.create" for e in socket.sent)
+    socket.feed(
+        "conversation.item.input_audio_transcription.completed",
+        item_id="u1",
+        transcript="我负责后端开发",
+    )
+    await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
+    assert session.chat_ctx.get_by_id("u1").text_content == "我负责后端开发"
+    socket.feed("response.created", response={"id": "r1"})
+    await future
+
+
+async def test_reply_is_not_blocked_forever_by_a_missing_transcript():
+    socket = Socket()
+    model = RealtimeModel(
+        api_key="test-secret",
+        http_session=Http(socket),
+        request_timeout=0.5,
+        transcript_wait=0.05,
+    )
+    session = model.session()
+    await session.update_instructions("收集信息")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    await eventually(lambda: "u1" in session._untranscribed)
+    future = session.generate_reply()
+    await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
+    socket.feed("response.created", response={"id": "r1"})
+    await future
+    assert not session._untranscribed
+    await model.aclose()
+
+
+async def test_a_lost_final_transcript_falls_back_to_the_partial_text():
+    # Qwen sometimes streams partial text for a turn but never finalizes it;
+    # the partial text is still the candidate's words and must reach history.
+    socket = Socket()
+    model = RealtimeModel(
+        api_key="test-secret",
+        http_session=Http(socket),
+        request_timeout=0.5,
+        transcript_wait=0.05,
+    )
+    session = model.session()
+    events = []
+    session.on("input_audio_transcription_completed", events.append)
+    await session.update_instructions("收集信息")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    socket.feed(
+        "conversation.item.input_audio_transcription.delta",
+        item_id="u1",
+        text="离开蓝鲸是因为",
+        stash="想做管理岗",
+    )
+    await eventually(lambda: "u1" in session._untranscribed and events)
+    future = session.generate_reply()
+    await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
+    socket.feed("response.created", response={"id": "r1"})
+    await future
+    assert [
+        item.text_content
+        for item in session.chat_ctx.items
+        if isinstance(item, llm.ChatMessage) and item.role == "user"
+    ] == ["离开蓝鲸是因为想做管理岗"]
+    assert events[-1].is_final and events[-1].transcript == "离开蓝鲸是因为想做管理岗"
+    await model.aclose()
+
+
+async def test_an_ambient_final_transcript_completes_the_pending_turn():
+    # Qwen may finalize a committed turn as an ambient transcription under a
+    # new item id; it is still that turn's transcript.
+    socket = Socket()
+    model = RealtimeModel(
+        api_key="test-secret",
+        http_session=Http(socket),
+        request_timeout=0.5,
+        transcript_wait=5,
+    )
+    session = model.session()
+    await session.update_instructions("收集信息")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    socket.feed(
+        "conversation.item.input_audio_transcription.delta",
+        item_id="u1",
+        text="想找",
+        stash="更大的平",
+    )
+    socket.feed(
+        "conversation.item.ambient_audio_transcription.completed",
+        item_id="x9",
+        transcript="想找更大的平台。",
+    )
+    await eventually(lambda: not session._untranscribed and session.chat_ctx.items)
+    assert [
+        (item.id, item.text_content)
+        for item in session.chat_ctx.items
+        if isinstance(item, llm.ChatMessage) and item.role == "user"
+    ] == [("u1", "想找更大的平台。")]
+    await model.aclose()
+
+
+async def test_an_ambient_transcript_without_a_pending_turn_is_ignored(connected):
+    session, socket, _ = connected
+    socket.feed(
+        "conversation.item.ambient_audio_transcription.completed",
+        item_id="x9",
+        transcript="背景里有人说话",
+    )
+    socket.feed("response.created", response={"id": "r1"})
+    await asyncio.sleep(0.05)
+    assert session.chat_ctx.items == []
+
+
+async def test_a_list_argument_sent_as_a_json_string_is_decoded(connected):
+    # Qwen sometimes encodes an array parameter as a JSON string; decoding it
+    # saves a failed call and an extra model response for the retry.
+    session, socket, _ = connected
+
+    @llm.function_tool
+    async def save(updates: list[dict], note: str):
+        """保存。"""
+        return "ok"
+
+    await session.update_tools([save])
+    generation = await begin_response(session, socket)
+    arguments = json.dumps(
+        {"updates": '\n[{"question_id": "q1"}]', "note": "[原话]"}, ensure_ascii=False
+    )
+    call = {
+        "id": "f1",
+        "type": "function_call",
+        "call_id": "c1",
+        "name": "save",
+        "arguments": arguments,
+    }
+    socket.feed(
+        "response.function_call_arguments.done",
+        response_id="r1",
+        item_id="f1",
+        **{k: v for k, v in call.items() if k not in ("id", "type")},
+    )
+    socket.feed("response.output_item.done", response_id="r1", item=call)
+    socket.feed(
+        "response.done", response={"id": "r1", "status": "completed", "output": [call]}
+    )
+    calls = [f async for f in generation.function_stream]
+    # Only a parameter the schema declares as an array is decoded; a string
+    # parameter keeps its text even when it looks like JSON.
+    assert json.loads(calls[0].arguments) == {
+        "updates": [{"question_id": "q1"}],
+        "note": "[原话]",
+    }

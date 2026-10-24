@@ -55,6 +55,7 @@ import aliyun_stt
 import qwen_realtime
 from agent_config import resolve_agent_name, resolve_self_hosted, resolve_voice_mode
 from answer_reconciliation import extract_answers
+from debug_trace import trace
 from dispatch_context import (
     DispatchContextError,
     InterviewDispatchContext,
@@ -147,6 +148,12 @@ def _empty_metrics_state() -> dict[str, Any]:
                 "total_completion_tokens": 0,
                 "total_prompt_tokens": 0,
                 "total_tokens": 0,
+                # Realtime only: audio input costs several times more than text.
+                "input_text_tokens": 0,
+                "input_audio_tokens": 0,
+                "input_cached_tokens": 0,
+                "output_text_tokens": 0,
+                "output_audio_tokens": 0,
                 "total_duration": 0.0,
                 "ttft_sum": 0.0,
                 "ttft_count": 0,
@@ -448,6 +455,13 @@ def _accumulate_metrics(metrics_state: dict[str, Any], m: Any) -> None:
         )
         llm["total_prompt_tokens"] += m.input_tokens if realtime else m.prompt_tokens
         llm["total_tokens"] += m.total_tokens
+        if realtime:
+            inp, out = m.input_token_details, m.output_token_details
+            llm["input_text_tokens"] += inp.text_tokens
+            llm["input_audio_tokens"] += inp.audio_tokens
+            llm["input_cached_tokens"] += inp.cached_tokens
+            llm["output_text_tokens"] += out.text_tokens
+            llm["output_audio_tokens"] += out.audio_tokens
         llm["total_duration"] += m.duration
         if m.ttft > 0:
             llm["ttft_sum"] += m.ttft
@@ -743,6 +757,34 @@ async def my_agent(ctx: JobContext) -> None:
     @session.on("metrics_collected")
     def _on_metrics_collected(event: Any) -> None:
         _accumulate_metrics(state.metrics, event.metrics)
+        m = event.metrics
+        if isinstance(m, lk_metrics.RealtimeModelMetrics):
+            trace(
+                "response_usage",
+                request_id=m.request_id,
+                cancelled=m.cancelled,
+                duration=round(m.duration, 2),
+                input_tokens=m.input_tokens,
+                output_tokens=m.output_tokens,
+                input_text=m.input_token_details.text_tokens,
+                input_audio=m.input_token_details.audio_tokens,
+                input_cached=m.input_token_details.cached_tokens,
+                output_text=m.output_token_details.text_tokens,
+                output_audio=m.output_token_details.audio_tokens,
+            )
+
+    @session.on("function_tools_executed")
+    def _on_tools_executed(event: Any) -> None:
+        for call, output in zip(
+            event.function_calls, event.function_call_outputs, strict=False
+        ):
+            trace(
+                "tool",
+                name=call.name,
+                arguments=call.arguments,
+                output=output.output if output else None,
+                is_error=output.is_error if output else None,
+            )
 
     @session.on("conversation_item_added")
     def _on_conversation_item(event: Any) -> None:
@@ -756,6 +798,12 @@ async def my_agent(ctx: JobContext) -> None:
         text = item.text_content
         if not text or not text.strip():
             return
+        trace(
+            "message",
+            role=item.role,
+            text=text,
+            interrupted=getattr(item, "interrupted", False),
+        )
         role_str = item.role
         if role_str == "assistant":
             role_str = "agent"
@@ -787,7 +835,9 @@ async def my_agent(ctx: JobContext) -> None:
             state.ordered_transcript_tasks.add(task)
             task.add_done_callback(state.ordered_transcript_tasks.discard)
         if isinstance(state.interview_agent, RealtimeInterviewAgent):
-            state.interview_agent.observe_turn(item.id, role_str, text.strip(), elapsed)
+            state.interview_agent.observe_turn(
+                item.id, role_str, text.strip(), elapsed, started_at=item.created_at
+            )
             state.interview_agent.schedule_reconciliation()
         logger.debug("turn collected: %s (%.0fs)", role_str, elapsed)
 

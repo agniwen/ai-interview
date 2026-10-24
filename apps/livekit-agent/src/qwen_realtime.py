@@ -28,10 +28,21 @@ from livekit.agents.metrics.base import Metadata
 from livekit.agents.types import NOT_GIVEN, NotGivenOr
 from yarl import URL
 
+from debug_trace import trace
+
 INPUT_SAMPLE_RATE = 16000
 OUTPUT_SAMPLE_RATE = 24000
 DEFAULT_MODEL = "qwen-audio-3.1-realtime-plus"
 DEFAULT_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
+# Turn and transcription lifecycle events, recorded only when tracing is on.
+_TRACED_EVENTS = (
+    "input_audio_buffer.speech",
+    "input_audio_buffer.committed",
+    "conversation.item.",
+    "response.created",
+    "response.done",
+    "error",
+)
 
 
 def _inline_schema_refs(schema: dict[str, Any]) -> dict[str, Any]:
@@ -180,6 +191,7 @@ class RealtimeModel(llm.RealtimeModel):
         max_history_turns: int = 20,
         request_timeout: float = 15.0,
         response_timeout: float = 120.0,
+        transcript_wait: float = 3.0,
         http_session: aiohttp.ClientSession | None = None,
     ) -> None:
         if not (api_key or os.environ.get("DASHSCOPE_API_KEY")):
@@ -190,7 +202,7 @@ class RealtimeModel(llm.RealtimeModel):
             raise ValueError("Invalid Qwen turn_detection")
         if not 1 <= max_history_turns <= 50 or not 200 <= silence_duration_ms <= 6000:
             raise ValueError("Invalid Qwen history or silence limit")
-        if request_timeout <= 0 or response_timeout <= 0:
+        if request_timeout <= 0 or response_timeout <= 0 or transcript_wait <= 0:
             raise ValueError("Qwen timeouts must be positive")
         super().__init__(
             capabilities=llm.RealtimeCapabilities(
@@ -216,6 +228,7 @@ class RealtimeModel(llm.RealtimeModel):
         self._history_turns = max_history_turns
         self._timeout = request_timeout
         self._response_timeout = response_timeout
+        self._transcript_wait = transcript_wait
         self._http = http_session
         self._sessions: set[RealtimeSession] = set()
 
@@ -285,6 +298,12 @@ class RealtimeSession(llm.RealtimeSession):
         self._recovery_instructions_active = False
         self._bootstrap_item: str | None = None
         self._speech_started: dict[str, float] = {}
+        # Committed turns, oldest first, whose final transcription has not
+        # arrived yet. Replies requested by the client wait briefly for it so
+        # the reply and reconciliation see what the candidate just said.
+        self._untranscribed: dict[str, None] = {}
+        self._transcribed = asyncio.Event()
+        self._transcribed.set()
         self._transcripts: dict[str, str] = {}
         self._invalid_turns: set[str] = set()
         self._resampler: rtc.AudioResampler | None = None
@@ -817,6 +836,21 @@ class RealtimeSession(llm.RealtimeSession):
         async with self._reply_lock:
             try:
                 await asyncio.wait_for(self._idle.wait(), self._model._timeout)
+                if self._untranscribed:
+                    try:
+                        await asyncio.wait_for(
+                            self._transcribed.wait(), self._model._transcript_wait
+                        )
+                    except TimeoutError:
+                        # A transcription that has not arrived by now is lost;
+                        # keep whatever partial text Qwen streamed for it and
+                        # never make every later reply wait for it again.
+                        for item_id in list(self._untranscribed):
+                            partial = self._transcripts.get(item_id, "")
+                            if partial:
+                                self._finalize_transcript(item_id, partial)
+                        self._untranscribed.clear()
+                        self._transcribed.set()
                 if self._failure:
                     raise self._failure
                 self.update_options(tool_choice=tool_choice)
@@ -920,15 +954,93 @@ class RealtimeSession(llm.RealtimeSession):
             id=item.get("id") or item["item_id"],
             call_id=item["call_id"],
             name=item["name"],
-            arguments=item["arguments"],
+            arguments=self._decode_nested_arguments(item["name"], item["arguments"]),
         )
         response.calls.add(call.call_id)
         self._store_item(call)
         response.functions.send_nowait(call)
 
+    def _decode_nested_arguments(self, name: str, arguments: str) -> str:
+        """Decode array/object parameters that Qwen sent as JSON strings.
+
+        Only a top-level parameter the tool schema declares as an array or
+        object is decoded, and only when the decoded value has that type, so a
+        string parameter that merely looks like JSON keeps its text.
+        """
+        tool = next((t for t in self._tools.flatten() if t.info.name == name), None)
+        try:
+            values = json.loads(arguments)
+        except ValueError:
+            return arguments
+        if tool is None or not isinstance(values, dict):
+            return arguments
+        properties = (
+            _tool_schema(tool)["function"].get("parameters", {}).get("properties", {})
+        )
+        expected = {"array": list, "object": dict}
+        changed = False
+        for key, value in values.items():
+            kind = expected.get(properties.get(key, {}).get("type"))
+            if kind is None or not isinstance(value, str):
+                continue
+            try:
+                decoded = json.loads(value)
+            except ValueError:
+                continue
+            if isinstance(decoded, kind):
+                values[key] = decoded
+                changed = True
+        return json.dumps(values, ensure_ascii=False) if changed else arguments
+
+    def _settle_transcript(self, item_id: str) -> None:
+        self._untranscribed.pop(item_id, None)
+        if not self._untranscribed:
+            self._transcribed.set()
+
+    def _finalize_transcript(self, item_id: str, transcript: str) -> None:
+        self._settle_transcript(item_id)
+        started = self._speech_started.pop(item_id, None)
+        self._transcripts.pop(item_id, None)
+        if transcript:
+            self._store_item(
+                llm.ChatMessage(
+                    id=item_id,
+                    role="user",
+                    content=[transcript],
+                    created_at=started or time.time(),
+                )
+            )
+        self.emit(
+            "input_audio_transcription_completed",
+            llm.InputTranscriptionCompleted(
+                item_id=item_id,
+                transcript=transcript,
+                is_final=True,
+                turn_started_at=started,
+            ),
+        )
+
     def _handle_event(self, event: dict[str, Any]) -> None:
         kind = event["type"]
         item_id = event.get("item_id", "")
+        if kind.startswith(_TRACED_EVENTS):
+            trace(
+                "provider_event",
+                type=kind,
+                item_id=item_id,
+                **{
+                    key: event[key]
+                    for key in (
+                        "reason",
+                        "transcript",
+                        "text",
+                        "stash",
+                        "error",
+                        "status",
+                    )
+                    if key in event
+                },
+            )
         if kind == "error":
             detail = event.get("error", {})
             code = str(detail.get("code", "unknown"))
@@ -1012,46 +1124,44 @@ class RealtimeSession(llm.RealtimeSession):
             invalid = event.get("reason") == "turn_invalid"
             if invalid:
                 self._invalid_turns.add(item_id)
+                self._settle_transcript(item_id)
                 self._speech_started.pop(item_id, None)
                 self._idle.set()
             self.emit(
                 "input_speech_stopped",
                 llm.InputSpeechStoppedEvent(user_transcription_enabled=not invalid),
             )
+        elif kind == "input_audio_buffer.committed":
+            if item_id and item_id not in self._invalid_turns:
+                self._untranscribed[item_id] = None
+                self._transcribed.clear()
+        elif kind == "conversation.item.ambient_audio_transcription.completed":
+            # Qwen sometimes finalizes a committed turn as ambient audio under
+            # a new item id, while its partial text streamed under the turn's
+            # own id. Without a pending turn it is background speech.
+            if self._untranscribed:
+                self._finalize_transcript(
+                    next(iter(self._untranscribed)), event.get("transcript", "")
+                )
         elif kind.startswith("conversation.item.input_audio_transcription."):
             if item_id in self._invalid_turns:
                 return
-            final = kind.endswith((".completed", ".failed"))
             if kind.endswith(".failed"):
-                transcript = ""
-            elif final:
-                transcript = event.get("transcript", "")
+                self._finalize_transcript(item_id, "")
+            elif kind.endswith(".completed"):
+                self._finalize_transcript(item_id, event.get("transcript", ""))
             else:
                 transcript = event.get("text", "") + event.get("stash", "")
-            started = self._speech_started.get(item_id)
-            if final:
-                self._speech_started.pop(item_id, None)
-                self._transcripts.pop(item_id, None)
-                if transcript:
-                    self._store_item(
-                        llm.ChatMessage(
-                            id=item_id,
-                            role="user",
-                            content=[transcript],
-                            created_at=started or time.time(),
-                        )
-                    )
-            else:
                 self._transcripts[item_id] = transcript
-            self.emit(
-                "input_audio_transcription_completed",
-                llm.InputTranscriptionCompleted(
-                    item_id=item_id,
-                    transcript=transcript,
-                    is_final=final,
-                    turn_started_at=started,
-                ),
-            )
+                self.emit(
+                    "input_audio_transcription_completed",
+                    llm.InputTranscriptionCompleted(
+                        item_id=item_id,
+                        transcript=transcript,
+                        is_final=False,
+                        turn_started_at=self._speech_started.get(item_id),
+                    ),
+                )
         elif kind == "response.created":
             if self._response is not None:
                 if not self._response.cancelled:
@@ -1246,6 +1356,7 @@ class RealtimeSession(llm.RealtimeSession):
                 input_token_details=RealtimeModelMetrics.InputTokenDetails(
                     text_tokens=input_details.get("text_tokens", 0),
                     audio_tokens=input_details.get("audio_tokens", 0),
+                    cached_tokens=input_details.get("cached_tokens", 0),
                 ),
                 output_token_details=RealtimeModelMetrics.OutputTokenDetails(
                     text_tokens=output_details.get("text_tokens", 0),
