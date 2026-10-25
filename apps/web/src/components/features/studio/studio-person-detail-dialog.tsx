@@ -16,6 +16,7 @@ import {
 // component's external API is unchanged for existing call sites.
 
 import { Modal } from "@/components/ui/modal";
+import { cn } from "@app/shared/utils";
 import {
   LazyStudioPersonDetailPanel as StudioPersonDetailPanel,
   preloadStudioPersonDetailPanel,
@@ -89,6 +90,10 @@ export function StudioPersonDetailDialog({
   }, []);
 
   const [displayedIds, setDisplayedIds] = useState({ recordId, roundId });
+  // AI 初面详情从右侧滑出固定宽度侧栏，列表保持可见，方便逐个翻看候选人；简历详情仍居中。
+  // AI interview details slide in as a fixed-width side panel so the list stays visible;
+  // resume details stay centered.
+  const isSidePanel = mode === "interview";
   if (open && (displayedIds.recordId !== recordId || displayedIds.roundId !== roundId)) {
     setDisplayedIds({ recordId, roundId });
   }
@@ -103,8 +108,9 @@ export function StudioPersonDetailDialog({
             onOpenChange={onOpenChange}
             onOpenChangeComplete={onOpenChangeComplete}
             open
-            size={mode === "resume" ? "3xl" : "full"}
-            className="sm:rounded-2xl"
+            placement={isSidePanel ? "right" : "center"}
+            size={isSidePanel ? "lg" : "3xl"}
+            className={isSidePanel ? undefined : "sm:rounded-2xl"}
             headerClassName="pb-0"
             headerExtra={<DetailHeaderSkeleton mode={mode} />}
             title={
@@ -145,8 +151,9 @@ export function StudioPersonDetailDialog({
         title,
       }) => (
         <Modal
-          bodyClassName={bodyClassName}
-          className={modalClassName}
+          // 侧栏里子页签吸顶，滚动渐隐会盖住它，因此关闭。The side panel pins its sub-tabs, so no fade.
+          bodyClassName={cn(bodyClassName, isSidePanel && "scroll-fade-none pt-0")}
+          className={isSidePanel ? undefined : modalClassName}
           description={description}
           footer={mode === "resume" ? footer : undefined}
           headerExtra={headerExtra}
@@ -155,7 +162,8 @@ export function StudioPersonDetailDialog({
           onOpenChangeComplete={onOpenChangeComplete}
           open={open}
           overlay={overlay}
-          size={modalSize ?? (mode === "resume" ? "2xl" : "full")}
+          placement={isSidePanel ? "right" : "center"}
+          size={isSidePanel ? "lg" : (modalSize ?? "2xl")}
           title={title}
         >
           {body}

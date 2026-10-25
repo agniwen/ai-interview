@@ -35,6 +35,7 @@ import { StudioPersonDetailView } from "./studio-person-detail-view";
 import { useStudioPersonDetailMutations } from "./use-studio-person-detail-mutations";
 import { useStudioPersonDetailPermissions } from "./use-studio-person-detail-permissions";
 import { useStudioPersonDetailQueries } from "./use-studio-person-detail-queries";
+import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 
 function useStudioPersonDetailController({
   recordId,
@@ -291,6 +292,9 @@ function useStudioPersonDetailController({
   const selectedResultInterviewItems = getCollectedCandidateInfoItems({
     evaluation: selectedResultReport?.evaluationCriteriaResults,
     formSubmissions: [],
+    outcomes:
+      parseInterviewDataCollectionResults(selectedResultReport?.dataCollectionResults)?.questions ??
+      null,
   }).interviewItems;
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =

@@ -12,6 +12,7 @@
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
+import type { InterviewQuestionOutcome } from "@app/shared/interview/question-outcomes";
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
@@ -283,6 +284,16 @@ export interface CollectedCandidateInfoItem {
   answers: string[];
   id: string;
   kind: "form" | "interview";
+  /** 沟通题的逐题结果（状态、得分、追问与用时）；表单题与旧数据为空。 */
+  /** Per-question result for interview items (status, score, follow-ups, time); null otherwise. */
+  outcome?: {
+    durationSecs: number;
+    followUpCount: number;
+    maxScore: number;
+    reason: InterviewQuestionOutcome["reason"];
+    score: number | null;
+    status: InterviewQuestionOutcome["status"];
+  } | null;
   question: string;
   sequence: number;
 }

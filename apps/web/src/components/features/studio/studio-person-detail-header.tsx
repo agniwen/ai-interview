@@ -20,6 +20,7 @@ import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CandidateAvatarImage, resolveCandidateAvatarSource } from "./candidate-avatar-image";
 import { RecruitingActionButton as Button } from "./recruiting-action-button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -228,6 +229,7 @@ export function buildStudioPersonDetailHeader({
 
   if (layoutMode === "modal" || isReview || isPublic || mode === "interview") {
     const avatarName = record?.candidateName?.trim() || cachedResumeCandidateName;
+    const headerAvatarSource = resolveCandidateAvatarSource({ resumeRecord, round });
     const avatarLabel = avatarName || record?.candidateEmail?.trim() || "候选人";
     title = (
       <span className="flex min-w-0 items-center gap-3">
@@ -236,6 +238,13 @@ export function buildStudioPersonDetailHeader({
           label={`${avatarLabel}的头像`}
           seed={avatarName || "未命名候选人"}
         >
+          {headerAvatarSource ? (
+            <CandidateAvatarImage
+              recordId={headerAvatarSource.recordId}
+              source="resumes"
+              version={headerAvatarSource.version}
+            />
+          ) : null}
           <AvatarFallback>{avatarLabel.slice(0, 1).toUpperCase()}</AvatarFallback>
         </Avatar>
         <span className="flex min-w-0 flex-col gap-2">

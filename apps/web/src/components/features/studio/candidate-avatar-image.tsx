@@ -4,6 +4,36 @@ import { cn } from "@app/shared/utils";
 
 export type CandidateAvatarSource = "resume-pool" | "resumes";
 
+/** 简历首页候选人头像的地址。URL of the candidate headshot cut from the resume's first page. */
+export function getCandidateAvatarUrl(
+  slug: string,
+  source: CandidateAvatarSource,
+  recordId: string,
+  version: string,
+) {
+  return `/api/w/${encodeURIComponent(slug)}/studio/${source}/${encodeURIComponent(recordId)}/avatar?v=${encodeURIComponent(version)}`;
+}
+
+/**
+ * 详情里的候选人头像来源：优先简历记录，其次 AI 初面轮次详情；都没有头像时返回 null。
+ * Headshot source in the detail views: the resume record first, then the AI interview round.
+ */
+export function resolveCandidateAvatarSource({
+  resumeRecord,
+  round,
+}: {
+  resumeRecord?: { id: string; candidateAvatarVersion: string | null } | null;
+  round?: { candidate: { id: string }; candidateAvatarVersion: string | null } | null;
+}): { recordId: string; version: string } | null {
+  if (resumeRecord?.candidateAvatarVersion) {
+    return { recordId: resumeRecord.id, version: resumeRecord.candidateAvatarVersion };
+  }
+  if (round?.candidateAvatarVersion) {
+    return { recordId: round.candidate.id, version: round.candidateAvatarVersion };
+  }
+  return null;
+}
+
 // 简历首页识别出的候选人头像；没有头像或加载失败时保留外层 Avatar 原有的生成头像。
 // Candidate headshot from the resume's first page; the surrounding generated avatar stays
 // visible when there is no headshot or the image fails to load.
@@ -20,9 +50,8 @@ export function CandidateAvatarImage({
   if (!(slug && version)) {
     return null;
   }
-  const src = `/api/w/${encodeURIComponent(slug)}/studio/${source}/${encodeURIComponent(recordId)}/avatar?v=${encodeURIComponent(version)}`;
   // The Avatar root already exposes the candidate's accessible name.
-  return <AvatarImage alt="" src={src} />;
+  return <AvatarImage alt="" src={getCandidateAvatarUrl(slug, source, recordId, version)} />;
 }
 
 // 淘汰状态只淡化生成头像；候选人真实照片保持原色。

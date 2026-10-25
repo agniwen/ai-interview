@@ -46,6 +46,12 @@ export interface ModalProps {
   /** 叠在内容之上、相对弹窗定位的层（如悬浮操作栏），不随主体滚动。Overlay positioned within the modal surface. */
   overlay?: React.ReactNode;
   size?: ModalSize;
+  /**
+   * 桌面端的弹出位置：默认居中；"right" 从右侧滑出整高侧栏，宽度沿用 size。移动端始终使用底部抽屉。
+   * Desktop placement: centered by default; "right" slides in a full-height side panel whose
+   * width follows `size`. Mobile always uses the bottom drawer.
+   */
+  placement?: "center" | "right";
   fullScreen?: boolean;
   showCloseButton?: boolean;
   /** 为 false 时屏蔽 ESC、点击遮罩关闭与移动端下滑关闭，调用方需自己提供关闭路径。 */
@@ -72,6 +78,7 @@ function DialogModal({
   headerLayout = "stack",
   children,
   size = "md",
+  placement = "center",
   fullScreen = false,
   showCloseButton = true,
   dismissible = true,
@@ -81,6 +88,7 @@ function DialogModal({
   footerClassName,
   overlay,
 }: ModalProps) {
+  const isSidePanel = placement === "right" && !fullScreen;
   const popupRef = React.useRef<HTMLDivElement | null>(null);
   // Base UI 只在 open 从 false 变为 true 时播放入场过渡；挂载时即为打开态的弹窗
   // （例如调用方随 key 重新挂载）先以关闭态提交一次，保证入场动画照常播放。
@@ -127,10 +135,18 @@ function DialogModal({
             // Visual frame (background, border, overflow-hidden) lives on the inner div,
             // so position:fixed descendants (popovers) escape the visual frame even though
             // their containing block is still this transformed Content.
-            "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
-            "w-full max-w-[calc(100%-2rem)] outline-none",
-            cossModalMotionClass,
-            SIZE_CLASS[size],
+            isSidePanel
+              ? [
+                  "fixed inset-y-0 right-0 z-50 h-dvh w-full max-w-[calc(100%-2rem)] outline-none",
+                  SIZE_CLASS[size],
+                  "transition-transform duration-[var(--duration-slow)] ease-[var(--ease-smooth-out)] data-ending-style:duration-[var(--duration-medium)] data-starting-style:translate-x-full data-ending-style:translate-x-full motion-reduce:transition-none",
+                ]
+              : [
+                  "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
+                  "w-full max-w-[calc(100%-2rem)] outline-none",
+                  cossModalMotionClass,
+                  SIZE_CLASS[size],
+                ],
             fullScreen &&
               "inset-0 top-0 left-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 sm:w-screen",
           )}
@@ -140,6 +156,7 @@ function DialogModal({
               cossModalSurfaceClass,
               "flex max-h-[90vh] flex-col overflow-hidden rounded-xl",
               fullScreen && "h-dvh max-h-dvh rounded-none border-0",
+              isSidePanel && "h-full max-h-none rounded-none border-y-0 border-r-0",
               className,
             )}
           >

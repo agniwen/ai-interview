@@ -64,6 +64,7 @@ import {
 import { getCommonFeishuProviderIds, loadWorkspaceMembers } from "./human-interview-stage-dialogs";
 import type { WorkspaceMembersResult } from "./human-interview-stage-dialogs";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { getCandidateAvatarUrl } from "./candidate-avatar-image";
 
 interface RoundDateTimePickerProps {
   className: string;
@@ -118,6 +119,7 @@ async function copyMeetingLink(message: string, label: string) {
 
 // oxlint-disable-next-line complexity -- the card composes permission, meeting lifecycle, evaluation, and scheduling states.
 export function RoundCard({
+  candidateAvatar,
   round,
   canCreate,
   canDelete,
@@ -137,6 +139,8 @@ export function RoundCard({
   dependencies = defaultRoundCardDependencies,
   autoScrollDetails = true,
 }: {
+  /** 当前候选人的简历头像来源。Resume headshot source for this candidate. */
+  candidateAvatar?: { recordId: string; version: string | null };
   round: HumanInterviewRoundRecord;
   canCreate: boolean;
   canDelete: boolean;
@@ -205,7 +209,23 @@ export function RoundCard({
             </dd>
           </dl>
         </div>
-        {meeting ? <MeetingAttendanceSummary meeting={meeting} note={statusBadge.note} /> : null}
+        {meeting ? (
+          <MeetingAttendanceSummary
+            candidateAvatarUrl={
+              candidateAvatar?.version
+                ? getCandidateAvatarUrl(
+                    slug,
+                    "resumes",
+                    candidateAvatar.recordId,
+                    candidateAvatar.version,
+                  )
+                : null
+            }
+            candidateRecordId={candidateAvatar?.recordId ?? null}
+            meeting={meeting}
+            note={statusBadge.note}
+          />
+        ) : null}
         {round.evaluation ? (
           <RoundEvaluation
             evaluation={round.evaluation}
@@ -343,9 +363,13 @@ function AttendanceRow({
 }
 
 function MeetingAttendanceSummary({
+  candidateAvatarUrl,
+  candidateRecordId,
   meeting,
   note,
 }: {
+  candidateAvatarUrl: string | null;
+  candidateRecordId: string | null;
   meeting: HumanInterviewMeetingRecord;
   note?: string | null;
 }) {
@@ -362,6 +386,7 @@ function MeetingAttendanceSummary({
         {meeting.rounds.map((candidate) => (
           <AttendanceRow
             avatarSeed={candidate.candidateName || "未命名候选人"}
+            image={candidate.interviewRecordId === candidateRecordId ? candidateAvatarUrl : null}
             joinedAt={candidate.joinedAt}
             key={candidate.roundId}
             label={candidate.candidateName}

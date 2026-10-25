@@ -1,4 +1,5 @@
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
+import { loadCandidateAvatarVersions } from "@app/resume-processing/review/support/candidate-avatars-dao";
 import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 // Round-keyed DAO for AI 面试 列表与详情。
 // 主查询：FROM studio_interview_schedule LEFT JOIN studio_interview
@@ -255,6 +256,7 @@ export async function queryPaginatedInterviewRounds(
         jobDescriptionName: jobDescription.name,
         outcome: recruitingRecordReadModel.outcome,
         pipelineStage: recruitingRecordReadModel.pipelineStage,
+        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
         resumeFileName: recruitingRecordReadModel.resumeFileName,
         resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
         roundLabel: aiInterviewRound.roundLabel,
@@ -292,11 +294,15 @@ export async function queryPaginatedInterviewRounds(
     countQuery,
   ]);
 
-  const { byRoundId: roundDerived, evaluationDocumentsByRoundId } =
-    await loadRoundListDerivedFields(rows, organizationId);
+  const [{ byRoundId: roundDerived, evaluationDocumentsByRoundId }, avatarVersions] =
+    await Promise.all([
+      loadRoundListDerivedFields(rows, organizationId),
+      loadCandidateAvatarVersions(rows.map((row) => row.resumeContentHash)),
+    ]);
   const total = totalRow?.count ?? 0;
   const records: StudioInterviewRoundListRecord[] = rows.map((row) => ({
     allowTextInput: row.allowTextInput,
+    candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
     candidateEmail: row.candidateEmail,
     candidateId: row.candidateId ?? "",
     candidateInviteExpiresAt: serializeDate(row.candidateInviteExpiresAt),
@@ -371,6 +377,7 @@ export async function listInterviewRoundsForCandidate(
       jobDescriptionName: jobDescription.name,
       outcome: recruitingRecordReadModel.outcome,
       pipelineStage: recruitingRecordReadModel.pipelineStage,
+      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
       resumeFileName: recruitingRecordReadModel.resumeFileName,
       resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
       roundLabel: aiInterviewRound.roundLabel,
@@ -409,10 +416,14 @@ export async function listInterviewRoundsForCandidate(
     )
     .orderBy(asc(aiInterviewRound.sortOrder));
 
-  const { byRoundId: roundDerived, evaluationDocumentsByRoundId } =
-    await loadRoundListDerivedFields(rows, organizationId);
+  const [{ byRoundId: roundDerived, evaluationDocumentsByRoundId }, avatarVersions] =
+    await Promise.all([
+      loadRoundListDerivedFields(rows, organizationId),
+      loadCandidateAvatarVersions(rows.map((row) => row.resumeContentHash)),
+    ]);
   return rows.map((row) => ({
     allowTextInput: row.allowTextInput,
+    candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
     candidateEmail: row.candidateEmail,
     candidateId: row.candidateId ?? candidateId,
     candidateInviteExpiresAt: serializeDate(row.candidateInviteExpiresAt),
@@ -518,15 +529,24 @@ export async function loadInterviewRoundDetail(
     jdRequiredSkills = deriveJdRequiredSkills(jdRow?.policy ?? null);
   }
 
-  const [reportRow] = await db
-    .select({ id: aiInterviewConversation.conversationId })
-    .from(aiInterviewConversation)
-    .where(eq(aiInterviewConversation.aiRoundId, row.id))
-    .limit(1);
+  const [[reportRow], [resumeRow]] = await Promise.all([
+    db
+      .select({ id: aiInterviewConversation.conversationId })
+      .from(aiInterviewConversation)
+      .where(eq(aiInterviewConversation.aiRoundId, row.id))
+      .limit(1),
+    db
+      .select({ resumeContentHash: recruitingRecordReadModel.resumeContentHash })
+      .from(recruitingRecordReadModel)
+      .where(eq(recruitingRecordReadModel.id, row.candidateId))
+      .limit(1),
+  ]);
+  const avatarVersions = await loadCandidateAvatarVersions([resumeRow?.resumeContentHash]);
 
   return {
     allowTextInput: row.allowTextInput,
     candidate,
+    candidateAvatarVersion: avatarVersions.get(resumeRow?.resumeContentHash ?? "") ?? null,
     candidateFeedback: buildCandidateInterviewFeedback({
       categories: row.candidateFeedbackCategories,
       detail: row.candidateFeedbackDetail,

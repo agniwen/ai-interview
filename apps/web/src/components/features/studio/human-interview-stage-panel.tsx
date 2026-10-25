@@ -53,6 +53,8 @@ interface PanelProps {
   targetStage?: "second_interview" | "final_interview";
   candidateId: string;
   candidateName: string;
+  /** 简历头像版本，用于参会情况里显示候选人照片。Resume headshot version for the attendance list. */
+  candidateAvatarVersion?: string | null;
   canCreate?: boolean;
   canDelete?: boolean;
   canUpdate?: boolean;
@@ -105,6 +107,7 @@ export function HumanInterviewStagePanel({
   targetStage = "second_interview",
   candidateId,
   candidateName,
+  candidateAvatarVersion = null,
   canCreate = true,
   canDelete = true,
   canUpdate = true,
@@ -279,6 +282,7 @@ export function HumanInterviewStagePanel({
                   }
                   round={round}
                   roundNumber={businessRoundNumbers.get(round.id) ?? 2}
+                  candidateAvatar={{ recordId: candidateId, version: candidateAvatarVersion }}
                   slug={slug}
                 />
               );

@@ -13,6 +13,7 @@ import { buildRecruitingAdvanceCommand } from "./recruiting-advance-command";
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type { InterviewQuestion } from "@app/db-schema/interview/types";
+import type { InterviewQuestionOutcome } from "@app/shared/interview/question-outcomes";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -24,6 +25,13 @@ import {
 } from "@/lib/client/api";
 
 import { Badge } from "@/components/ui/badge";
+import { CandidateAvatar } from "./candidate-avatar-image";
+import { HighlightedText } from "./interviews/interview-detail/keyword-highlight/highlighted-text";
+import {
+  QUESTION_END_REASON_LABELS,
+  QUESTION_STATUS_LABELS,
+  QUESTION_STATUS_VARIANTS,
+} from "./interviews/interview-detail/question-status";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -49,8 +57,11 @@ const evaluationQuestionsSchema = z.object({
       z.object({
         assessment: z.string().optional(),
         evidence: z.array(z.object({ quote: z.string().optional() })).optional(),
+        maxScore: z.number().optional(),
         order: z.number().optional(),
         question: z.string().optional(),
+        questionId: z.string().optional(),
+        score: z.number().nullable().optional(),
       }),
     )
     .optional(),
@@ -91,15 +102,19 @@ function formatFormAnswer(question: FormQuestion, rawValue: string | string[] | 
   return Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
 }
 
-export function getCollectedCandidateInfoItems<const T>({
-  evaluation,
-  formSubmissions,
-}: {
-  evaluation: T;
-  formSubmissions: CandidateFormSubmissionWithSnapshot[];
-}) {
-  const formItems: CollectedCandidateInfoItem[] = [];
+function collectEvidenceQuotes(evidence: { quote?: string }[] | undefined) {
+  return (evidence ?? []).flatMap((item) => {
+    const quote = item.quote?.trim();
+    return quote ? [quote] : [];
+  });
+}
 
+type EvaluatedQuestion = NonNullable<
+  z.infer<typeof evaluationQuestionsSchema>["questions"]
+>[number];
+
+function buildFormItems(formSubmissions: CandidateFormSubmissionWithSnapshot[]) {
+  const formItems: CollectedCandidateInfoItem[] = [];
   for (const submission of formSubmissions) {
     for (const question of submission.snapshot.questions) {
       const answer = formatFormAnswer(question, submission.answers[question.id]);
@@ -113,35 +128,72 @@ export function getCollectedCandidateInfoItems<const T>({
       });
     }
   }
+  return formItems;
+}
 
-  const interviewItems: CollectedCandidateInfoItem[] = [];
-  const parsedEvaluation = evaluationQuestionsSchema.safeParse(evaluation);
-  const questions = parsedEvaluation.success ? (parsedEvaluation.data.questions ?? []) : [];
+/** 按新版逐题结果列出全部沟通题，并合入评估里的得分、原话与分析。 */
+/** Lists every question from V2 outcomes, merging in the evaluation's score, quotes and analysis. */
+function buildOutcomeInterviewItems(
+  outcomes: InterviewQuestionOutcome[],
+  questions: EvaluatedQuestion[],
+): CollectedCandidateInfoItem[] {
+  const evaluationById = new Map(
+    questions.flatMap((question) => (question.questionId ? [[question.questionId, question]] : [])),
+  );
+  return outcomes.map((outcome, index) => {
+    const evaluated = evaluationById.get(outcome.questionId);
+    return {
+      analysis: evaluated?.assessment?.trim() || null,
+      answers: collectEvidenceQuotes(evaluated?.evidence),
+      id: `interview-${outcome.questionId}`,
+      kind: "interview",
+      outcome: {
+        durationSecs: Math.max(0, Math.round(outcome.endedAtSecs - outcome.startedAtSecs)),
+        followUpCount: outcome.followUpCount,
+        maxScore: evaluated?.maxScore ?? 10,
+        reason: outcome.reason,
+        score: evaluated?.score ?? null,
+        status: outcome.status,
+      },
+      question: outcome.question,
+      sequence: index + 1,
+    };
+  });
+}
 
-  for (const [index, rawQuestion] of questions.entries()) {
+function buildLegacyInterviewItems(questions: EvaluatedQuestion[]): CollectedCandidateInfoItem[] {
+  return questions.map((rawQuestion, index) => {
     const question = rawQuestion.question?.trim() ? rawQuestion.question.trim() : "未知题目";
-    const analysis = rawQuestion.assessment?.trim() ? rawQuestion.assessment.trim() : null;
     const order = rawQuestion.order ?? index + 1;
-    const rawEvidence = rawQuestion.evidence ?? [];
-    const answers = rawEvidence.flatMap((item) => {
-      if (!item.quote) {
-        return [];
-      }
-      const quote = item.quote.trim();
-      return quote ? [quote] : [];
-    });
-
-    interviewItems.push({
-      analysis,
-      answers,
+    return {
+      analysis: rawQuestion.assessment?.trim() ? rawQuestion.assessment.trim() : null,
+      answers: collectEvidenceQuotes(rawQuestion.evidence),
       id: `interview-${index}-${order}-${question}`,
       kind: "interview",
       question,
-      sequence: interviewItems.length + 1,
-    });
-  }
+      sequence: index + 1,
+    };
+  });
+}
 
-  return { formItems, interviewItems };
+export function getCollectedCandidateInfoItems<const T>({
+  evaluation,
+  formSubmissions,
+  outcomes = null,
+}: {
+  evaluation: T;
+  formSubmissions: CandidateFormSubmissionWithSnapshot[];
+  /** 新版逐题结果；提供时按它列出全部沟通题并附上状态与得分。 */
+  /** V2 per-question outcomes; when present every question is listed with status and score. */
+  outcomes?: InterviewQuestionOutcome[] | null;
+}) {
+  const parsedEvaluation = evaluationQuestionsSchema.safeParse(evaluation);
+  const questions = parsedEvaluation.success ? (parsedEvaluation.data.questions ?? []) : [];
+  const interviewItems =
+    outcomes && outcomes.length > 0
+      ? buildOutcomeInterviewItems(outcomes, questions)
+      : buildLegacyInterviewItems(questions);
+  return { formItems: buildFormItems(formSubmissions), interviewItems };
 }
 
 export function getReportFormItems(
@@ -168,51 +220,117 @@ export function getReportFormItems(
   return items;
 }
 
+/** 沟通题回答的说话人：候选人姓名与简历头像来源。Speaker shown beside interview answers. */
+export interface CollectedAnswerSpeaker {
+  avatar: { recordId: string; version: string | null } | null;
+  name: string;
+}
+
+function InterviewAnswerBubbles({
+  answers,
+  speaker,
+}: {
+  answers: string[];
+  speaker: CollectedAnswerSpeaker;
+}) {
+  const name = speaker.name.trim() || "候选人";
+  return (
+    <div className="flex items-start gap-2.5">
+      <CandidateAvatar
+        className="mt-0.5 size-6"
+        label={name}
+        recordId={speaker.avatar?.recordId ?? ""}
+        seed={speaker.name.trim() || "未命名候选人"}
+        source="resumes"
+        version={speaker.avatar?.version ?? null}
+      />
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+        <span className="text-muted-foreground text-xs">
+          <span className="font-medium text-foreground">{name}</span> · 候选人
+        </span>
+        {answers.map((answer) => (
+          <p
+            className="max-w-full whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-muted/70 px-3 py-2 text-foreground text-sm leading-6 wrap-break-word"
+            key={answer}
+          >
+            <HighlightedText text={answer} />
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CollectedCandidateInfoList({
   items,
   emptyLabel,
+  speaker = { avatar: null, name: "" },
 }: {
   items: CollectedCandidateInfoItem[];
   emptyLabel: string;
+  /** 沟通题回答以候选人气泡展示时使用的说话人。Speaker for interview answer bubbles. */
+  speaker?: CollectedAnswerSpeaker;
 }) {
   if (items.length === 0) {
     return <div className="py-8 text-center text-muted-foreground text-sm">{emptyLabel}</div>;
   }
 
+  // 编号方块 + 题目作标题；沟通题回答用候选人气泡，表单回答用左侧竖线引出；AI 分析放在最后。
+  // A numbered tile and the question as the title; interview answers render as candidate
+  // bubbles, form answers sit behind a left rule, and the AI analysis comes last.
   return (
     <div className="flex flex-col">
       {items.map((item) => (
         <article
-          className="min-w-0 border-border/60 border-b py-4 last:border-b-0 text-sm"
+          className="min-w-0 border-border/60 border-t py-4 first:border-t-0 first:pt-0 last:pb-0"
           key={item.id}
         >
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 w-7 shrink-0 font-medium text-muted-foreground tabular-nums">
-              {item.sequence}.
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground text-xs tabular-nums">
+              {item.sequence}
             </span>
-            <div className="min-w-0 flex-1">
-              <div className="space-y-1">
-                <div className="font-medium text-[11px] text-muted-foreground">问题</div>
-                <p className="font-medium text-foreground leading-normal">{item.question}</p>
-              </div>
-              <div className="mt-3 space-y-1">
-                <div className="font-medium text-[11px] text-muted-foreground">
-                  {item.kind === "interview" ? "候选人回答" : "回答"}
+            <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-start gap-3">
+                  <p className="min-w-0 flex-1 font-medium text-foreground text-sm leading-6">
+                    {item.question}
+                  </p>
+                  {item.outcome ? (
+                    <div className="flex h-6 shrink-0 items-center gap-2">
+                      <Badge variant={QUESTION_STATUS_VARIANTS[item.outcome.status]}>
+                        {QUESTION_STATUS_LABELS[item.outcome.status]}
+                      </Badge>
+                      <span className="w-12 text-right font-medium text-foreground text-sm tabular-nums">
+                        {item.outcome.score === null
+                          ? "不评分"
+                          : `${item.outcome.score}/${item.outcome.maxScore}`}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
-                {item.answers.length > 0 ? (
-                  <div className="flex flex-col gap-1.5">
+                {item.outcome ? (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+                    <span>追问 {item.outcome.followUpCount} 次</span>
+                    <span>用时 {item.outcome.durationSecs} 秒</span>
+                    {item.outcome.reason ? (
+                      <span>{QUESTION_END_REASON_LABELS[item.outcome.reason]}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <span className="sr-only">{item.kind === "interview" ? "候选人回答" : "回答"}</span>
+                {item.answers.length > 0 && item.kind === "interview" ? (
+                  <InterviewAnswerBubbles answers={item.answers} speaker={speaker} />
+                ) : null}
+                {item.answers.length > 0 && item.kind === "form" ? (
+                  <div className="flex flex-col gap-1.5 border-border border-l-2 pl-3">
                     {item.answers.map((answer) => (
                       <Tooltip key={answer}>
                         <TooltipTrigger
                           render={
-                            <p
-                              className={
-                                item.kind === "interview"
-                                  ? "whitespace-pre-wrap font-medium text-foreground leading-6 wrap-break-word"
-                                  : "line-clamp-2 cursor-help text-foreground leading-6 wrap-break-word"
-                              }
-                            >
-                              “{answer}”
+                            <p className="line-clamp-2 cursor-help text-foreground/90 text-sm leading-6 wrap-break-word">
+                              {answer}
                             </p>
                           }
                         />
@@ -222,14 +340,17 @@ export function CollectedCandidateInfoList({
                       </Tooltip>
                     ))}
                   </div>
-                ) : (
+                ) : null}
+                {item.answers.length === 0 ? (
                   <p className="text-muted-foreground text-sm">暂无提取答案</p>
-                )}
+                ) : null}
               </div>
               {item.analysis ? (
-                <div className="mt-3 space-y-1">
-                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
-                  <p className="text-foreground text-sm leading-6">{item.analysis}</p>
+                <div className="flex flex-col gap-1">
+                  <p className="font-medium text-muted-foreground text-xs">AI 分析</p>
+                  <p className="text-foreground text-sm leading-6">
+                    <HighlightedText text={item.analysis} />
+                  </p>
                 </div>
               ) : null}
             </div>

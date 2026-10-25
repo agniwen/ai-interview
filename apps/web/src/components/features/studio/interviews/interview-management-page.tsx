@@ -49,10 +49,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  ResumeDocumentFileIcon,
-  getResumeDocumentFileIconKind,
-} from "@/components/features/resume/resume-document-file-icon";
+import { getResumeDocumentFileIconKind } from "@/components/features/resume/resume-document-file-icon";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
@@ -67,6 +64,7 @@ import {
 } from "@/components/features/studio/interviews/interview-link-actions";
 import { resolveAiInterviewLinkState } from "@/components/features/studio/interviews/ai-interview-link-state";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import { CandidateRowAvatar } from "./candidate-row-avatar";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -312,9 +310,10 @@ export function InterviewManagementPage() {
           return (
             <div className="flex min-w-0 items-center gap-2">
               {r.hasResumeFile && previewable ? (
+                // 整个头像区域都可点击预览简历。The whole avatar opens the resume preview.
                 <button
                   aria-label={previewTitle}
-                  className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group/avatar-preview relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -323,19 +322,18 @@ export function InterviewManagementPage() {
                   title={previewTitle}
                   type="button"
                 >
-                  <ResumeDocumentFileIcon
-                    className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
-                    kind={documentKind}
-                  />
+                  <CandidateRowAvatar documentKind={documentKind} record={r} />
                 </button>
               ) : (
                 <span
-                  aria-disabled="true"
-                  aria-label="暂无可预览简历"
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                  title="暂无可预览简历"
+                  className="relative shrink-0"
+                  title={r.hasResumeFile ? "暂无可预览简历" : undefined}
                 >
-                  <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
+                  <CandidateRowAvatar
+                    documentKind={r.hasResumeFile ? documentKind : null}
+                    muted
+                    record={r}
+                  />
                 </span>
               )}
               <div className="min-w-0">

@@ -219,6 +219,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
           <TabsContent motion="page" value="human-interview">
             <HumanInterviewStagePanel
+              candidateAvatarVersion={resumeRecord?.candidateAvatarVersion ?? null}
               targetStage={
                 record.pipelineStage === "final_interview" ? "final_interview" : "second_interview"
               }

@@ -1,13 +1,11 @@
 "use client";
 
 import { IconArrowBackUp, IconChevronDown } from "@tabler/icons-react";
-import { countDisplayInterviewTurns } from "@app/shared/interview-transcript-turns";
 
 import {
   DATE_TIME_DISPLAY_OPTIONS,
   formatTimeDisplayText,
 } from "@/components/features/display/time-display";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -111,48 +109,31 @@ export function InterviewRecordSelector({
   if (!(reports.length > 1) || !value) {
     return null;
   }
-  const completedCount = reports.filter(
-    (report) => report.status === "completed" || report.status === "done",
-  ).length;
-  const failedCount = reports.filter((report) => report.status === "failed").length;
-  const totalTurnCount = reports.reduce(
-    (total, report) => total + countDisplayInterviewTurns(report.turns).turnCount,
-    0,
-  );
-
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="outline">共 {reports.length} 次</Badge>
-        <Badge variant="outline">已完成 {completedCount}</Badge>
-        <Badge variant="outline">失败 {failedCount}</Badge>
-        <Badge variant="outline">累计对话 {totalTurnCount} 条</Badge>
-      </div>
-      <Select
-        onValueChange={(conversationId) => {
-          if (conversationId) {
-            onSelectedReportChange(conversationId);
-          }
-        }}
-        value={value}
-      >
-        <SelectTrigger aria-label="选择面试记录" className="w-full sm:w-72">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent align="end">
-          <SelectGroup>
-            <SelectLabel>面试记录</SelectLabel>
-            {reports.map((report, index) => {
-              const label = getInterviewRecordLabel(report, index);
-              return (
-                <SelectItem key={report.conversationId} label={label} value={report.conversationId}>
-                  {label}
-                </SelectItem>
-              );
-            })}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-    </div>
+    <Select
+      onValueChange={(conversationId) => {
+        if (conversationId) {
+          onSelectedReportChange(conversationId);
+        }
+      }}
+      value={value}
+    >
+      <SelectTrigger aria-label="选择面试记录" className="w-full sm:w-72">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end">
+        <SelectGroup>
+          <SelectLabel>面试记录</SelectLabel>
+          {reports.map((report, index) => {
+            const label = getInterviewRecordLabel(report, index);
+            return (
+              <SelectItem key={report.conversationId} label={label} value={report.conversationId}>
+                {label}
+              </SelectItem>
+            );
+          })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }

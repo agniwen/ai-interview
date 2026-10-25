@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCopy, IconListDetails } from "@tabler/icons-react";
+import { IconClipboardText, IconCopy, IconListDetails } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { CandidateInterviewFeedbackContent } from "@/components/features/interview/candidate-interview-feedback";
@@ -8,7 +8,6 @@ import { MarkdownView } from "@/components/features/display/markdown-view";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { cn } from "@app/shared/utils";
 
 import { JobDescriptionInterviewerAgents } from "../interviewers/job-description-interviewer-agents";
@@ -23,6 +22,7 @@ import { SummaryMetric } from "../studio-person-detail-skeletons";
 import { compactText } from "../studio-person-detail-sections";
 import type { StudioPersonDetailViewModel } from "../studio-person-detail-controller";
 import { RecommendedQuestionsDialog } from "./recommended-questions-dialog";
+import { ResultSection } from "./result-section";
 import { SendInvitationButton } from "./send-invitation-button";
 
 type InterviewResultRecord = NonNullable<StudioPersonDetailViewModel["record"]>;
@@ -116,7 +116,7 @@ function InterviewResultActionRow({
   );
 }
 
-export function InterviewResultFrame({
+export function InterviewResultOverview({
   interviewerAgents,
   invitation,
   canEditQuestions,
@@ -137,33 +137,17 @@ export function InterviewResultFrame({
   report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
   return (
-    <Frame className="h-full">
-      <FrameHeader className="flex-row items-center justify-between gap-3">
-        <FrameTitle>面试详情</FrameTitle>
+    <ResultSection
+      meta={
         <Badge variant={report ? getReportBadgeVariant(report.status) : "outline"}>
           {report ? formatReportStatus(report.status) : "暂无报告"}
         </Badge>
-      </FrameHeader>
-      <FramePanel className="flex-1">
-        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          <SummaryMetric
-            label="开始时间"
-            value={
-              <TimeDisplay emptyText="未记录" value={report?.startedAt ?? report?.createdAt} />
-            }
-          />
-          <SummaryMetric
-            label="结束时间"
-            value={<TimeDisplay emptyText="未记录" value={report?.endedAt ?? report?.updatedAt} />}
-          />
-        </div>
-        {interviewerAgents ? (
-          <div className="mt-5 border-border/50 border-t pt-5">
-            <p className="mb-2 text-muted-foreground text-xs">面试官 Agent</p>
-            <JobDescriptionInterviewerAgents {...interviewerAgents} />
-          </div>
-        ) : null}
-        <div className="mt-5 grid gap-x-8 gap-y-4 border-border/50 border-t pt-5 sm:grid-cols-3">
+      }
+      icon={IconClipboardText}
+      title="面试详情"
+    >
+      <div>
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
           <SummaryMetric
             label="评分"
             value={
@@ -188,7 +172,23 @@ export function InterviewResultFrame({
             label="对话"
             value={report ? `${report.userTurnCount} 次候选人回复` : "候选人完成后生成"}
           />
+          <SummaryMetric
+            label="开始时间"
+            value={
+              <TimeDisplay emptyText="未记录" value={report?.startedAt ?? report?.createdAt} />
+            }
+          />
+          <SummaryMetric
+            label="结束时间"
+            value={<TimeDisplay emptyText="未记录" value={report?.endedAt ?? report?.updatedAt} />}
+          />
         </div>
+        {interviewerAgents ? (
+          <div className="mt-5 border-border/50 border-t pt-5">
+            <p className="mb-2 text-muted-foreground text-xs">面试官 Agent</p>
+            <JobDescriptionInterviewerAgents {...interviewerAgents} />
+          </div>
+        ) : null}
         <MarkdownView
           className="mt-5 border-border/50 border-t pt-5 text-foreground text-sm leading-6"
           content={compactText(
@@ -208,7 +208,7 @@ export function InterviewResultFrame({
           onSaveQuestions={onSaveQuestions}
           record={record}
         />
-      </FramePanel>
-    </Frame>
+      </div>
+    </ResultSection>
   );
 }

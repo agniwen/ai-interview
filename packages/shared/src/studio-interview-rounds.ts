@@ -20,6 +20,8 @@ export interface StudioInterviewRoundListRecord {
   id: string;
   candidateId: string;
   candidateName: string;
+  /** 简历首页头像的缓存版本；null 表示没有可展示的头像。Resume headshot version; null when none. */
+  candidateAvatarVersion: string | null;
   candidateEmail: string | null;
   candidatePhone: string | null;
   targetRole: string | null;
@@ -76,6 +78,8 @@ export interface StudioInterviewRoundDetail {
   hasReport: boolean;
   /** Candidate snapshot (resume + JD + generated questions). */
   candidate: StudioCandidateRecord;
+  /** 候选人简历头像的缓存版本；null 表示没有可展示的头像。Resume headshot version; null when none. */
+  candidateAvatarVersion: string | null;
   /**
    * 该轮 JD 简历筛选策略里的必备技能，供报告关键词高亮的 extraSkills。
    * Required skills from the round's JD screening policy, fed to keyword-highlight extraSkills.

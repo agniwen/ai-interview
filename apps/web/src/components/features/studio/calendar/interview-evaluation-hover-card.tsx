@@ -1,6 +1,5 @@
 "use client";
 
-import { IconSparkles } from "@tabler/icons-react";
 import type {
   StudioCalendarCandidate,
   StudioCalendarEvaluationConclusion,
@@ -10,6 +9,7 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useState } from "react";
+import { RecruitmentCopilotMark } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -82,14 +82,8 @@ export function PersonAvatar({
   seed: string;
 }) {
   if (kind === "ai") {
-    return (
-      <span
-        aria-hidden="true"
-        className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-purple-tint text-purple-ink"
-      >
-        <IconSparkles className="size-3" />
-      </span>
-    );
+    // AI 面试官统一使用应用图标。The AI interviewer always shows the app icon.
+    return <RecruitmentCopilotMark className="size-4.5" />;
   }
   return (
     <Avatar aria-hidden className="size-4.5" seed={seed}>
