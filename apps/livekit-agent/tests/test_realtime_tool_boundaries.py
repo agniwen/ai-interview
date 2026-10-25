@@ -1,5 +1,7 @@
 """Deterministic tool guards, complementary to real-room voice E2E."""
 
+import json
+
 import pytest
 from livekit.agents import ToolError
 from test_realtime_interview_agent import context
@@ -118,3 +120,25 @@ def test_single_answer_coverage_uses_plain_array_schema_for_realtime_provider():
         assert coverage["type"] == "array"
         assert coverage["items"]["type"] == "string"
         assert "anyOf" not in coverage
+
+
+def test_tool_schemas_drop_generated_titles_but_keep_a_parameter_named_title():
+    # Generated titles repeat the property names on every response; a real
+    # parameter called "title" is data and must survive.
+    from livekit.agents import llm
+
+    from qwen_realtime import _tool_schema
+
+    @llm.function_tool
+    async def save(title: str, tags: list[str]) -> None:
+        """保存。"""
+
+    schema = json.dumps(_tool_schema(save), ensure_ascii=False)
+    parameters = _tool_schema(save)["function"]["parameters"]
+    assert set(parameters["properties"]) == {"title", "tags"}
+    assert '"title": "' not in schema
+    record = json.dumps(
+        _tool_schema(RealtimeInterviewAgent(context()).record_answers),
+        ensure_ascii=False,
+    )
+    assert '"title": "' not in record

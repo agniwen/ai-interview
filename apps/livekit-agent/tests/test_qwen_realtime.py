@@ -941,3 +941,104 @@ async def test_a_list_argument_sent_as_a_json_string_is_decoded(connected):
         "updates": [{"question_id": "q1"}],
         "note": "[原话]",
     }
+
+
+def answered_turn(socket, item_id, transcript):
+    socket.feed("input_audio_buffer.committed", item_id=item_id)
+    socket.feed(
+        "conversation.item.created",
+        item={
+            "id": item_id,
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_audio", "transcript": None}],
+        },
+    )
+    socket.feed(
+        "conversation.item.input_audio_transcription.completed",
+        item_id=item_id,
+        transcript=transcript,
+    )
+
+
+def assistant_item(socket, item_id, text):
+    socket.feed(
+        "conversation.item.created",
+        item={
+            "id": item_id,
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": text}],
+        },
+    )
+
+
+async def test_an_earlier_turn_keeps_its_place_as_text_instead_of_audio(connected):
+    # Audio history is re-billed on every response at several times the text
+    # price. Once the candidate starts the next turn, the previous turn has been
+    # heard, so it stays in history as its transcript.
+    session, socket, _ = connected
+    added = []
+    session.on("remote_item_added", added.append)
+    assistant_item(socket, "a0", "请介绍一下最近的工作。")
+    answered_turn(socket, "u1", "我负责订单服务。")
+    assistant_item(socket, "a1", "好的，团队多大？")
+    await eventually(lambda: session.chat_ctx.get_by_id("a1"))
+    added.clear()
+    socket.feed("input_audio_buffer.speech_started", item_id="u2")
+    await eventually(
+        lambda: any(e["type"] == "conversation.item.create" for e in socket.sent)
+    )
+    delete = next(e for e in socket.sent if e["type"] == "conversation.item.delete")
+    create = next(e for e in socket.sent if e["type"] == "conversation.item.create")
+    assert delete["item_id"] == "u1"
+    assert create["previous_item_id"] == "a0"
+    assert create["item"] == {
+        "id": "u1",
+        "type": "message",
+        "role": "user",
+        "content": [{"type": "input_text", "text": "我负责订单服务。"}],
+    }
+    await eventually(lambda: session.chat_ctx.get_by_id("u1") is not None)
+    assert [item.id for item in session.chat_ctx.items] == ["a0", "u1", "a1"]
+    # The turn is not new to LiveKit; re-announcing it would duplicate it.
+    assert added == []
+
+
+async def test_each_turn_is_converted_once_and_only_after_it_was_transcribed(
+    connected,
+):
+    session, socket, _ = connected
+    assistant_item(socket, "a0", "请介绍一下最近的工作。")
+    answered_turn(socket, "u1", "我负责订单服务。")
+    socket.feed("input_audio_buffer.committed", item_id="u2")
+    await eventually(lambda: session.chat_ctx.get_by_id("u1"))
+    socket.feed("input_audio_buffer.speech_started", item_id="u3")
+    await eventually(
+        lambda: any(e["type"] == "conversation.item.create" for e in socket.sent)
+    )
+    socket.feed("input_audio_buffer.speech_started", item_id="u4")
+    await asyncio.sleep(0.05)
+    deletes = [
+        e["item_id"] for e in socket.sent if e["type"] == "conversation.item.delete"
+    ]
+    # u2 has no transcript yet, so its audio is all the model has.
+    assert deletes == ["u1"]
+
+
+async def test_history_is_not_rewritten_while_a_response_is_playing(connected):
+    session, socket, _ = connected
+    assistant_item(socket, "a0", "请介绍一下最近的工作。")
+    answered_turn(socket, "u1", "我负责订单服务。")
+    await eventually(lambda: session.chat_ctx.get_by_id("u1"))
+    socket.feed("response.created", response={"id": "r1"})
+    socket.feed("input_audio_buffer.speech_started", item_id="u2")
+    await asyncio.sleep(0.05)
+    assert not any(e["type"] == "conversation.item.delete" for e in socket.sent)
+    socket.feed(
+        "response.done", response={"id": "r1", "status": "cancelled", "output": []}
+    )
+    socket.feed("input_audio_buffer.speech_started", item_id="u3")
+    await eventually(
+        lambda: any(e["type"] == "conversation.item.delete" for e in socket.sent)
+    )

@@ -514,3 +514,36 @@ async def test_state_warns_not_to_treat_unverified_answers_as_missing():
     assert state["reconciliation_status"] == "running"
     assert "note" in state
     agent._reconcile_task.cancel()
+
+
+def test_checklist_keeps_every_requirement_without_empty_or_internal_fields():
+    question = DispatchQuestion(
+        "q1",
+        "最近两份工作：\n1. 岗位\n2. 薪酬",
+        "medium",
+        "岗位与薪酬结构",
+        "缺失则追问",
+        DispatchFollowUpContract(
+            "all_required",
+            (
+                DispatchFollowUpFacet("a", "岗位"),
+                DispatchFollowUpFacet("b", "具体月薪"),
+            ),
+        ),
+    )
+    plain = DispatchQuestion("q2", "离职原因", "easy", None, None)
+    agent = RealtimeInterviewAgent(replace(context(), questions=(question, plain)))
+    checklist = agent.instructions.split("信息清单（共", 1)[1].split("仅在会话开始", 1)[
+        0
+    ]
+    for required in (
+        "最近两份工作",
+        "1. 岗位",
+        "岗位与薪酬结构",
+        "缺失则追问",
+        "具体月薪",
+        "离职原因",
+    ):
+        assert required in checklist
+    for noise in ("null", "None", "sufficient_for_evaluation", '"question_id"'):
+        assert noise not in checklist

@@ -176,7 +176,11 @@ async def test_interview_records_cross_topic_answers_and_corrections():
         assert "已为您更正" not in reply, reply
         assert "不用改" in reply or "无误" in reply, reply
         # The confirmation must not leave the candidate waiting in silence.
-        assert "？" in reply or "?" in reply, reply
+        from test_candidate_boundaries_live import judge
+
+        await judge(
+            reply, "确认之后接着提出问题，或明确请候选人继续说，没有停在确认句上。"
+        )
         assert "300" in agent.question_outcomes[0].answer_summary
         assert "300" not in reply and "三百" not in reply, reply
         assert agent.question_outcomes[0].revision >= 2

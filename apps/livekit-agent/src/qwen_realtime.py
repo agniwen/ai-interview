@@ -87,9 +87,30 @@ def _tool_schema(tool: llm.Tool) -> dict[str, Any]:
     else:
         raise ValueError("Qwen Realtime only supports function tools")
     if "parameters" in result["function"]:
-        result["function"]["parameters"] = _inline_schema_refs(
-            result["function"]["parameters"]
+        result["function"]["parameters"] = _drop_titles(
+            _inline_schema_refs(result["function"]["parameters"])
         )
+    return result
+
+
+def _drop_titles(schema: Any) -> Any:
+    """Remove generated schema titles, which repeat the property names.
+
+    Tool schemas are sent with every response. Only the "title" keyword of a
+    schema is dropped; keys under "properties" are parameter names and stay.
+    """
+    if isinstance(schema, list):
+        return [_drop_titles(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    result = {}
+    for key, value in schema.items():
+        if key == "title" and isinstance(value, str):
+            continue
+        if key == "properties" and isinstance(value, dict):
+            result[key] = {name: _drop_titles(item) for name, item in value.items()}
+        else:
+            result[key] = _drop_titles(value)
     return result
 
 
@@ -306,6 +327,12 @@ class RealtimeSession(llm.RealtimeSession):
         self._transcribed.set()
         self._transcripts: dict[str, str] = {}
         self._invalid_turns: set[str] = set()
+        # Transcribed candidate turns still held as audio. Audio history is
+        # re-billed on every response at several times the text price, so a
+        # turn the model has already answered is kept as its transcript.
+        self._audio_turns: dict[str, str] = {}
+        self._textifying: set[str] = set()
+        self._text_history_task: asyncio.Task | None = None
         self._resampler: rtc.AudioResampler | None = None
         self._input_rate: int | None = None
         self._input_buffer = utils.audio.AudioByteStream(
@@ -992,6 +1019,52 @@ class RealtimeSession(llm.RealtimeSession):
                 changed = True
         return json.dumps(values, ensure_ascii=False) if changed else arguments
 
+    def _schedule_text_history(self) -> None:
+        # The candidate has started the next turn, so every earlier turn has
+        # been heard. Never rewrite history under a response that is playing;
+        # the next turn retries.
+        if (
+            self._response is None
+            and self._audio_turns
+            and (self._text_history_task is None or self._text_history_task.done())
+        ):
+            self._text_history_task = asyncio.create_task(self._replace_audio_turns())
+
+    async def _replace_audio_turns(self) -> None:
+        async with self._chat_lock:
+            for item_id, transcript in list(self._audio_turns.items()):
+                if self._response is not None:
+                    return
+                ids = [item.id for item in self._chat.items]
+                del self._audio_turns[item_id]
+                if item_id not in ids or ids.index(item_id) == 0:
+                    # Qwen cannot insert at the start of the conversation.
+                    continue
+                previous = ids[ids.index(item_id) - 1]
+                self._textifying.add(item_id)
+                try:
+                    await self._request(
+                        {"type": "conversation.item.delete", "item_id": item_id},
+                        "conversation.item.deleted",
+                        item_id,
+                    )
+                    await self._request(
+                        {
+                            "type": "conversation.item.create",
+                            "previous_item_id": previous,
+                            "item": {
+                                "id": item_id,
+                                "type": "message",
+                                "role": "user",
+                                "content": [{"type": "input_text", "text": transcript}],
+                            },
+                        },
+                        "conversation.item.created",
+                        item_id,
+                    )
+                finally:
+                    self._textifying.discard(item_id)
+
     def _settle_transcript(self, item_id: str) -> None:
         self._untranscribed.pop(item_id, None)
         if not self._untranscribed:
@@ -1002,6 +1075,7 @@ class RealtimeSession(llm.RealtimeSession):
         started = self._speech_started.pop(item_id, None)
         self._transcripts.pop(item_id, None)
         if transcript:
+            self._audio_turns[item_id] = transcript
             self._store_item(
                 llm.ChatMessage(
                     id=item_id,
@@ -1107,7 +1181,8 @@ class RealtimeSession(llm.RealtimeSession):
                 )
             if item is not None:
                 self._store_item(item, event.get("previous_item_id"))
-                if existing is None:
+                # A turn re-created as text is not new to LiveKit.
+                if existing is None and wire["id"] not in self._textifying:
                     self.emit(
                         "remote_item_added",
                         llm.RemoteItemAddedEvent(
@@ -1117,6 +1192,7 @@ class RealtimeSession(llm.RealtimeSession):
             self._ack(kind, wire["id"])
         elif kind == "input_audio_buffer.speech_started":
             self._speech_started[item_id] = time.time()
+            self._schedule_text_history()
             if self._model._turn_detection == "smart_turn":
                 self._idle.clear()
             self.emit("input_speech_started", llm.InputSpeechStartedEvent())
