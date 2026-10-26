@@ -3,7 +3,6 @@ import { IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
-import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
@@ -134,8 +133,10 @@ export function CandidateFormTemplateManagementPage({
     queryKeyBase: ["candidate-form-templates", slug],
   });
 
-  const routeSearch = coerceSearchParams(useSearch({ from: "/w/$slug/studio/forms" }));
-  const navigate = useNavigate({ from: "/w/$slug/studio/forms" });
+  const routeSearch = coerceSearchParams(
+    useSearch({ from: "/w/$slug/studio/question-bank/forms" }),
+  );
+  const navigate = useNavigate({ from: "/w/$slug/studio/question-bank/forms" });
   const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
   const setActiveTemplateId = useCallback(
     (value: string | null) => {
@@ -465,8 +466,6 @@ export function CandidateFormTemplateManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader description="可按岗位复用；提交后随面试留档。" title="表单题" />
-
         <DataGrid<CandidateFormTemplateListRecord>
           {...grid.bind}
           columns={columns}

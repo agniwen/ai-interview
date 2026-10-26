@@ -117,7 +117,7 @@ export const candidateFormsRouter = factory
     const records = await listAllCandidateFormTemplates(activeOrg.id);
     return c.json({ records }, 200);
   })
-  .get("/bootstrap", requirePermission("page", "forms"), async (c) => {
+  .get("/bootstrap", requirePermission("page", "questionBank"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);

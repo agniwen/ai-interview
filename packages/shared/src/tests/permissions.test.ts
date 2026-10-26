@@ -187,8 +187,7 @@ describe("permissions matrix", () => {
           "recruitingLedger",
           "interviewers",
           "jobDescriptions",
-          "forms",
-          "interviewQuestions",
+          "questionBank",
         ]),
       );
       for (const page of ["dashboard", "members", "permissions", "globalConfig"] as const) {

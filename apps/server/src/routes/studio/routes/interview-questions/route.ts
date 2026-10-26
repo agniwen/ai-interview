@@ -233,7 +233,7 @@ export const interviewQuestionTemplatesRouter = factory
     const records = await listAllInterviewQuestionTemplates(activeOrg.id);
     return c.json({ records }, 200);
   })
-  .get("/bootstrap", requirePermission("page", "interviewQuestions"), async (c) => {
+  .get("/bootstrap", requirePermission("page", "questionBank"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);

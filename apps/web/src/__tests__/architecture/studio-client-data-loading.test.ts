@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 const appRoot = path.resolve(import.meta.dirname, "../../..");
 
 const listRoutes = [
-  "forms",
-  "interview-questions",
+  "question-bank.forms",
+  "question-bank.interview-questions",
   "interviewers",
   "interviews",
   "job-descriptions",
@@ -29,7 +29,9 @@ describe("Studio client data loading", () => {
 
   it("does not retain manual QueryClient hydration modules for Studio list routes", () => {
     for (const route of listRoutes) {
-      const serverModule = path.join(appRoot, `src/lib/start/studio/${route}.server.ts`);
+      // 面试题配置下的子路由沿用原有的 server 模块名。Question bank child routes keep their module names.
+      const moduleName = route.replace(/^question-bank\./, "");
+      const serverModule = path.join(appRoot, `src/lib/start/studio/${moduleName}.server.ts`);
       if (!existsSync(serverModule)) {
         continue;
       }

@@ -15,7 +15,7 @@ export type StudioFormsState =
 export const loadStudioFormsState = createServerFn({ method: "GET" })
   .validator(slugInputSchema)
   .handler(async ({ data }): Promise<StudioFormsState> => {
-    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "forms");
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "questionBank");
     if (access.status !== "ready") {
       return access;
     }

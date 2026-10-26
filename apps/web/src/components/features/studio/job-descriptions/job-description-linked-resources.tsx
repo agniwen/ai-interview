@@ -19,7 +19,7 @@ export function LinkedFormsList({
   templates: CandidateFormTemplateListRecord[];
 }) {
   const slug = useWorkspaceSlug();
-  const newTemplateHref = `/w/${slug}/studio/forms?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
+  const newTemplateHref = `/w/${slug}/studio/question-bank/forms?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
 
   return (
     <div className="mt-4 space-y-3">
@@ -64,7 +64,7 @@ export function LinkedFormsList({
               <CardContent className="p-0">
                 <a
                   className="flex items-start justify-between gap-3 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-                  href={`/w/${slug}/studio/forms?templateId=${template.id}`}
+                  href={`/w/${slug}/studio/question-bank/forms?templateId=${template.id}`}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -103,7 +103,7 @@ export function LinkedInterviewQuestionTemplatesList({
   templates: InterviewQuestionTemplateListRecord[];
 }) {
   const slug = useWorkspaceSlug();
-  const newTemplateHref = `/w/${slug}/studio/interview-questions?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
+  const newTemplateHref = `/w/${slug}/studio/question-bank/interview-questions?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
 
   return (
     <div className="mt-4 space-y-3">
@@ -148,7 +148,7 @@ export function LinkedInterviewQuestionTemplatesList({
               <CardContent className="p-0">
                 <a
                   className="flex items-start justify-between gap-3 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-                  href={`/w/${slug}/studio/interview-questions?templateId=${template.id}`}
+                  href={`/w/${slug}/studio/question-bank/interview-questions?templateId=${template.id}`}
                   target="_blank"
                   rel="noreferrer"
                 >

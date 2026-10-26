@@ -136,27 +136,15 @@ const navGroups: NavGroup[] = [
         resource: "page",
         title: "岗位设置",
       },
+      {
+        action: "questionBank",
+        icon: IconListCheck,
+        path: "/studio/question-bank",
+        resource: "page",
+        title: "面试题配置",
+      },
     ],
     label: "招聘配置",
-  },
-  {
-    items: [
-      {
-        action: "forms",
-        icon: IconClipboardList,
-        path: "/studio/forms",
-        resource: "page",
-        title: "表单题",
-      },
-      {
-        action: "interviewQuestions",
-        icon: IconListCheck,
-        path: "/studio/interview-questions",
-        resource: "page",
-        title: "沟通题",
-      },
-    ],
-    label: "题库",
   },
   {
     items: [

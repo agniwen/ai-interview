@@ -83,15 +83,9 @@ function getStudioNavGroups(): NavGroup[] {
       items: [
         { icon: IconUserCircle, label: m.home_frame_nav_interviewers() },
         { icon: IconFileText, label: m.home_frame_nav_jobs() },
+        { icon: IconListCheck, label: m.home_frame_nav_question_config() },
       ],
       label: m.home_frame_nav_recruitment_config(),
-    },
-    {
-      items: [
-        { icon: IconClipboardList, label: m.home_frame_nav_form_questions() },
-        { icon: IconListCheck, label: m.home_frame_nav_conversation_questions() },
-      ],
-      label: m.home_frame_nav_question_bank(),
     },
     {
       items: [

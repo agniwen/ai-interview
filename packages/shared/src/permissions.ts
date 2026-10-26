@@ -26,8 +26,7 @@ export const STUDIO_PAGE_PERMISSION_ACTIONS = [
   "recruitingLedger",
   "interviewers",
   "jobDescriptions",
-  "forms",
-  "interviewQuestions",
+  "questionBank",
   "me",
   "members",
   "permissions",
@@ -38,9 +37,7 @@ export const STUDIO_PAGE_PERMISSION_ACTIONS = [
 export const STUDIO_PAGE_PERMISSION_LABELS = {
   calendar: "面试管理",
   dashboard: "数据看板",
-  forms: "表单题",
   globalConfig: "上下文设置",
-  interviewQuestions: "沟通题",
   interviewers: "面试官 Agent 管理",
   interviews: "AI 初面",
   jobDescriptions: "岗位设置",
@@ -49,6 +46,7 @@ export const STUDIO_PAGE_PERMISSION_LABELS = {
   offerApprovalTemplates: "审批流配置",
   offerApprovals: "审批",
   permissions: "权限管理",
+  questionBank: "面试题配置",
   recruitingLedger: "招聘台账",
   resumePool: "人才库",
   resumes: "招聘",
@@ -65,8 +63,7 @@ const recruitingSupervisorStudioPagePermissions = [
   "recruitingLedger",
   "interviewers",
   "jobDescriptions",
-  "forms",
-  "interviewQuestions",
+  "questionBank",
   "me",
   "members",
 ] as const;
@@ -81,8 +78,7 @@ const recruitingSpecialistStudioPagePermissions = [
   "recruitingLedger",
   "interviewers",
   "jobDescriptions",
-  "forms",
-  "interviewQuestions",
+  "questionBank",
   "me",
 ] as const;
 

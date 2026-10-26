@@ -219,11 +219,11 @@ describe("@app/server package boundary", () => {
 
   it("loads page bootstrap data through page-permission RPC endpoints", () => {
     const cases = [
-      ["forms", "forms.bootstrap", 'requirePermission("page", "forms")'],
+      ["forms", "forms.bootstrap", 'requirePermission("page", "questionBank")'],
       [
         "interview-questions",
         '["interview-questions"].bootstrap',
-        'requirePermission("page", "interviewQuestions")',
+        'requirePermission("page", "questionBank")',
       ],
       ["interviewers", "interviewers.bootstrap", 'requirePermission("page", "interviewers")'],
       [

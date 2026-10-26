@@ -77,6 +77,7 @@ import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.
 import { Route as WSlugStudioOfferApprovalTemplatesRouteImport } from './routes/w.$slug.studio.offer-approval-templates'
 import { Route as WSlugStudioOfferApprovalsRouteImport } from './routes/w.$slug.studio.offer-approvals'
 import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
+import { Route as WSlugStudioQuestionBankRouteImport } from './routes/w.$slug.studio.question-bank'
 import { Route as WSlugStudioRecruitingLedgerRouteImport } from './routes/w.$slug.studio.recruiting-ledger'
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
 import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
@@ -86,6 +87,9 @@ import { Route as WSlugStudioOfferApprovalTemplatesTemplateIdRouteImport } from 
 import { Route as WSlugStudioOfferApprovalTemplatesNewRouteImport } from './routes/w.$slug.studio.offer-approval-templates.new'
 import { Route as WSlugStudioOfferApprovalsIndexRouteImport } from './routes/w.$slug.studio.offer-approvals.index'
 import { Route as WSlugStudioOfferApprovalsApprovalIdRouteImport } from './routes/w.$slug.studio.offer-approvals.$approvalId'
+import { Route as WSlugStudioQuestionBankIndexRouteImport } from './routes/w.$slug.studio.question-bank.index'
+import { Route as WSlugStudioQuestionBankFormsRouteImport } from './routes/w.$slug.studio.question-bank.forms'
+import { Route as WSlugStudioQuestionBankInterviewQuestionsRouteImport } from './routes/w.$slug.studio.question-bank.interview-questions'
 import { Route as WSlugStudioResumePoolRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.$recordId'
 import { Route as WSlugStudioResumesRecordIdRouteImport } from './routes/w.$slug.studio.resumes.$recordId'
 import { Route as WSlugStudioResumePoolOverlayRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.overlay.$recordId'
@@ -444,6 +448,11 @@ const WSlugStudioPermissionsRoute = WSlugStudioPermissionsRouteImport.update({
   path: '/permissions',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
+const WSlugStudioQuestionBankRoute = WSlugStudioQuestionBankRouteImport.update({
+  id: '/question-bank',
+  path: '/question-bank',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
 const WSlugStudioRecruitingLedgerRoute =
   WSlugStudioRecruitingLedgerRouteImport.update({
     id: '/recruiting-ledger',
@@ -495,6 +504,24 @@ const WSlugStudioOfferApprovalsApprovalIdRoute =
     id: '/$approvalId',
     path: '/$approvalId',
     getParentRoute: () => WSlugStudioOfferApprovalsRoute,
+  } as any)
+const WSlugStudioQuestionBankIndexRoute =
+  WSlugStudioQuestionBankIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => WSlugStudioQuestionBankRoute,
+  } as any)
+const WSlugStudioQuestionBankFormsRoute =
+  WSlugStudioQuestionBankFormsRouteImport.update({
+    id: '/forms',
+    path: '/forms',
+    getParentRoute: () => WSlugStudioQuestionBankRoute,
+  } as any)
+const WSlugStudioQuestionBankInterviewQuestionsRoute =
+  WSlugStudioQuestionBankInterviewQuestionsRouteImport.update({
+    id: '/interview-questions',
+    path: '/interview-questions',
+    getParentRoute: () => WSlugStudioQuestionBankRoute,
   } as any)
 const WSlugStudioResumePoolRecordIdRoute =
   WSlugStudioResumePoolRecordIdRouteImport.update({
@@ -603,6 +630,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRouteWithChildren
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsRouteWithChildren
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
+  '/w/$slug/studio/question-bank': typeof WSlugStudioQuestionBankRouteWithChildren
   '/w/$slug/studio/recruiting-ledger': typeof WSlugStudioRecruitingLedgerRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
@@ -613,10 +641,13 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/offer-approval-templates/$templateId': typeof WSlugStudioOfferApprovalTemplatesTemplateIdRoute
   '/w/$slug/studio/offer-approval-templates/new': typeof WSlugStudioOfferApprovalTemplatesNewRoute
   '/w/$slug/studio/offer-approvals/$approvalId': typeof WSlugStudioOfferApprovalsApprovalIdRoute
+  '/w/$slug/studio/question-bank/forms': typeof WSlugStudioQuestionBankFormsRoute
+  '/w/$slug/studio/question-bank/interview-questions': typeof WSlugStudioQuestionBankInterviewQuestionsRoute
   '/w/$slug/studio/resume-pool/$recordId': typeof WSlugStudioResumePoolRecordIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
   '/w/$slug/studio/offer-approval-templates/': typeof WSlugStudioOfferApprovalTemplatesIndexRoute
   '/w/$slug/studio/offer-approvals/': typeof WSlugStudioOfferApprovalsIndexRoute
+  '/w/$slug/studio/question-bank/': typeof WSlugStudioQuestionBankIndexRoute
   '/w/$slug/studio/resume-pool/overlay/$recordId': typeof WSlugStudioResumePoolOverlayRecordIdRoute
   '/w/$slug/studio/resumes/overlay/$recordId': typeof WSlugStudioResumesOverlayRecordIdRoute
   '/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId': typeof WSlugStudioResumesRecordIdHumanInterviewsRoundIdMeetingsMeetingIdRoute
@@ -688,10 +719,13 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/offer-approval-templates/$templateId': typeof WSlugStudioOfferApprovalTemplatesTemplateIdRoute
   '/w/$slug/studio/offer-approval-templates/new': typeof WSlugStudioOfferApprovalTemplatesNewRoute
   '/w/$slug/studio/offer-approvals/$approvalId': typeof WSlugStudioOfferApprovalsApprovalIdRoute
+  '/w/$slug/studio/question-bank/forms': typeof WSlugStudioQuestionBankFormsRoute
+  '/w/$slug/studio/question-bank/interview-questions': typeof WSlugStudioQuestionBankInterviewQuestionsRoute
   '/w/$slug/studio/resume-pool/$recordId': typeof WSlugStudioResumePoolRecordIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesIndexRoute
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsIndexRoute
+  '/w/$slug/studio/question-bank': typeof WSlugStudioQuestionBankIndexRoute
   '/w/$slug/studio/resume-pool/overlay/$recordId': typeof WSlugStudioResumePoolOverlayRecordIdRoute
   '/w/$slug/studio/resumes/overlay/$recordId': typeof WSlugStudioResumesOverlayRecordIdRoute
   '/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId': typeof WSlugStudioResumesRecordIdHumanInterviewsRoundIdMeetingsMeetingIdRoute
@@ -764,6 +798,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesRouteWithChildren
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsRouteWithChildren
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
+  '/w/$slug/studio/question-bank': typeof WSlugStudioQuestionBankRouteWithChildren
   '/w/$slug/studio/recruiting-ledger': typeof WSlugStudioRecruitingLedgerRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
@@ -774,10 +809,13 @@ export interface FileRoutesById {
   '/w/$slug/studio/offer-approval-templates/$templateId': typeof WSlugStudioOfferApprovalTemplatesTemplateIdRoute
   '/w/$slug/studio/offer-approval-templates/new': typeof WSlugStudioOfferApprovalTemplatesNewRoute
   '/w/$slug/studio/offer-approvals/$approvalId': typeof WSlugStudioOfferApprovalsApprovalIdRoute
+  '/w/$slug/studio/question-bank/forms': typeof WSlugStudioQuestionBankFormsRoute
+  '/w/$slug/studio/question-bank/interview-questions': typeof WSlugStudioQuestionBankInterviewQuestionsRoute
   '/w/$slug/studio/resume-pool/$recordId': typeof WSlugStudioResumePoolRecordIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
   '/w/$slug/studio/offer-approval-templates/': typeof WSlugStudioOfferApprovalTemplatesIndexRoute
   '/w/$slug/studio/offer-approvals/': typeof WSlugStudioOfferApprovalsIndexRoute
+  '/w/$slug/studio/question-bank/': typeof WSlugStudioQuestionBankIndexRoute
   '/w/$slug/studio/resume-pool/overlay/$recordId': typeof WSlugStudioResumePoolOverlayRecordIdRoute
   '/w/$slug/studio/resumes/overlay/$recordId': typeof WSlugStudioResumesOverlayRecordIdRoute
   '/w/$slug/studio/resumes/$recordId_/human-interviews/$roundId/meetings/$meetingId': typeof WSlugStudioResumesRecordIdHumanInterviewsRoundIdMeetingsMeetingIdRoute
@@ -851,6 +889,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/permissions'
+    | '/w/$slug/studio/question-bank'
     | '/w/$slug/studio/recruiting-ledger'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
@@ -861,10 +900,13 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates/$templateId'
     | '/w/$slug/studio/offer-approval-templates/new'
     | '/w/$slug/studio/offer-approvals/$approvalId'
+    | '/w/$slug/studio/question-bank/forms'
+    | '/w/$slug/studio/question-bank/interview-questions'
     | '/w/$slug/studio/resume-pool/$recordId'
     | '/w/$slug/studio/resumes/$recordId'
     | '/w/$slug/studio/offer-approval-templates/'
     | '/w/$slug/studio/offer-approvals/'
+    | '/w/$slug/studio/question-bank/'
     | '/w/$slug/studio/resume-pool/overlay/$recordId'
     | '/w/$slug/studio/resumes/overlay/$recordId'
     | '/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId'
@@ -936,10 +978,13 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates/$templateId'
     | '/w/$slug/studio/offer-approval-templates/new'
     | '/w/$slug/studio/offer-approvals/$approvalId'
+    | '/w/$slug/studio/question-bank/forms'
+    | '/w/$slug/studio/question-bank/interview-questions'
     | '/w/$slug/studio/resume-pool/$recordId'
     | '/w/$slug/studio/resumes/$recordId'
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
+    | '/w/$slug/studio/question-bank'
     | '/w/$slug/studio/resume-pool/overlay/$recordId'
     | '/w/$slug/studio/resumes/overlay/$recordId'
     | '/w/$slug/studio/resumes/$recordId/human-interviews/$roundId/meetings/$meetingId'
@@ -1011,6 +1056,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/permissions'
+    | '/w/$slug/studio/question-bank'
     | '/w/$slug/studio/recruiting-ledger'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
@@ -1021,10 +1067,13 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates/$templateId'
     | '/w/$slug/studio/offer-approval-templates/new'
     | '/w/$slug/studio/offer-approvals/$approvalId'
+    | '/w/$slug/studio/question-bank/forms'
+    | '/w/$slug/studio/question-bank/interview-questions'
     | '/w/$slug/studio/resume-pool/$recordId'
     | '/w/$slug/studio/resumes/$recordId'
     | '/w/$slug/studio/offer-approval-templates/'
     | '/w/$slug/studio/offer-approvals/'
+    | '/w/$slug/studio/question-bank/'
     | '/w/$slug/studio/resume-pool/overlay/$recordId'
     | '/w/$slug/studio/resumes/overlay/$recordId'
     | '/w/$slug/studio/resumes/$recordId_/human-interviews/$roundId/meetings/$meetingId'
@@ -1536,6 +1585,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioPermissionsRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
+    '/w/$slug/studio/question-bank': {
+      id: '/w/$slug/studio/question-bank'
+      path: '/question-bank'
+      fullPath: '/w/$slug/studio/question-bank'
+      preLoaderRoute: typeof WSlugStudioQuestionBankRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
     '/w/$slug/studio/recruiting-ledger': {
       id: '/w/$slug/studio/recruiting-ledger'
       path: '/recruiting-ledger'
@@ -1598,6 +1654,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/w/$slug/studio/offer-approvals/$approvalId'
       preLoaderRoute: typeof WSlugStudioOfferApprovalsApprovalIdRouteImport
       parentRoute: typeof WSlugStudioOfferApprovalsRoute
+    }
+    '/w/$slug/studio/question-bank/': {
+      id: '/w/$slug/studio/question-bank/'
+      path: '/'
+      fullPath: '/w/$slug/studio/question-bank/'
+      preLoaderRoute: typeof WSlugStudioQuestionBankIndexRouteImport
+      parentRoute: typeof WSlugStudioQuestionBankRoute
+    }
+    '/w/$slug/studio/question-bank/forms': {
+      id: '/w/$slug/studio/question-bank/forms'
+      path: '/forms'
+      fullPath: '/w/$slug/studio/question-bank/forms'
+      preLoaderRoute: typeof WSlugStudioQuestionBankFormsRouteImport
+      parentRoute: typeof WSlugStudioQuestionBankRoute
+    }
+    '/w/$slug/studio/question-bank/interview-questions': {
+      id: '/w/$slug/studio/question-bank/interview-questions'
+      path: '/interview-questions'
+      fullPath: '/w/$slug/studio/question-bank/interview-questions'
+      preLoaderRoute: typeof WSlugStudioQuestionBankInterviewQuestionsRouteImport
+      parentRoute: typeof WSlugStudioQuestionBankRoute
     }
     '/w/$slug/studio/resume-pool/$recordId': {
       id: '/w/$slug/studio/resume-pool/$recordId'
@@ -1814,6 +1891,25 @@ const WSlugStudioOfferApprovalsRouteWithChildren =
     WSlugStudioOfferApprovalsRouteChildren,
   )
 
+interface WSlugStudioQuestionBankRouteChildren {
+  WSlugStudioQuestionBankFormsRoute: typeof WSlugStudioQuestionBankFormsRoute
+  WSlugStudioQuestionBankInterviewQuestionsRoute: typeof WSlugStudioQuestionBankInterviewQuestionsRoute
+  WSlugStudioQuestionBankIndexRoute: typeof WSlugStudioQuestionBankIndexRoute
+}
+
+const WSlugStudioQuestionBankRouteChildren: WSlugStudioQuestionBankRouteChildren =
+  {
+    WSlugStudioQuestionBankFormsRoute: WSlugStudioQuestionBankFormsRoute,
+    WSlugStudioQuestionBankInterviewQuestionsRoute:
+      WSlugStudioQuestionBankInterviewQuestionsRoute,
+    WSlugStudioQuestionBankIndexRoute: WSlugStudioQuestionBankIndexRoute,
+  }
+
+const WSlugStudioQuestionBankRouteWithChildren =
+  WSlugStudioQuestionBankRoute._addFileChildren(
+    WSlugStudioQuestionBankRouteChildren,
+  )
+
 interface WSlugStudioResumePoolRouteChildren {
   WSlugStudioResumePoolRecordIdRoute: typeof WSlugStudioResumePoolRecordIdRoute
   WSlugStudioResumePoolOverlayRecordIdRoute: typeof WSlugStudioResumePoolOverlayRecordIdRoute
@@ -1865,6 +1961,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioOfferApprovalTemplatesRoute: typeof WSlugStudioOfferApprovalTemplatesRouteWithChildren
   WSlugStudioOfferApprovalsRoute: typeof WSlugStudioOfferApprovalsRouteWithChildren
   WSlugStudioPermissionsRoute: typeof WSlugStudioPermissionsRoute
+  WSlugStudioQuestionBankRoute: typeof WSlugStudioQuestionBankRouteWithChildren
   WSlugStudioRecruitingLedgerRoute: typeof WSlugStudioRecruitingLedgerRoute
   WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRouteWithChildren
   WSlugStudioResumesRoute: typeof WSlugStudioResumesRouteWithChildren
@@ -1887,6 +1984,7 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
     WSlugStudioOfferApprovalTemplatesRouteWithChildren,
   WSlugStudioOfferApprovalsRoute: WSlugStudioOfferApprovalsRouteWithChildren,
   WSlugStudioPermissionsRoute: WSlugStudioPermissionsRoute,
+  WSlugStudioQuestionBankRoute: WSlugStudioQuestionBankRouteWithChildren,
   WSlugStudioRecruitingLedgerRoute: WSlugStudioRecruitingLedgerRoute,
   WSlugStudioResumePoolRoute: WSlugStudioResumePoolRouteWithChildren,
   WSlugStudioResumesRoute: WSlugStudioResumesRouteWithChildren,

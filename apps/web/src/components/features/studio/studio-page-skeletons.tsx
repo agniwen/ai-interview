@@ -109,21 +109,37 @@ export function ResumePoolPageSkeleton() {
 export function StudioTablePageSkeleton({
   columnCount = 5,
   filterCount = 2,
+  header = true,
   label = "数据列表",
   summary = false,
 }: {
   columnCount?: number;
   filterCount?: number;
+  /** 嵌在已有标题的布局（如带标签的页面）里时关闭。Off inside layouts that already render a header. */
+  header?: boolean;
   label?: string;
   summary?: boolean;
 }) {
   return (
     <PageShell label={label}>
-      <HeaderSkeleton />
+      {header ? <HeaderSkeleton /> : null}
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
         {summary ? <StudioSummaryCardsSkeleton /> : null}
         <ToolbarSkeleton filterCount={filterCount} />
         <DataGridContentSkeleton columnCount={columnCount} />
+      </div>
+    </PageShell>
+  );
+}
+
+export function QuestionBankPageSkeleton() {
+  return (
+    <PageShell label="面试题配置">
+      <HeaderSkeleton />
+      <TabsSkeleton count={2} />
+      <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
+        <ToolbarSkeleton filterCount={3} />
+        <DataGridContentSkeleton columnCount={8} />
       </div>
     </PageShell>
   );

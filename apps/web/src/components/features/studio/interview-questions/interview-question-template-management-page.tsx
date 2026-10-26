@@ -3,7 +3,6 @@ import { IconListCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
-import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
@@ -135,9 +134,9 @@ export function InterviewQuestionTemplateManagementPage({
   });
 
   const routeSearch = coerceSearchParams(
-    useSearch({ from: "/w/$slug/studio/interview-questions" }),
+    useSearch({ from: "/w/$slug/studio/question-bank/interview-questions" }),
   );
-  const navigate = useNavigate({ from: "/w/$slug/studio/interview-questions" });
+  const navigate = useNavigate({ from: "/w/$slug/studio/question-bank/interview-questions" });
   const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
   const setActiveTemplateId = useCallback(
     (value: string | null) => {
@@ -456,11 +455,6 @@ export function InterviewQuestionTemplateManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader
-          description="可全局或按岗位复用；候选人点击开始面试时绑定最新题目。"
-          title="沟通题"
-        />
-
         <DataGrid<InterviewQuestionTemplateListRecord>
           {...grid.bind}
           columns={columns}
