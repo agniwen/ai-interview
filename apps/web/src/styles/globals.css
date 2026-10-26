@@ -679,6 +679,8 @@
   --danger-foreground: var(--tomato-a10);
   --border-subtle: var(--gray-a3);
   --border: var(--gray-a4);
+  /* Opaque equivalent of gray-a4 over the control surface; sticky grid lines must not accumulate alpha. */
+  --table-border: var(--gray-4);
   --border-strong: var(--gray-a6);
   --input: var(--gray-a5);
   --ring: #5eb1ef;
@@ -842,6 +844,7 @@
   --on-danger-solid: #ffffff;
   --border-subtle: var(--gray-a3);
   --border: var(--gray-a4);
+  --table-border: var(--gray-5);
   --border-strong: var(--gray-a6);
   --input: var(--gray-a5);
   --ring: #4f70d2;
@@ -1404,6 +1407,12 @@
 
 /* 高对比度偏好：边框与次要文字各提一档。 Higher contrast preference: borders and secondary text step up. */
 @media (prefers-contrast: more) {
+  :root {
+    --table-border: var(--gray-7);
+  }
+  .dark {
+    --table-border: #4e4e4e;
+  }
   :root,
   .dark {
     --border-subtle: var(--gray-a6);
