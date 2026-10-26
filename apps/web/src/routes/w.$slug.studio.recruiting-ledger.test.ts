@@ -6,6 +6,7 @@ describe("recruiting ledger search params", () => {
     expect(recruitingLedgerSearchSchema.parse({}).view).toBe("hr");
     expect(recruitingLedgerSearchSchema.parse({ view: "records" }).view).toBe("records");
     expect(recruitingLedgerSearchSchema.parse({ view: "jobs" }).view).toBe("jobs");
+    expect(recruitingLedgerSearchSchema.parse({ view: "dashboard" }).view).toBe("dashboard");
   });
 
   it("keeps multiple values for each ledger filter", () => {

@@ -1,4 +1,5 @@
 import { cn } from "@app/shared/utils";
+import { Card } from "@/components/ui/card";
 
 export function SettingsSection({
   children,
@@ -32,9 +33,7 @@ export function SettingsGroup({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cn("divide-y overflow-hidden rounded-lg border", className)}>{children}</div>
-  );
+  return <Card className={cn("divide-y overflow-hidden", className)}>{children}</Card>;
 }
 
 export function SettingsRow({

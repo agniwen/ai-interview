@@ -10,7 +10,7 @@ function StudioPermissionsRoute() {
     <div className="mx-auto w-full max-w-[96rem]">
       <WorkspacePermissionsSection
         headerRender={({ actionRender }) => (
-          <PageHeader actionRender={actionRender} title="权限管理" />
+          <PageHeader actionRender={actionRender} className="sm:flex-col" title="权限管理" />
         )}
       />
     </div>

@@ -4,6 +4,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { IconHelpCircle, IconRefresh } from "@tabler/icons-react";
 import { useState } from "react";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { RecruitingWorkspaceContentSkeleton } from "./recruiting-workspace-content-skeleton";
 import { hrStatisticStages, hrStatisticToday } from "@app/shared/recruiting-hr-statistics";
 import type {
   HrStatisticEntry,
@@ -291,7 +293,11 @@ export function RecruitingHrStatisticsPage() {
     );
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <SkeletonReveal
+        contentClassName="space-y-6"
+        loading={hasRange && query.isPending}
+        skeleton={<RecruitingWorkspaceContentSkeleton view="hr" />}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
             {periods.map((period) => (
@@ -419,9 +425,6 @@ export function RecruitingHrStatisticsPage() {
         {hasRange ? null : (
           <p className="text-muted-foreground text-sm">请选择开始和结束日期后应用。</p>
         )}
-        {hasRange && query.isPending ? (
-          <p className="text-muted-foreground text-sm">正在加载统计…</p>
-        ) : null}
         {data ? (
           <>
             <section className="space-y-2" aria-label="团队汇总">
@@ -557,7 +560,7 @@ export function RecruitingHrStatisticsPage() {
           selection={selection}
           slug={slug}
         />
-      </div>
+      </SkeletonReveal>
     </TooltipProvider>
   );
 }

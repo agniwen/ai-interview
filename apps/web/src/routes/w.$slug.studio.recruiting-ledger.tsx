@@ -1,15 +1,13 @@
-import { createFileRoute, getRouteApi, notFound, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { recruitingBoardViewSchema } from "@app/shared/recruiting-board";
 import { hrStatisticPeriodSchema } from "@app/shared/recruiting-hr-statistics";
 import { jobRecruitingStatusSchema } from "@app/db-schema/job-recruiting-status";
 import { z } from "zod";
-import { RecruitingLedgerPage } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-page";
+import { RecruitingWorkspacePage } from "@/components/features/studio/recruiting-ledger/recruiting-workspace-page";
+import { recruitingWorkspaceViewSchema } from "@/components/features/studio/recruiting-ledger/recruiting-workspace-view";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { formatDocumentTitle } from "@/lib/start/document-title";
-import { loadStudioRecruitingLedgerState } from "@/lib/start/studio/recruiting-ledger.functions";
 import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
-
-const routeApi = getRouteApi("/w/$slug/studio/recruiting-ledger");
 
 const multiValueSearchParamSchema = z
   .union([z.string(), z.array(z.string())])
@@ -51,34 +49,15 @@ export const recruitingLedgerSearchSchema = z.object({
   sortBy: z.enum(["createdAt", "candidateName", "joiningDate", "updatedAt"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
   stage: recruitingBoardViewSchema.default("all"),
-  view: z.enum(["records", "jobs", "hr"]).default("hr"),
+  view: recruitingWorkspaceViewSchema.default("hr"),
 });
-
-function StudioRecruitingLedgerRoute() {
-  const state = routeApi.useLoaderData();
-  if (state.status !== "ready") {
-    return null;
-  }
-  return <RecruitingLedgerPage />;
-}
 
 export const Route = createFileRoute("/w/$slug/studio/recruiting-ledger")({
   validateSearch: recruitingLedgerSearchSchema,
-  loader: async ({ params, parentMatchPromise }) => {
-    await requireStudioPagePermission(parentMatchPromise, "recruitingLedger");
-    const state = await loadStudioRecruitingLedgerState({ data: { slug: params.slug } });
-    if (state.status === "unauthenticated") {
-      throw redirect({
-        href: `/login?callbackURL=${encodeURIComponent(`/w/${params.slug}/studio/recruiting-ledger`)}`,
-      });
-    }
-    if (state.status === "not_found") {
-      throw notFound();
-    }
-    return state;
-  },
+  loader: ({ parentMatchPromise }) =>
+    requireStudioPagePermission(parentMatchPromise, ["recruitingLedger", "dashboard"]),
   head: () => ({ meta: [{ title: formatDocumentTitle("招聘台账") }] }),
-  component: StudioRecruitingLedgerRoute,
+  component: RecruitingWorkspacePage,
   pendingComponent: () => (
     <StudioTablePageSkeleton columnCount={12} filterCount={5} label="招聘台账" />
   ),

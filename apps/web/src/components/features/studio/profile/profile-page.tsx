@@ -25,6 +25,7 @@ import {
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { formatDateOnly } from "@app/shared/utils/time";
@@ -138,7 +139,7 @@ function ActivitySection() {
   const peak = useMemo(() => Math.max(0, ...dailyAdded.map((row) => row.count)), [dailyAdded]);
 
   let body: React.ReactNode = (
-    <div className="space-y-3 rounded-lg border p-3">
+    <Card className="gap-3 p-3">
       <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
         <span>
           一年新增{" "}
@@ -150,7 +151,7 @@ function ActivitySection() {
           <span className="font-mono font-medium text-foreground tabular-nums">{peak}</span>
         </span>
       </div>
-    </div>
+    </Card>
   );
 
   if (activityQuery.isError) {

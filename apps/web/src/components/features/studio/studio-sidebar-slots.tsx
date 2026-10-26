@@ -12,7 +12,6 @@ import {
   IconMessageChatbot,
   IconShieldCheck,
   IconSitemap,
-  IconTable,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -92,15 +91,9 @@ const navGroups: NavGroup[] = [
         title: "面试管理",
       },
       {
-        action: "dashboard",
-        icon: IconChartBar,
-        path: "/studio/dashboard",
-        resource: "page",
-        title: "数据看板",
-      },
-      {
         action: "recruitingLedger",
-        icon: IconTable,
+        alternateAction: "dashboard",
+        icon: IconChartBar,
         path: "/studio/recruiting-ledger",
         resource: "page",
         title: "招聘台账",
@@ -269,7 +262,7 @@ function SidebarNavItem({
 
   const Icon = item.icon;
   const isRecruitingBoard = item.path === RECRUITING_BOARD_PATH;
-  const submenuOpen = sidebarMenuOpen[item.path] ?? true;
+  const submenuOpen = sidebarMenuOpen[item.path] ?? false;
   const isParentActive = isStudioSidebarParentActive(
     active,
     isRecruitingBoard,
@@ -305,7 +298,7 @@ function SidebarNavItem({
             event.preventDefault();
             setSidebarMenuOpen((current) => ({
               ...current,
-              [item.path]: !(current[item.path] ?? true),
+              [item.path]: !(current[item.path] ?? false),
             }));
           }}
           search={

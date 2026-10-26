@@ -31,7 +31,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Empty, EmptyContent, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -655,17 +654,6 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
             </table>
           </div>
         </div>
-
-        {dynamicRoles.length === 0 && !isPending ? (
-          <Empty>
-            <EmptyContent>
-              <EmptyTitle>还没有自定义角色</EmptyTitle>
-              <EmptyDescription>
-                内置角色会保留在表格中作为基准；创建自定义角色后即可在同一张表里配置权限。
-              </EmptyDescription>
-            </EmptyContent>
-          </Empty>
-        ) : null}
       </SkeletonReveal>
 
       <RoleFormDialog

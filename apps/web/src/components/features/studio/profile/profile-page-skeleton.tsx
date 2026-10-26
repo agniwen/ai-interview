@@ -1,11 +1,9 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 
 function ProfileSettingsGroupSkeleton({ rows = 2 }: { rows?: number }) {
   return (
-    <div
-      className="divide-y overflow-hidden rounded-lg border"
-      data-slot="profile-settings-group-skeleton"
-    >
+    <Card className="divide-y overflow-hidden" data-slot="profile-settings-group-skeleton">
       {Array.from({ length: rows }, (_, index) => (
         <div
           className="flex flex-col gap-2 px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
@@ -18,7 +16,7 @@ function ProfileSettingsGroupSkeleton({ rows = 2 }: { rows?: number }) {
           <Skeleton className="h-9 w-full sm:w-56" />
         </div>
       ))}
-    </div>
+    </Card>
   );
 }
 
@@ -33,13 +31,13 @@ function ProfileSectionSkeleton({ rows = 2 }: { rows?: number }) {
 
 export function ActivitySectionSkeleton() {
   return (
-    <div className="space-y-3 rounded-lg border p-3" data-slot="profile-activity-skeleton">
+    <Card className="gap-3 p-3" data-slot="profile-activity-skeleton">
       <div className="flex items-center gap-3">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-3 w-20" />
       </div>
       <Skeleton className="h-24 w-full rounded-md" />
-    </div>
+    </Card>
   );
 }
 

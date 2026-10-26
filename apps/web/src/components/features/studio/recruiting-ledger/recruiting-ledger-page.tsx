@@ -20,10 +20,8 @@ import {
   IconSortAscending,
   IconSortDescending,
 } from "@tabler/icons-react";
-import { PageHeader } from "@/components/features/studio/page-header";
 import { RecruitingPointsTooltip } from "@/components/features/studio/recruiting-ledger/recruiting-points-tooltip";
 import { JobSummaryGrid } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-job-summary";
-import { RecruitingHrStatisticsPage } from "@/components/features/studio/recruiting-ledger/recruiting-hr-statistics-page";
 import { RecruitingLedgerMultiFilters } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-multi-filters";
 import { buildRecruitingLedgerParams } from "@/components/features/studio/recruiting-ledger/recruiting-ledger-query";
 import { RecruitingBoardTabs } from "@/components/features/studio/resumes/recruiting-board-tabs";
@@ -41,8 +39,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchRecruitingLedger, updateRecruitingLedgerInformationSync } from "@/lib/client/api";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { RecruitingWorkspaceContentSkeleton } from "./recruiting-workspace-content-skeleton";
 
 const routeApi = getRouteApi("/w/$slug/studio/recruiting-ledger");
 const recommendationLabels = new Map(
@@ -203,23 +202,22 @@ function recommendationVariant(level: RecruitingLedgerRecord["qualitativeRecomme
 }
 
 // oxlint-disable-next-line complexity -- read-only filters and ledger cells are composed here.
-export function RecruitingLedgerPage() {
+export function RecruitingLedgerPage({ view }: { view: "records" | "jobs" }) {
   const { slug } = routeApi.useParams();
   const search = routeApi.useSearch();
   const navigate = useNavigate({ from: "/w/$slug/studio/recruiting-ledger" });
   const queryClient = useQueryClient();
   const query = useQuery({
-    enabled: search.view !== "hr",
     placeholderData: keepPreviousData,
     queryFn: () =>
       fetchRecruitingLedger(
         slug,
         buildRecruitingLedgerParams({
           ...search,
-          view: search.view === "hr" ? "records" : search.view,
+          view,
         }),
       ),
-    queryKey: ["studio-recruiting-ledger", slug, search],
+    queryKey: ["studio-recruiting-ledger", slug, { ...search, view }],
     staleTime: 15_000,
   });
   const informationSyncMutation = useMutation({
@@ -290,58 +288,19 @@ export function RecruitingLedgerPage() {
     </Button>
   );
 
-  if (search.view === "hr") {
-    return (
-      <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-        <PageHeader
-          actionRender={
-            <Tabs
-              aria-label="台账展示方式"
-              onValueChange={(value) => updateSearch({ view: value })}
-              value={search.view}
-            >
-              <TabsList>
-                <TabsTrigger value="hr">HR 统计</TabsTrigger>
-                <TabsTrigger value="records">候选人明细</TabsTrigger>
-                <TabsTrigger value="jobs">按岗位汇总</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-          description="查看新增简历数、阶段进入次数与阶段比率。"
-          title="招聘台账"
-        />
-        <RecruitingHrStatisticsPage />
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-      <PageHeader
-        actionRender={
-          <Tabs
-            aria-label="台账展示方式"
-            onValueChange={(value) => updateSearch({ view: value })}
-            value={search.view}
-          >
-            <TabsList>
-              <TabsTrigger value="hr">HR 统计</TabsTrigger>
-              <TabsTrigger value="records">候选人明细</TabsTrigger>
-              <TabsTrigger value="jobs">按岗位汇总</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        }
-        description="按当前招聘台阶段实时汇总候选人、AI 评价、真人面试与 Offer 信息；除信息同步标签外，其余内容只读。"
-        title="招聘台账"
-      />
-
-      {search.view === "records" ? (
+    <SkeletonReveal
+      contentClassName="flex min-w-0 flex-col gap-6"
+      loading={query.isPending}
+      skeleton={<RecruitingWorkspaceContentSkeleton view={view} />}
+    >
+      {view === "records" ? (
         <RecruitingBoardTabs onChange={(stage) => updateSearch({ stage })} value={search.stage} />
       ) : null}
 
       <section className="min-w-0 space-y-4">
         <div className="space-y-2">
-          {search.view === "records" ? (
+          {view === "records" ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <form
@@ -368,7 +327,7 @@ export function RecruitingLedgerPage() {
                   departments={query.data?.facets.departments ?? []}
                   filterKeys={["departmentId", "jobDescriptionId"]}
                   jobs={query.data?.facets.jobs ?? []}
-                  mode={search.view}
+                  mode={view}
                   onChange={(key, value) => updateSearch({ [key]: value })}
                   recruiters={query.data?.facets.recruiters ?? []}
                   value={{
@@ -382,7 +341,7 @@ export function RecruitingLedgerPage() {
                     departments={query.data?.facets.departments ?? []}
                     filterKeys={["recruitingStatus"]}
                     jobs={query.data?.facets.jobs ?? []}
-                    mode={search.view}
+                    mode={view}
                     onChange={(key, value) => updateSearch({ [key]: value })}
                     recruiters={query.data?.facets.recruiters ?? []}
                     value={{ recruitingStatus: search.recruitingStatus }}
@@ -396,7 +355,7 @@ export function RecruitingLedgerPage() {
                   departments={query.data?.facets.departments ?? []}
                   filterKeys={["responsibleHrId", "recommendationLevel"]}
                   jobs={query.data?.facets.jobs ?? []}
-                  mode={search.view}
+                  mode={view}
                   onChange={(key, value) => updateSearch({ [key]: value })}
                   recruiters={query.data?.facets.recruiters ?? []}
                   value={{
@@ -462,7 +421,7 @@ export function RecruitingLedgerPage() {
               <RecruitingLedgerMultiFilters
                 departments={query.data?.facets.departments ?? []}
                 jobs={query.data?.facets.jobs ?? []}
-                mode={search.view}
+                mode={view}
                 onChange={(key, value) => updateSearch({ [key]: value })}
                 recruiters={query.data?.facets.recruiters ?? []}
                 value={{
@@ -483,7 +442,7 @@ export function RecruitingLedgerPage() {
           招聘积分仅在候选人已入职后计算：岗位权重 × 优先级系数（高 1.5 / 中 1.0 / 低 0.8），保留 1
           位小数；其他状态均为 0。
         </p>
-        {search.view === "jobs" && hasUnconfiguredDemand ? (
+        {view === "jobs" && hasUnconfiguredDemand ? (
           <p className="text-muted-foreground text-xs" role="note">
             带“+”表示当前为最低已知值：部分在招岗位尚未设置需求人数，因此总需求和总缺口暂无法精确统计。
           </p>
@@ -494,7 +453,7 @@ export function RecruitingLedgerPage() {
             {query.error instanceof Error ? query.error.message : "加载台账失败"}
           </div>
         ) : null}
-        {!query.isError && search.view === "jobs" ? (
+        {!query.isError && view === "jobs" ? (
           <JobSummaryGrid
             onSelect={(jobId) =>
               updateSearch({
@@ -529,7 +488,7 @@ export function RecruitingLedgerPage() {
             rows={jobSummary}
           />
         ) : null}
-        {!query.isError && search.view === "records" ? (
+        {!query.isError && view === "records" ? (
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
@@ -683,7 +642,7 @@ export function RecruitingLedgerPage() {
                 ) : (
                   <TableRow>
                     <TableCell className="h-32 text-center text-muted-foreground" colSpan={18}>
-                      {query.isLoading ? "正在加载台账…" : "当前筛选条件下没有候选人"}
+                      当前筛选条件下没有候选人
                     </TableCell>
                   </TableRow>
                 )}
@@ -692,7 +651,7 @@ export function RecruitingLedgerPage() {
           </div>
         ) : null}
 
-        {search.view === "records" ? (
+        {view === "records" ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <span className="text-muted-foreground">
               共 {query.data?.total ?? 0} 条，第 {query.data?.page ?? search.page} /{" "}
@@ -721,6 +680,6 @@ export function RecruitingLedgerPage() {
           </div>
         ) : null}
       </section>
-    </div>
+    </SkeletonReveal>
   );
 }
