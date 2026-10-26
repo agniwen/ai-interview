@@ -384,6 +384,7 @@ function isStructuredOutputCapabilityError(error: Error): boolean {
     message.includes("unsupported") ||
     message.includes("unknown parameter") ||
     message.includes("invalid parameter") ||
+    message.includes("this response_format type is unavailable") ||
     message.includes("不支持");
   return mentionsNativeFormat && rejectsCapability;
 }

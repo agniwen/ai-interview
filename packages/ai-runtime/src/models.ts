@@ -7,7 +7,6 @@ const ALIBABA_PROVIDER_ID = "alibaba";
 const DEFAULT_ALIBABA_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const DEFAULT_ALIBABA_COMPATIBLE_MODEL = "deepseek-v4-flash-0731";
 const DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL = "deepseek-v4-flash-0731";
-const TEXT_JSON_STRUCTURED_MODEL_IDS = new Set(["deepseek-v4-flash-0731"]);
 
 export const DEFAULT_CHAT_MODEL = DEFAULT_ALIBABA_COMPATIBLE_MODEL;
 
@@ -126,8 +125,9 @@ export function getMastraModelIdentifier(model: CoreMastraModelConfig): string {
 
 export function usesTextJsonStructuredOutput(model: CoreMastraModelConfig): boolean {
   const identifier = getMastraModelIdentifier(model);
-  const modelId = identifier.slice(identifier.lastIndexOf("/") + 1);
-  return TEXT_JSON_STRUCTURED_MODEL_IDS.has(modelId);
+  // DashScope DeepSeek variants share the text-JSON path so model upgrades do not
+  // depend on a snapshot allowlist. Output still passes local schema validation.
+  return identifier.startsWith(`${ALIBABA_PROVIDER_ID}/deepseek-`);
 }
 
 export function withThinkingDisabled(model: CoreMastraModelConfig): ModelWithRetries[] {
