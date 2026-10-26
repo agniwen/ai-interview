@@ -447,7 +447,7 @@ function CalendarDayHeader({
   return <span className={isToday ? `inline-flex ${todayClassName}` : undefined}>{label}</span>;
 }
 
-function CalendarNav() {
+function CalendarNav({ showViewTabs = true }: { showViewTabs?: boolean }) {
   const { setView, view } = useEventCalendarView();
   const { goTo, today } = useEventCalendarNavigation();
   const lastCalendarView = useRef<CalendarRangeView>("week");
@@ -491,14 +491,16 @@ function CalendarNav() {
             </>
           )}
         </div>
-        <div className="ms-auto shrink-0" data-slot="calendar-primary-view-row">
-          <Tabs onValueChange={handlePrimaryValueChange} value={mode}>
-            <TabsList aria-label="日程展示方式">
-              <TabsTab value="list">列表</TabsTab>
-              <TabsTab value="calendar">日历</TabsTab>
-            </TabsList>
-          </Tabs>
-        </div>
+        {showViewTabs ? (
+          <div className="ms-auto shrink-0" data-slot="calendar-primary-view-row">
+            <Tabs onValueChange={handlePrimaryValueChange} value={mode}>
+              <TabsList aria-label="日程展示方式">
+                <TabsTab value="list">列表</TabsTab>
+                <TabsTab value="calendar">日历</TabsTab>
+              </TabsList>
+            </Tabs>
+          </div>
+        ) : null}
       </TooltipProvider>
     </EventCalendarNav>
   );
@@ -631,10 +633,12 @@ function renderCalendarEventPreview({
 
 export function StudioCalendarPage({
   fetchCalendar = fetchStudioCalendar,
+  mode,
   onOpenAgendaEvent,
   slug,
 }: {
   fetchCalendar?: typeof fetchStudioCalendar;
+  mode?: "list" | "calendar";
   onOpenAgendaEvent: (event: StudioCalendarEvent, candidate: StudioCalendarCandidate) => void;
   slug: string;
 }) {
@@ -678,10 +682,12 @@ export function StudioCalendarPage({
 
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-      <PageHeader
-        description="列表展示今天前后 3 天的面试；日程只读，面试时间需在候选人详情中调整。"
-        title="面试管理"
-      />
+      {mode ? null : (
+        <PageHeader
+          description="列表展示今天前后两周的面试；日程只读，面试时间需在候选人详情中调整。"
+          title="面试管理"
+        />
+      )}
       {calendarQuery.isError ? (
         <Alert variant="destructive">
           <AlertTitle>日程加载失败</AlertTitle>
@@ -705,7 +711,7 @@ export function StudioCalendarPage({
         >
           <EventCalendar
             agendaDayCount={AGENDA_DAY_COUNT}
-            defaultDate={range.start}
+            defaultDate={mode === "calendar" ? new Date() : range.start}
             className="h-[min(760px,calc(100vh-12rem))] min-h-[560px] overflow-hidden rounded-lg"
             classNames={{
               // 移动端每条日程是一张卡片；宽屏是只有行分隔线的表格。`border-b!` 覆盖列表默认去掉
@@ -718,7 +724,7 @@ export function StudioCalendarPage({
                 "mb-2 rounded-lg border border-b! bg-background px-3 py-3 lg:mb-0 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:px-4 lg:py-3",
               agendaView: "border-t-0",
             }}
-            defaultView="agenda"
+            defaultView={mode === "calendar" ? "week" : "agenda"}
             events={events}
             eventTooltip
             i18n={CALENDAR_I18N}
@@ -756,7 +762,7 @@ export function StudioCalendarPage({
             views={["agenda", "month", "week", "day"]}
             weekStartsOn={1}
           >
-            <CalendarNav />
+            <CalendarNav showViewTabs={!mode} />
             <CalendarBody />
           </EventCalendar>
         </SkeletonReveal>

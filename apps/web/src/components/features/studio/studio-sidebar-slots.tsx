@@ -1,5 +1,6 @@
 "use client";
 
+import type { IconRobot } from "@tabler/icons-react";
 import {
   IconCalendarEvent,
   IconChartBar,
@@ -9,7 +10,6 @@ import {
   IconLayoutGrid,
   IconListCheck,
   IconMessageChatbot,
-  IconRobot,
   IconShieldCheck,
   IconSitemap,
   IconTable,
@@ -55,6 +55,7 @@ export interface NavItem {
   title: string;
   /** 仅当 page action 通过 useHasPermission 时显示。 */
   action: (typeof statement)["page"][number];
+  alternateAction?: (typeof statement)["page"][number];
   adminOnly?: boolean;
   offerApprovalManageOnly?: boolean;
   resource: "page";
@@ -84,15 +85,9 @@ const navGroups: NavGroup[] = [
       },
       {
         action: "interviews",
-        icon: IconRobot,
-        path: "/studio/interviews",
-        resource: "page",
-        title: "面试记录",
-      },
-      {
-        action: "calendar",
+        alternateAction: "calendar",
         icon: IconCalendarEvent,
-        path: "/studio/calendar",
+        path: "/studio/interviews",
         resource: "page",
         title: "面试管理",
       },
@@ -257,7 +252,9 @@ function SidebarNavItem({
   selectedRecruitingPreset: string | undefined;
 }) {
   // Hook must be called unconditionally
-  const allowed = useHasPermission(item.resource, item.action);
+  const primaryAllowed = useHasPermission(item.resource, item.action);
+  const alternateAllowed = useHasPermission(item.resource, item.alternateAction ?? item.action);
+  const allowed = primaryAllowed || alternateAllowed;
   const canManageOfferApproval = useHasPermission("offerApproval", "manage");
   const memberRole = useWorkspaceMemberRole();
   const { menuOpen: sidebarMenuOpen, setMenuOpen: setSidebarMenuOpen } = useSidebarPersistence();

@@ -23,7 +23,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "招聘台账" }, prefix: "/studio/recruiting-ledger" },
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
   { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
-  { meta: { title: "面试记录" }, prefix: "/studio/interviews" },
+  { meta: { title: "面试管理" }, prefix: "/studio/interviews" },
   { meta: { title: "面试管理" }, prefix: "/studio/calendar" },
   { meta: { title: "数据看板" }, prefix: "/studio/dashboard" },
   { meta: { title: "面试官 Agent 管理" }, prefix: "/studio/interviewers" },

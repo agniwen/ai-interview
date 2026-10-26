@@ -81,7 +81,7 @@ import {
 } from "@/components/features/studio/interviews/interview-record-cells";
 import { useInterviewRecordList } from "@/components/features/studio/interviews/use-interview-record-list";
 
-export function InterviewManagementPage() {
+export function InterviewManagementPage({ embedded = false }: { embedded?: boolean }) {
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const routeSearch = useSearch({ from: "/w/$slug/studio/interviews" });
@@ -563,7 +563,7 @@ export function InterviewManagementPage() {
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader title="面试记录" />
+        {embedded ? null : <PageHeader title="面试记录" />}
         <DataGrid<StudioInterviewRecordListRecord>
           {...grid.bind}
           {...listGridProps}

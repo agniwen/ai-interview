@@ -360,18 +360,59 @@ describe("StudioCalendarPage", () => {
     }
     const [, firstStart, firstEnd] = firstCall;
     const expectedStart = new Date();
-    expectedStart.setDate(expectedStart.getDate() - 3);
+    expectedStart.setDate(expectedStart.getDate() - 14);
     expectedStart.setHours(0, 0, 0, 0);
     expect(new Date(firstStart)).toEqual(expectedStart);
     expect(host.textContent).toContain("赵六");
     expect(host.textContent).toContain("昨天 · 9月1日（周二）");
-    // 过去 3 天、今天、未来 3 天，标签给出同一窗口的具体日期。
-    // Three days back, today and three ahead; the label names the same window's dates.
-    expect(host.textContent).toContain("8月30日 – 9月5日");
+    // 过去 14 天、今天、未来 14 天，标签给出同一窗口的具体日期。
+    // Fourteen days back, today and fourteen ahead; the label names the same window's dates.
+    expect(host.textContent).toContain("8月19日 – 9月16日");
     expect(new Date(firstEnd).getTime() - new Date(firstStart).getTime()).toBe(
-      7 * 24 * 60 * 60 * 1000,
+      29 * 24 * 60 * 60 * 1000,
     );
 
     act(() => root.unmount());
   });
+});
+
+describe("embedded interview views", () => {
+  it.each(["list", "calendar"] as const)(
+    "opens %s without a duplicate view switcher",
+    async (mode) => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      act(() =>
+        root.render(
+          <QueryClientProvider client={client}>
+            <StudioCalendarPage
+              mode={mode}
+              fetchCalendar={fetchStudioCalendarMock}
+              onOpenAgendaEvent={vi.fn()}
+              slug="demo"
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      try {
+        await act(async () => {
+          await vi.waitFor(() =>
+            expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull(),
+          );
+          await vi.advanceTimersByTimeAsync(400);
+        });
+        expect(host.querySelector('[aria-label="日程展示方式"]')).toBeNull();
+        const selector =
+          mode === "list"
+            ? '[data-slot="event-calendar-agenda-view"]'
+            : '[data-slot="event-calendar-content"][data-view="week"]';
+        expect(host.querySelector(selector)).not.toBeNull();
+      } finally {
+        act(() => root.unmount());
+        client.clear();
+      }
+    },
+  );
 });

@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute, useParams, useRouterState } from "@tanstack/react-router";
-import { InterviewManagementPage } from "@/components/features/studio/interviews/interview-management-page";
+import { InterviewWorkspacePage } from "@/components/features/studio/interviews/interview-workspace-page";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { coerceStudioInterviewsSearch } from "@/lib/client/studio-interviews-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
@@ -13,18 +13,19 @@ function StudioInterviewsRoute() {
     return <Outlet />;
   }
 
-  return <InterviewManagementPage />;
+  return <InterviewWorkspacePage />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
-  loader: ({ parentMatchPromise }) => requireStudioPagePermission(parentMatchPromise, "interviews"),
+  loader: ({ parentMatchPromise }) =>
+    requireStudioPagePermission(parentMatchPromise, ["interviews", "calendar"]),
   validateSearch: (search) => coerceStudioInterviewsSearch(search),
   head: () => ({
-    meta: [{ title: formatDocumentTitle("面试记录") }],
+    meta: [{ title: formatDocumentTitle("面试管理") }],
   }),
   component: StudioInterviewsRoute,
   pendingComponent: () => (
-    <StudioTablePageSkeleton columnCount={12} filterCount={3} label="面试记录" summary />
+    <StudioTablePageSkeleton columnCount={12} filterCount={3} label="面试管理" summary />
   ),
   shouldReload: false,
 });

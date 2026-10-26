@@ -15,7 +15,8 @@ import { rpc } from "@/lib/client/rpc";
 // 面试记录不分页：每批加载 40 条，滚动接近末尾时再取下一批。
 // Interview records load in batches of 40 and fetch more near the end of the scroll.
 const INTERVIEW_RECORD_BATCH_SIZE = 40;
-const INTERVIEW_RECORD_TABLE_MAX_HEIGHT = "max(24rem, calc(100svh - 22rem))";
+// 为页面标题、视图 Tabs、统计、筛选和表格底栏留出空间；矮屏不再强制撑到 24rem。
+const INTERVIEW_RECORD_TABLE_MAX_HEIGHT = "max(12rem, calc(100svh - 25rem))";
 
 export const INTERVIEW_RECORD_SORTABLE_COLUMN_IDS = ["createdAt", "lastInterviewAt"] as const;
 

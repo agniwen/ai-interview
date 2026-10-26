@@ -1,9 +1,9 @@
 import { addDays, format, startOfDay } from "date-fns";
 import type { EventCalendarDateRange } from "@/components/reui/event-calendar/event-calendar-types";
 
-// 面试管理的列表模式是固定窗口：过去 3 天、今天、未来 3 天。
-// The interview list shows a fixed window: 3 days back, today and 3 days ahead.
-export const AGENDA_DAYS_AROUND_TODAY = 3;
+// 面试管理的列表模式是固定窗口：过去两周、今天、未来两周。
+// The interview list shows a fixed window: 14 days back, today and 14 days ahead.
+export const AGENDA_DAYS_AROUND_TODAY = 14;
 export const AGENDA_DAY_COUNT = AGENDA_DAYS_AROUND_TODAY * 2 + 1;
 
 export function agendaWindowRange(now: Date = new Date()): EventCalendarDateRange {

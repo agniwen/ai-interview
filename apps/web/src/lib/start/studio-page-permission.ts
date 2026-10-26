@@ -12,10 +12,14 @@ import type {
  */
 export async function requireStudioPagePermission(
   studioMatchPromise: Promise<{ loaderData?: WorkspaceAccessState | null }>,
-  action: StudioPagePermissionAction,
+  action: StudioPagePermissionAction | StudioPagePermissionAction[],
 ) {
   const { loaderData: state } = await studioMatchPromise;
-  if (state?.status !== "ready" || !hasPermissionInStatements(state.permissions, "page", action)) {
+  const actions = Array.isArray(action) ? action : [action];
+  if (
+    state?.status !== "ready" ||
+    !actions.some((item) => hasPermissionInStatements(state.permissions, "page", item))
+  ) {
     throw notFound();
   }
 }
