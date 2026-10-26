@@ -1,9 +1,9 @@
-import { listTextQuery } from "@app/shared/list-text-filters";
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClientOnly, useNavigate, useRouter, useSearch } from "@tanstack/react-router";
-import type { DepartmentRecord } from "@app/shared/departments";
+import type { DepartmentListRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
+import { DepartmentRail } from "@/components/features/studio/departments/department-rail";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
@@ -38,7 +38,6 @@ import {
   dateColumn,
   estimateActionsColumnSize,
   textColumn,
-  useDataGridState,
 } from "@/components/features/data-grid";
 import {
   Empty,
@@ -52,6 +51,7 @@ import { rpc } from "@/lib/client/rpc";
 import { createJobDescriptionReferralLink, rpcFetch } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useJobDescriptionList } from "@/components/features/studio/job-descriptions/use-job-description-list";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
@@ -68,16 +68,6 @@ function getPriorityBadgeVariant(priority: "high" | "medium" | "low") {
     return "warning" as const;
   }
   return "secondary" as const;
-}
-
-interface JobDescriptionListQuery {
-  departmentId?: string;
-  interviewerId?: string;
-  page: string;
-  pageSize: string;
-  search?: string;
-  sortBy: string;
-  sortOrder: "asc" | "desc";
 }
 
 interface RecruitingStatusChange {
@@ -123,7 +113,7 @@ export function JobDescriptionManagementPage({
   interviewers,
   metrics,
 }: {
-  departments: DepartmentRecord[];
+  departments: DepartmentListRecord[];
   interviewers: InterviewerListRecord[];
   metrics: JobDescriptionMetrics;
 }) {
@@ -146,41 +136,7 @@ export function JobDescriptionManagementPage({
   const canDeleteJobDescription = useHasPermission("jd", "delete");
   const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
 
-  const fetchJobDescriptions = useCallback(
-    (params: {
-      search: string;
-      page: number;
-      pageSize: number;
-      filters: { departmentId: string; interviewerId: string };
-      sortBy: string | undefined;
-      sortOrder: "asc" | "desc" | undefined;
-    }) => {
-      const query: JobDescriptionListQuery = {
-        ...listTextQuery(params),
-        page: String(params.page),
-        pageSize: String(params.pageSize),
-        sortBy: params.sortBy ?? "priority",
-        sortOrder: params.sortOrder ?? "desc",
-      };
-      if (params.search) {
-        query.search = params.search;
-      }
-      if (params.filters.departmentId) {
-        query.departmentId = params.filters.departmentId;
-      }
-      if (params.filters.interviewerId) {
-        query.interviewerId = params.filters.interviewerId;
-      }
-      return rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"].$get({
-          param: { slug },
-          query,
-        }),
-        "加载在招岗位列表失败",
-      );
-    },
-    [slug],
-  );
+  const { grid, listGridProps } = useJobDescriptionList(slug);
 
   const loadJobDescriptionDetail = useCallback(
     async (record: JobDescriptionListRecord): Promise<JobDescriptionRecord | null> => {
@@ -195,24 +151,24 @@ export function JobDescriptionManagementPage({
     [slug],
   );
 
-  const grid = useDataGridState<
-    JobDescriptionListRecord,
-    { departmentId: string; interviewerId: string }
-  >({
-    allowedSortIds: ["priority", "createdAt", "name", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "priority" }],
-    initialFilters: { departmentId: "", interviewerId: "" },
-    queryFn: fetchJobDescriptions,
-    queryKeyBase: ["job-descriptions", slug],
-  });
+  // 部门可在岗位表单内新建，只有缺少面试官时才无法创建岗位。
+  // Departments can be created inside the job form; only missing interviewers block creation.
+  const missingRefs = interviewers.length === 0;
+  const selectedDepartmentId = grid.filters.departmentId;
+  const { setFilter } = grid;
 
-  const missingRefs = departments.length === 0 || interviewers.length === 0;
+  // 选中的部门被删除（或 URL 里是旧的多选值）时回到「全部岗位」。
+  // Fall back to "all jobs" when the selected department no longer exists or the URL holds a stale value.
+  useEffect(() => {
+    if (selectedDepartmentId && !departments.some((item) => item.id === selectedDepartmentId)) {
+      setFilter("departmentId", "");
+    }
+  }, [departments, selectedDepartmentId, setFilter]);
 
   function invalidateJobDescriptionData() {
     grid.invalidate();
     void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
     void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
-    void queryClient.invalidateQueries({ queryKey: ["departments"] });
     void router.invalidate();
   }
 
@@ -321,8 +277,9 @@ export function JobDescriptionManagementPage({
       textColumn<JobDescriptionListRecord>({
         key: "name",
         primary: true,
+        size: 220,
         title: "岗位名称",
-        truncate: "max-w-[14rem]",
+        truncate: "max-w-full",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (record) => {
@@ -338,59 +295,79 @@ export function JobDescriptionManagementPage({
           return <Badge variant={status.variant}>{status.label}</Badge>;
         },
         key: "recruitingStatus",
+        size: 100,
         title: "状态",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) =>
           r.code ? (
-            <span className="font-mono text-xs">{r.code}</span>
+            <span className="whitespace-nowrap font-mono text-xs">{r.code}</span>
           ) : (
-            <span className="text-muted-foreground text-sm">未生成</span>
+            <span className="whitespace-nowrap text-muted-foreground text-sm">未生成</span>
           ),
         key: "code",
+        size: 110,
         title: "编码",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) =>
-          r.departmentName ?? <span className="text-muted-foreground text-xs">未知</span>,
+          r.departmentName ? (
+            <span className="block truncate" title={r.departmentName}>
+              {r.departmentName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">未知</span>
+          ),
         key: "departmentName",
+        size: 120,
         title: "部门",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {
           if (r.interviewers.length === 0) {
-            return <span className="text-muted-foreground text-xs">未配置</span>;
+            return <span className="whitespace-nowrap text-muted-foreground text-xs">未配置</span>;
           }
+          const names = r.interviewers.map((item) => item.name).join("、");
           return (
-            <span className="text-sm wrap-anywhere">
-              {r.interviewers.map((item) => item.name).join("、")}
+            <span className="block truncate text-sm" title={names}>
+              {names}
             </span>
           );
         },
         key: "interviewers",
+        size: 200,
         title: "面试官",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) =>
-          r.reportingManagerName ?? <span className="text-muted-foreground text-xs">—</span>,
+          r.reportingManagerName ? (
+            <span className="block truncate" title={r.reportingManagerName}>
+              {r.reportingManagerName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
         key: "reportingManagerName",
+        size: 110,
         title: "汇报上级",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) =>
           r.salaryMinK || r.salaryMaxK ? (
-            <span className="text-sm">
+            <span className="whitespace-nowrap text-sm tabular-nums">
               {r.salaryMinK ?? "—"}–{r.salaryMaxK ?? "—"}K
             </span>
           ) : (
             <span className="text-muted-foreground text-xs">—</span>
           ),
         key: "salaryRange",
+        size: 130,
         title: "薪资区间",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => r.headcount ?? <span className="text-muted-foreground text-xs">—</span>,
         key: "headcount",
+        size: 96,
         title: "需求人数",
       }),
       customColumn<JobDescriptionListRecord>({
@@ -401,6 +378,7 @@ export function JobDescriptionManagementPage({
             <span className="text-muted-foreground text-xs">—</span>
           ),
         key: "jobWeight",
+        size: 96,
         title: "岗位权重",
       }),
       customColumn<JobDescriptionListRecord>({
@@ -409,25 +387,40 @@ export function JobDescriptionManagementPage({
           return r.priority ? (
             <Badge variant={getPriorityBadgeVariant(r.priority)}>{labels[r.priority]}</Badge>
           ) : (
-            <span className="text-muted-foreground text-xs">未设置</span>
+            <span className="whitespace-nowrap text-muted-foreground text-xs">未设置</span>
           );
         },
         key: "priority",
+        size: 90,
         title: "优先级",
       }),
       customColumn<JobDescriptionListRecord>({
-        cell: (r) => r.referralChannels ?? <span className="text-muted-foreground text-xs">—</span>,
+        cell: (r) =>
+          r.referralChannels ? (
+            <span className="block truncate" title={r.referralChannels}>
+              {r.referralChannels}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
         key: "referralChannels",
+        size: 150,
         title: "简历推荐渠道",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => {
           if (r.resumeCount === 0) {
-            return <span className="text-muted-foreground text-sm">关联了 0 个简历</span>;
+            return (
+              <span className="whitespace-nowrap text-muted-foreground text-sm">
+                关联了 0 个简历
+              </span>
+            );
           }
           if (!canReadResumeLibrary) {
             return (
-              <span className="text-muted-foreground text-sm">关联了 {r.resumeCount} 个简历</span>
+              <span className="whitespace-nowrap text-muted-foreground text-sm">
+                关联了 {r.resumeCount} 个简历
+              </span>
             );
           }
           return (
@@ -442,15 +435,17 @@ export function JobDescriptionManagementPage({
           );
         },
         key: "resumeCount",
+        size: 150,
         title: "简历关联",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => (
-          <span className="block max-w-sm truncate text-muted-foreground text-sm">
+          <span className="block truncate text-muted-foreground text-sm" title={r.prompt}>
             {r.prompt || "—"}
           </span>
         ),
         key: "description",
+        size: 260,
         title: "岗位 JD",
       }),
       dateColumn<JobDescriptionListRecord>({
@@ -544,15 +539,6 @@ export function JobDescriptionManagementPage({
     () => [
       { key: "textFilters" as const, resource: "jobs" as const, type: "text-filters" as const },
       {
-        emptyMessage: "没有匹配的部门",
-        key: "departmentId" as const,
-        options: departments.map((d) => ({ label: d.name, value: d.id })),
-        placeholder: "全部部门",
-        searchPlaceholder: "搜索部门…",
-        selectedFormat: (count: number) => `已选 ${count} 个部门`,
-        type: "multi-select" as const,
-      },
-      {
         emptyMessage: "没有匹配的面试官",
         key: "interviewerId" as const,
         options: interviewers.map((i) => ({
@@ -566,7 +552,7 @@ export function JobDescriptionManagementPage({
         type: "multi-select" as const,
       },
     ],
-    [departments, interviewers],
+    [interviewers],
   );
 
   return (
@@ -580,63 +566,75 @@ export function JobDescriptionManagementPage({
           </ClientOnly>
         </SkeletonReveal>
 
-        <DataGrid<JobDescriptionListRecord>
-          {...grid.bind}
-          columnPinning={{ end: ["actions"] }}
-          columns={columns}
-          empty={
-            missingRefs ? (
-              <Empty className="border-border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconFileText className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>请先创建部门和面试官</EmptyTitle>
-                  <EmptyDescription>
-                    在招岗位需要同时指定部门和面试官，先去对应页面完成配置。
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <Empty className="border-border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconFileText className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>还没有在招岗位</EmptyTitle>
-                </EmptyHeader>
-                {canCreateJobDescription ? (
-                  <EmptyContent className="flex items-center justify-center">
-                    <Button disabled={missingRefs} onClick={() => crud.openCreate()}>
-                      <IconPlus className="size-4" />
-                      创建在招岗位
-                    </Button>
-                  </EmptyContent>
-                ) : null}
-              </Empty>
-            )
-          }
-          filters={filtersConfig}
-          getRowId={(r) => r.id}
-          toolbarRight={
-            canCreateJobDescription ? (
-              <Button
-                className="flex-1 sm:flex-none"
-                disabled={missingRefs}
-                onClick={() => crud.openCreate()}
-              >
-                <IconPlus className="size-4" />
-                创建在招岗位
-              </Button>
-            ) : null
-          }
-        />
+        <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
+          <DepartmentRail
+            departments={departments}
+            onChanged={invalidateJobDescriptionData}
+            onSelect={(departmentId) => setFilter("departmentId", departmentId)}
+            selectedDepartmentId={selectedDepartmentId}
+          />
+
+          <DataGrid<JobDescriptionListRecord>
+            {...grid.bind}
+            {...listGridProps}
+            columnPinning={{ end: ["actions"], start: ["name"] }}
+            columns={columns}
+            empty={
+              missingRefs ? (
+                <Empty className="border-border">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconFileText className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>请先创建面试官</EmptyTitle>
+                    <EmptyDescription>
+                      在招岗位需要指定面试官，先去「面试官 Agent 管理」完成配置。
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <Empty className="border-border">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconFileText className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>还没有在招岗位</EmptyTitle>
+                  </EmptyHeader>
+                  {canCreateJobDescription ? (
+                    <EmptyContent className="flex items-center justify-center">
+                      <Button disabled={missingRefs} onClick={() => crud.openCreate()}>
+                        <IconPlus className="size-4" />
+                        创建在招岗位
+                      </Button>
+                    </EmptyContent>
+                  ) : null}
+                </Empty>
+              )
+            }
+            filters={filtersConfig}
+            getRowId={(r) => r.id}
+            toolbarRight={
+              canCreateJobDescription ? (
+                <Button
+                  className="flex-1 sm:flex-none"
+                  disabled={missingRefs}
+                  onClick={() => crud.openCreate()}
+                >
+                  <IconPlus className="size-4" />
+                  创建在招岗位
+                </Button>
+              ) : null
+            }
+          />
+        </div>
       </div>
 
       {canOpenEditorDialog ? (
         <JobDescriptionFormDialog
+          defaultDepartmentId={selectedDepartmentId}
           departments={departments}
           interviewers={interviewers}
+          onDepartmentCreated={() => router.invalidate()}
           onOpenChange={onFormOpenChange}
           onSaved={handleJobDescriptionSaved}
           open={crud.formDialogOpen}

@@ -121,12 +121,14 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
     null,
   );
 
-  const noDepartments = departments.length === 0;
+  const canCreateDepartment = useHasPermission("department", "create");
+  // 有部门创建权限时可在表单内新建部门，否则没有部门就无法创建面试官。
+  // With department create permission the form can add one inline; otherwise no department blocks creation.
+  const blockedByDepartments = departments.length === 0 && !canCreateDepartment;
 
   function invalidateInterviewerData() {
     grid.invalidate();
     void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
-    void queryClient.invalidateQueries({ queryKey: ["departments"] });
     void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
     void router.invalidate();
   }
@@ -189,7 +191,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
           {...grid.bind}
           cardSkeleton={<InterviewerAgentCardSkeleton />}
           empty={
-            noDepartments ? (
+            blockedByDepartments ? (
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -197,7 +199,8 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                   </EmptyMedia>
                   <EmptyTitle>请先创建部门</EmptyTitle>
                   <EmptyDescription>
-                    面试官 Agent 必须挂在某个部门下，先去「部门管理」创建一个部门。
+                    面试官 Agent
+                    必须挂在某个部门下，请联系有部门权限的成员在「岗位设置」中创建部门。
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -240,7 +243,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
             canCreateInterviewer ? (
               <Button
                 className="flex-1 sm:flex-none"
-                disabled={noDepartments}
+                disabled={blockedByDepartments}
                 onClick={crud.openCreate}
               >
                 <IconPlus className="size-4" />
@@ -255,6 +258,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
         <InterviewerFormDialog
           departments={departments}
           loading={crud.detailLoading}
+          onDepartmentCreated={() => router.invalidate()}
           onOpenChange={crud.onFormOpenChange}
           onSaved={invalidateInterviewerData}
           open={crud.formDialogOpen}

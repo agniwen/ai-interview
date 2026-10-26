@@ -238,6 +238,24 @@ export async function listAllDepartments(organizationId: string): Promise<Depart
   }));
 }
 
+/** Load all departments with interviewer / job counts (small list, used by the job settings rail). */
+export async function listAllDepartmentsWithReferenceCounts(
+  organizationId: string,
+): Promise<DepartmentListRecord[]> {
+  const rows = await db
+    .select()
+    .from(department)
+    .where(eq(department.organizationId, organizationId))
+    .orderBy(asc(department.name));
+  const refsMap = await loadReferenceCounts(rows.map((row) => row.id));
+  return rows.map((row) =>
+    toDepartmentListRecord(
+      row,
+      refsMap.get(row.id) ?? { interviewerCount: 0, jobDescriptionCount: 0 },
+    ),
+  );
+}
+
 export async function loadDepartmentReferenceCounts(id: string) {
   const [interviewerCountResult, jobDescriptionCountResult] = await Promise.all([
     db.select({ count: count() }).from(interviewer).where(eq(interviewer.departmentId, id)),

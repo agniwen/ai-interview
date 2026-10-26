@@ -56,7 +56,7 @@ import {
 } from "./utils/job-description-code";
 import { recommendCandidatesForJobDescription } from "./utils/recommendations";
 import { getGlobalConfig } from "@app/recruiting/global-config";
-import { listAllDepartments } from "../departments/dao";
+import { listAllDepartmentsWithReferenceCounts } from "../departments/dao";
 import { listAllInterviewers } from "../interviewers/dao";
 import { createJobDescriptionReferralLink } from "./dao/referral-links";
 import {
@@ -366,7 +366,7 @@ export function createJobDescriptionsRouter(
         return c.json({ message: "Unauthorized" }, 401);
       }
       const [departments, interviewers, metrics] = await Promise.all([
-        listAllDepartments(activeOrg.id),
+        listAllDepartmentsWithReferenceCounts(activeOrg.id),
         listAllInterviewers(activeOrg.id),
         dependencies.loadJobDescriptionMetrics(activeOrg.id),
       ]);

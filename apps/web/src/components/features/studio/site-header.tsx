@@ -26,7 +26,6 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "AI初面" }, prefix: "/studio/interviews" },
   { meta: { title: "面试管理" }, prefix: "/studio/calendar" },
   { meta: { title: "数据看板" }, prefix: "/studio/dashboard" },
-  { meta: { title: "部门管理" }, prefix: "/studio/departments" },
   { meta: { title: "面试官 Agent 管理" }, prefix: "/studio/interviewers" },
   { meta: { title: "岗位设置" }, prefix: "/studio/job-descriptions" },
   { meta: { title: "表单题" }, prefix: "/studio/forms" },

@@ -2,7 +2,6 @@
 
 import {
   IconArrowLeft,
-  IconBuilding,
   IconCalendarEvent,
   IconChartBar,
   IconChevronRight,
@@ -82,7 +81,6 @@ function getStudioNavGroups(): NavGroup[] {
     },
     {
       items: [
-        { icon: IconBuilding, label: m.home_frame_nav_departments() },
         { icon: IconUserCircle, label: m.home_frame_nav_interviewers() },
         { icon: IconFileText, label: m.home_frame_nav_jobs() },
       ],

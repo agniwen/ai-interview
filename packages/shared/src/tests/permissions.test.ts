@@ -185,7 +185,6 @@ describe("permissions matrix", () => {
           "interviews",
           "calendar",
           "recruitingLedger",
-          "departments",
           "interviewers",
           "jobDescriptions",
           "forms",

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconBuilding,
   IconCalendarEvent,
   IconChartBar,
   IconChevronRight,
@@ -123,13 +122,6 @@ const navGroups: NavGroup[] = [
   },
   {
     items: [
-      {
-        action: "departments",
-        icon: IconBuilding,
-        path: "/studio/departments",
-        resource: "page",
-        title: "部门管理",
-      },
       {
         action: "interviewers",
         icon: IconUserCircle,

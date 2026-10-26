@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@app/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
 import { Toolbar } from "./parts/toolbar";
+import { DataGridVirtualTable } from "./parts/virtual-table";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
 import { ListLoadError } from "./list-load-error";
 import { dataGridFeatures } from "./table-features";
@@ -42,6 +43,7 @@ const DEFAULT_END_COLUMN_PINNING = ["actions"];
 const EMPTY_COLUMN_PINNING: string[] = [];
 const EMPTY_SORTING: SortingState = [];
 const DATA_GRID_ROW_CLASS = "h-[53px]";
+const DATA_GRID_ROW_HEIGHT = 53;
 const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
 const EMPTY_SKELETON_ROWS: Record<string, never>[] = [];
 const DATA_GRID_I18N = {
@@ -202,6 +204,16 @@ export interface DataGridProps<TData extends RowData> {
    */
   maxHeight?: string | null;
 
+  /**
+   * 行虚拟化 + 滚动加载：替代分页栏，必须同时给定 maxHeight。
+   * Row virtualization with load-on-scroll in place of the pagination bar; requires maxHeight.
+   */
+  virtualized?: {
+    hasNextPage: boolean;
+    isFetchingNextPage: boolean;
+    fetchNextPage: () => void;
+  };
+
   /** REUI spreadsheet editing stays opt-in so existing interactive cells keep their behavior. */
   cellSelection?: boolean;
   cellEditMode?: "click" | "dblclick";
@@ -247,6 +259,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     toolbarRight,
     total,
     totalPages,
+    virtualized,
   } = props;
 
   const normalizedPinning = useMemo(
@@ -416,18 +429,41 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         headerBackground: false,
         headerSticky: Boolean(maxHeight),
         rowBorder: true,
-        width: "auto",
+        // 虚拟滚动只渲染可视行，自动布局会随行内容改变列宽；固定布局按列 size 定宽，超出省略。
+        // Virtualized rows would reflow auto-layout widths while scrolling; fixed layout pins
+        // widths to column sizes and truncates overflow.
+        width: virtualized ? "fixed" : "auto",
       }}
       tableClassNames={{
+        base: virtualized ? "[&_td]:truncate" : undefined,
         bodyRow: DATA_GRID_ROW_CLASS,
         headerSticky: "sticky top-0 z-40 bg-background",
       }}
     >
       <ReuiDataGridContainer className="rounded-lg bg-control shadow-default">
-        <DataGridScrollArea style={maxHeight ? { maxHeight } : undefined}>
-          <DataGridTable />
+        <DataGridScrollArea
+          // 视口的 size-full 在只有 max-height 的根节点下不生效，需继承最大高度才能成为滚动容器。
+          // The viewport's size-full cannot resolve against a max-height-only root, so inherit it.
+          className={maxHeight ? "[&>[data-slot=scroll-area-viewport]]:max-h-[inherit]" : undefined}
+          style={maxHeight ? { maxHeight } : undefined}
+        >
+          {virtualized && !showSkeleton ? (
+            <DataGridVirtualTable estimateRowHeight={DATA_GRID_ROW_HEIGHT} {...virtualized} />
+          ) : (
+            <DataGridTable />
+          )}
         </DataGridScrollArea>
-        <DataGridPagination sizes={[...pageSizeOptions]} />
+        {virtualized ? (
+          <div
+            aria-live="polite"
+            className="flex h-12 items-center justify-between border-t px-4 text-muted-foreground text-sm"
+          >
+            <span>共 {total} 条</span>
+            {virtualized.isFetchingNextPage ? <span>加载中…</span> : null}
+          </div>
+        ) : (
+          <DataGridPagination sizes={[...pageSizeOptions]} />
+        )}
       </ReuiDataGridContainer>
     </ReuiDataGrid>
   );
@@ -458,7 +494,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
       <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
         {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
 
-        {rows.length === 0 && !isInitialLoading ? (
+        {rows.length === 0 && !isInitialLoading && !virtualized ? (
           <PaginationBar
             loading={loading || refetching}
             onPageChange={pagination.onPageChange}

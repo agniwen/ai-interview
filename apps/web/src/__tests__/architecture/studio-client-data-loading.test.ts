@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 const appRoot = path.resolve(import.meta.dirname, "../../..");
 
 const listRoutes = [
-  "departments",
   "forms",
   "interview-questions",
   "interviewers",

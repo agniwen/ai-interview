@@ -3,12 +3,16 @@
 import { IconLoader2 } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
-import { buildJobDescriptionInterviewerOptions } from "@app/shared/job-description-interviewers";
+import {
+  buildJobDescriptionInterviewerOptions,
+  filterInterviewerIdsByDepartment,
+} from "@app/shared/job-description-interviewers";
 import { jobDescriptionFormSchema } from "@app/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -16,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
 import { JobDescriptionBasicSettingsFields } from "./job-description-basic-settings-fields";
 import { JobDescriptionAiSupplementModal } from "./job-description-form-modals";
@@ -37,23 +42,31 @@ export function isJobDescriptionFormTab(value: string): value is JobDescriptionF
 }
 
 export function JobDescriptionFormDialog({
+  defaultDepartmentId = "",
   initialDraft,
   open,
   onOpenChange,
   record,
   departments,
   interviewers,
+  onDepartmentCreated,
   onSaved,
 }: {
+  /** 新建岗位时预选的部门（如当前部门栏选中的部门）。Department preselected for a new job. */
+  defaultDepartmentId?: string;
   initialDraft?: JobDescriptionFormValues | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: JobDescriptionRecord | null;
   departments: DepartmentRecord[];
   interviewers: InterviewerListRecord[];
+  /** 表单内新建部门后刷新部门列表。Refreshes the department list after an inline create. */
+  onDepartmentCreated?: () => Promise<void> | void;
   onSaved: (record: JobDescriptionRecord) => void;
 }) {
   const slug = useWorkspaceSlug();
+  const canCreateDepartment = useHasPermission("department", "create");
+  const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const [pendingGeneratedJobDescription, setPendingGeneratedJobDescription] = useState<{
     jobDescription: string;
@@ -65,8 +78,11 @@ export function JobDescriptionFormDialog({
     () =>
       record
         ? toDepartmentScopedFormValues(record, interviewers)
-        : (initialDraft ?? emptyJobDescriptionFormValues()),
-    [initialDraft, interviewers, record],
+        : (initialDraft ?? {
+            ...emptyJobDescriptionFormValues(),
+            departmentId: defaultDepartmentId,
+          }),
+    [defaultDepartmentId, initialDraft, interviewers, record],
   );
   const form = useForm({
     defaultValues: resolvedInitialValues,
@@ -91,14 +107,20 @@ export function JobDescriptionFormDialog({
   useEffect(() => {
     submitRef.current = actions.submitJobDescription;
   }, [actions.submitJobDescription]);
+  // 只在打开或切换记录时重置；打开期间部门/面试官列表刷新（如表单内新建部门）不能清掉正在编辑的内容。
+  // Reset only on open or a record switch; list refreshes while open (e.g. an inline department
+  // create) must not wipe in-progress edits.
+  const resetOnOpen = useEffectEvent(() => {
+    form.reset(resolvedInitialValues);
+    setActiveTab("basic");
+    setPendingGeneratedJobDescription(null);
+  });
   useEffect(() => {
     if (open) {
-      form.reset(resolvedInitialValues);
       // oxlint-disable-next-line react/set-state-in-effect -- opening a different record resets dialog-local navigation state
-      setActiveTab("basic");
-      setPendingGeneratedJobDescription(null);
+      resetOnOpen();
     }
-  }, [form, open, resolvedInitialValues]);
+  }, [defaultDepartmentId, initialDraft, open, record]);
 
   const { data: workspaceMembers } = useQuery({
     enabled: open,
@@ -177,7 +199,22 @@ export function JobDescriptionFormDialog({
       ),
     [allowCrossDepartmentInterviewers, interviewers, selectedDepartmentId],
   );
-  const missingRefs = departments.length === 0 || interviewers.length === 0;
+  // 部门可在表单内新建，只有面试官缺失时才无法保存。Departments can be created inline.
+  const missingRefs = interviewers.length === 0;
+
+  async function handleDepartmentCreated({ id }: { id: string }) {
+    await onDepartmentCreated?.();
+    form.setFieldValue("departmentId", id);
+    form.setFieldValue(
+      "interviewerIds",
+      filterInterviewerIdsByDepartment(
+        interviewers,
+        id,
+        form.getFieldValue("interviewerIds"),
+        form.getFieldValue("allowCrossDepartmentInterviewers"),
+      ),
+    );
+  }
 
   return (
     <Tabs
@@ -242,6 +279,9 @@ export function JobDescriptionFormDialog({
                 interviewers={interviewers}
                 interviewerOptions={interviewerOptions}
                 isGeneratingCode={actions.isGeneratingCode}
+                onCreateDepartment={
+                  canCreateDepartment ? () => setDepartmentDialogOpen(true) : undefined
+                }
                 reportingManagerOptions={reportingManagerOptions}
                 selectedDepartmentId={selectedDepartmentId}
                 selectedInterviewerIds={selectedInterviewerIds}
@@ -273,6 +313,13 @@ export function JobDescriptionFormDialog({
           ) : null}
         </form>
       </Modal>
+      {/* 只有具备部门创建权限时才会出现打开入口。Only reachable through the permission-gated button. */}
+      <DepartmentFormDialog
+        onOpenChange={setDepartmentDialogOpen}
+        onSaved={handleDepartmentCreated}
+        open={departmentDialogOpen}
+        record={null}
+      />
       <JobDescriptionAiSupplementModal
         applyGeneratedJobDescription={actions.applyGeneratedJobDescription}
         pending={pendingGeneratedJobDescription}
