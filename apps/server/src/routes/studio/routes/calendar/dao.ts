@@ -135,7 +135,7 @@ function listViewerMeetingAssignments(
     );
 }
 
-function listHumanRoundInterviewers(roundIds: string[]) {
+export function listHumanRoundInterviewers(roundIds: string[]) {
   if (roundIds.length === 0) {
     return [];
   }
@@ -158,7 +158,7 @@ function listHumanRoundInterviewers(roundIds: string[]) {
 }
 
 /** 各轮次已提交评价的结论，按提交时间升序。/ Submitted outcomes per round, oldest first. */
-async function listSubmittedOutcomesByRound(roundIds: string[], organizationId: string) {
+export async function listSubmittedOutcomesByRound(roundIds: string[], organizationId: string) {
   const outcomesByRound = new Map<string, (HumanInterviewRoundOutcome | null)[]>();
   if (roundIds.length === 0) {
     return outcomesByRound;

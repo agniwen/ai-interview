@@ -13,12 +13,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { cn } from "@app/shared/utils";
 
-// 侧栏展开/收起过渡期间（Sidebar 根节点带 data-transitioning），桌面端内容区直接取过渡结束后的最终宽度：
+// 侧栏展开/收起过渡期间（sidebar-wrapper 带 data-sidebar-transition=目标状态），桌面端内容区直接取过渡结束后的最终宽度：
 // 只重排一次，过渡中仅随左边缘平移并被 SidebarInset 裁剪；静止时恢复 w-full，不依赖下面的宽度算式。
 // 最终宽度 = 视口 - 侧栏占位(inset 变体收起时为 icon 宽 + 1rem) - SidebarInset 外边距(展开 mr-2，收起 mx-2)。
 // While the sidebar width transitions, desktop content takes its final width so it relayouts once instead of every frame.
 const STUDIO_CONTENT_TRANSITION_WIDTH_CLASS =
-  "md:group-has-[[data-slot=sidebar][data-transitioning][data-state=expanded]]/sidebar-wrapper:w-[calc(100vw-var(--sidebar-width)-0.5rem)] md:group-has-[[data-slot=sidebar][data-transitioning][data-state=collapsed]]/sidebar-wrapper:w-[calc(100vw-var(--sidebar-width-icon)-2rem)]";
+  "md:group-data-[sidebar-transition=expanded]/sidebar-wrapper:w-[calc(100vw-var(--sidebar-width)-0.5rem)] md:group-data-[sidebar-transition=collapsed]/sidebar-wrapper:w-[calc(100vw-var(--sidebar-width-icon)-2rem)]";
 
 function StudioLayout({ children }: { children: ReactNode }) {
   const isApprovalEditor = useRouterState({

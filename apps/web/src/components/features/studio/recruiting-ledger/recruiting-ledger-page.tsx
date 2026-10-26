@@ -534,7 +534,7 @@ export function RecruitingLedgerPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 min-w-32">姓名</TableHead>
+                  <TableHead className="sticky left-0 z-20 min-w-32 bg-background">姓名</TableHead>
                   <TableHead>岗位</TableHead>
                   <TableHead>部门</TableHead>
                   <TableHead>汇报上级</TableHead>

@@ -5,6 +5,7 @@ import type {
   HeaderContext,
   OnChangeFn,
   PaginationState,
+  Row,
   RowData,
   RowSelectionState,
   SortingState,
@@ -178,6 +179,8 @@ export interface DataGridProps<TData extends RowData> {
 
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  /** 返回 false 的行不可勾选（全选也会跳过）。/ Rows returning false cannot be selected. */
+  canSelectRow?: (row: TData) => boolean;
 
   filters?: ToolbarFilterConfig[];
   filterStorageKey?: string;
@@ -222,10 +225,21 @@ export interface DataGridProps<TData extends RowData> {
   onCellEditRequest?: (request: DataGridCellEditRequest<TData>) => void;
 }
 
+function resolveRowSelectionEnabled<TData extends RowData>(
+  rowSelection: RowSelectionState | undefined,
+  canSelectRow: ((row: TData) => boolean) | undefined,
+): boolean | ((row: Row<DataGridFeatures, TData>) => boolean) {
+  if (rowSelection === undefined) {
+    return false;
+  }
+  return canSelectRow ? (row) => canSelectRow(row.original) : true;
+}
+
 export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
   const {
     bulkActions,
     canResetFilters,
+    canSelectRow,
     cellEditEnterAdvance,
     cellEditMode,
     cellSelection,
@@ -368,7 +382,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     data,
     // Preserve V8 non-range checkbox behavior (V9 enables Shift range by default).
     enableRowRangeSelection: false,
-    enableRowSelection: rowSelection !== undefined,
+    enableRowSelection: resolveRowSelectionEnabled(rowSelection, canSelectRow),
     enableSortingRemoval: false,
     features: dataGridFeatures,
     getRowId,
@@ -437,7 +451,9 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
       tableClassNames={{
         base: virtualized ? "[&_td]:truncate" : undefined,
         bodyRow: DATA_GRID_ROW_CLASS,
-        headerSticky: "sticky top-0 z-40 bg-background",
+        // 与表格底色（bg-control）及固定列一致，避免表头出现两种底色。
+        // Matches the grid surface (bg-control) and pinned cells so the header is one color.
+        headerSticky: "sticky top-0 z-40 bg-control",
       }}
     >
       <ReuiDataGridContainer className="rounded-lg bg-control shadow-default">

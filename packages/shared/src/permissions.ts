@@ -39,7 +39,7 @@ export const STUDIO_PAGE_PERMISSION_LABELS = {
   dashboard: "数据看板",
   globalConfig: "上下文设置",
   interviewers: "面试官 Agent 管理",
-  interviews: "AI 初面",
+  interviews: "面试记录",
   jobDescriptions: "岗位设置",
   me: "个人中心",
   members: "工作区管理",

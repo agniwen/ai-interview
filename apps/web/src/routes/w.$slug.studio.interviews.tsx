@@ -20,11 +20,11 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
   loader: ({ parentMatchPromise }) => requireStudioPagePermission(parentMatchPromise, "interviews"),
   validateSearch: (search) => coerceStudioInterviewsSearch(search),
   head: () => ({
-    meta: [{ title: formatDocumentTitle("AI初面") }],
+    meta: [{ title: formatDocumentTitle("面试记录") }],
   }),
   component: StudioInterviewsRoute,
   pendingComponent: () => (
-    <StudioTablePageSkeleton columnCount={12} filterCount={3} label="AI初面" summary />
+    <StudioTablePageSkeleton columnCount={12} filterCount={3} label="面试记录" summary />
   ),
   shouldReload: false,
 });

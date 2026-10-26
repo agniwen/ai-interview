@@ -5201,6 +5201,8 @@ export const humanInterviewRound = pgTable(
       table.outcome,
     ),
     index("human_interview_round_sort_idx").on(table.recruitingRecordId, table.sortOrder),
+    // 面试记录列表按工作区 + 创建时间排序分页。/ Interview records list pages by workspace + creation time.
+    index("human_interview_round_org_created_at_idx").on(table.organizationId, table.createdAt),
     index("human_interview_round_status_idx").on(table.status),
     index("human_interview_round_evaluation_status_idx").on(table.evaluationStatus),
     check(

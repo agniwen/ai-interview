@@ -169,9 +169,20 @@ function useSidebarTransitionMarker(state: "expanded" | "collapsed") {
       return;
     }
 
+    // 同时把目标状态标到 sidebar-wrapper 上，内容区用属性 group 选择器即可，避免 `group-has-*`：
+    // 后者在任意 DOM 插入时都会让整页样式重算，长列表滚动会明显卡顿。
+    // Mirror the target state onto the wrapper so content can use an attribute group selector
+    // instead of `group-has-*`, which restyles the whole page on every DOM insertion.
+    const wrapper = root.closest<HTMLElement>("[data-slot=sidebar-wrapper]");
     root.dataset.transitioning = "";
+    if (wrapper) {
+      wrapper.dataset.sidebarTransition = state;
+    }
     const clear = () => {
       delete root.dataset.transitioning;
+      if (wrapper) {
+        delete wrapper.dataset.sidebarTransition;
+      }
     };
     const handleTransitionEnd = (event: TransitionEvent) => {
       if (event.target === gap && event.propertyName === "width") {

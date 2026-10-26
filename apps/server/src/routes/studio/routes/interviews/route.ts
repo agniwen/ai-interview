@@ -24,11 +24,12 @@ import { candidateExpectationsMetaSchema } from "@app/db-schema/studio-interview
 import { factory, jsonValidatorError } from "../../../../factory";
 import { releaseInterviewContextBinding } from "@app/recruiting-workflows/ai-interview-reports/context-snapshots";
 import { findSemanticResumeDuplicates } from "../../../../infrastructure/resume-semantic/dedup-service";
+import { loadInterviewRoundDetail } from "./dao/interview-rounds";
 import {
-  loadInterviewRoundDetail,
-  queryPaginatedInterviewRounds,
-  summarizeInterviewRoundCounts,
-} from "./dao/interview-rounds";
+  queryPaginatedInterviewRecords,
+  summarizeInterviewRecordCounts,
+} from "./dao/interview-records";
+import type { InterviewRecordAccess } from "./dao/interview-records";
 import { roundEmailsRouter } from "./routes/round-emails/route";
 import { notificationRecipientsRouter } from "./routes/notification-recipients/route";
 import { requirePermission } from "../../../../middlewares/permission";
@@ -61,6 +62,25 @@ function loadVisibilityScope(
   return resolveRecruitingVisibilityScope({ currentRole, organizationId, userId });
 }
 
+// 面试记录列表同时展示 AI 与真人面试；真人面试行另需「真人面试 · 查看」权限。
+// The interview records list mixes AI and human rounds; human rows also require humanInterview:read.
+async function loadInterviewRecordAccess(
+  organizationId: string,
+  currentRole: string | null | undefined,
+  userId: string | undefined,
+): Promise<InterviewRecordAccess> {
+  const authorize = createRequestWorkspaceAuthorizer({
+    memberRole: currentRole,
+    organizationId,
+    userId,
+  });
+  const [visibilityScope, includeHuman] = await Promise.all([
+    loadVisibilityScope(organizationId, currentRole, userId),
+    authorize({ action: "read", resource: "humanInterview" }),
+  ]);
+  return { includeHuman, visibilityScope };
+}
+
 export const studioInterviewsRouter = factory
   .createApp()
   .get("/summary", requirePermission("interview", "read"), async (c) => {
@@ -68,12 +88,12 @@ export const studioInterviewsRouter = factory
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const visibilityScope = await loadVisibilityScope(
+    const access = await loadInterviewRecordAccess(
       activeOrg.id,
       c.var.member?.role,
       c.var.user?.id,
     );
-    const summary = await summarizeInterviewRoundCounts(activeOrg.id, visibilityScope);
+    const summary = await summarizeInterviewRecordCounts(activeOrg.id, access);
     return c.json(summary, 200);
   })
   .post(
@@ -131,12 +151,12 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const q = c.req.valid("query");
-      const visibilityScope = await loadVisibilityScope(
+      const access = await loadInterviewRecordAccess(
         activeOrg.id,
         c.var.member?.role,
         c.var.user?.id,
       );
-      const result = await queryPaginatedInterviewRounds(
+      const result = await queryPaginatedInterviewRecords(
         activeOrg.id,
         {
           creatorIds: parseCsvParam(q.creatorIds),
@@ -145,7 +165,7 @@ export const studioInterviewsRouter = factory
           textFilters: q.textFilters,
         },
         { page: q.page, pageSize: q.pageSize, sortBy: q.sortBy, sortOrder: q.sortOrder },
-        visibilityScope,
+        access,
       );
       return c.json(result, 200);
     },

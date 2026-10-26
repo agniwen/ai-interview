@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../infrastructure/db/index";
 import {
   aiInterviewConversation,
+  humanInterviewRound,
   recruitingNotificationDelivery,
   recruitingEvaluationDocument,
   member,
@@ -18,11 +19,14 @@ import {
   aiInterviewRound,
   user,
 } from "@app/db-schema/schema";
+import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
+import type { StudioAiInterviewRecordListRecord } from "@app/shared/studio-interview-rounds";
+import { loadInterviewRoundDetail } from "../interview-rounds";
 import {
-  loadInterviewRoundDetail,
-  queryPaginatedInterviewRounds,
-  summarizeInterviewRoundCounts,
-} from "../interview-rounds";
+  queryPaginatedInterviewRecords,
+  summarizeInterviewRecordCounts,
+} from "../interview-records";
+import type { InterviewRecordFilters } from "../interview-records";
 import { loadAiCalendarEventPreview } from "../../../calendar/dao";
 
 const ORG = "test_org_interview_rounds";
@@ -32,6 +36,7 @@ const NOW = new Date("2026-05-13T15:00:00.000Z");
 
 async function cleanup() {
   await db.delete(aiInterviewRound).where(eq(aiInterviewRound.organizationId, ORG));
+  await db.delete(humanInterviewRound).where(eq(humanInterviewRound.organizationId, ORG));
   await deleteRecruitingRecords(db, eq(recruitingRecordReadModel.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
   await db.delete(member).where(eq(member.userId, USER_ID_ALT));
@@ -153,9 +158,27 @@ beforeAll(async () => {
 
 afterAll(cleanup);
 
-describe("queryPaginatedInterviewRounds", () => {
+// AI 面试相关断言只看 AI 行，不受真人面试权限影响。/ AI-only listing for the AI assertions.
+async function queryAiInterviewRecords(
+  filters?: InterviewRecordFilters,
+  visibilityScope?: RecruitingVisibilityScope,
+  organizationId = ORG,
+) {
+  const result = await queryPaginatedInterviewRecords(organizationId, filters, undefined, {
+    includeHuman: false,
+    visibilityScope,
+  });
+  return {
+    ...result,
+    records: result.records.filter(
+      (record): record is StudioAiInterviewRecordListRecord => record.kind === "ai",
+    ),
+  };
+}
+
+describe("queryPaginatedInterviewRecords (AI rounds)", () => {
   it("returns 3 rows (one per round) joined with candidate info", async () => {
-    const result = await queryPaginatedInterviewRounds(ORG);
+    const result = await queryAiInterviewRecords();
 
     expect(result.total).toBe(3);
     expect(result.records).toHaveLength(3);
@@ -167,33 +190,31 @@ describe("queryPaginatedInterviewRounds", () => {
   });
 
   it("scopes by organizationId", async () => {
-    const result = await queryPaginatedInterviewRounds("other_org_no_data");
+    const result = await queryAiInterviewRecords(undefined, undefined, "other_org_no_data");
     expect(result.total).toBe(0);
     expect(result.records).toHaveLength(0);
   });
 
   it("filters by status (CSV)", async () => {
-    const result = await queryPaginatedInterviewRounds(ORG, { status: "completed" });
+    const result = await queryAiInterviewRecords({ status: "completed" });
     expect(result.total).toBe(1);
     expect(result.records[0]?.id).toBe("rnd-b1");
   });
 
   it("filters by creatorIds", async () => {
-    const byOwner = await queryPaginatedInterviewRounds(ORG, { creatorIds: [USER_ID] });
+    const byOwner = await queryAiInterviewRecords({ creatorIds: [USER_ID] });
     expect(byOwner.total).toBe(2);
     expect(byOwner.records.map((row) => row.id).toSorted()).toEqual(["rnd-a1", "rnd-a2"]);
 
-    const byMember = await queryPaginatedInterviewRounds(ORG, { creatorIds: [USER_ID_ALT] });
+    const byMember = await queryAiInterviewRecords({ creatorIds: [USER_ID_ALT] });
     expect(byMember.total).toBe(1);
     expect(byMember.records[0]?.id).toBe("rnd-b1");
     expect(byMember.records[0]?.createdBy).toBe(USER_ID_ALT);
   });
 
   it("intersects creator filters with recruiting visibility scope", async () => {
-    const result = await queryPaginatedInterviewRounds(
-      ORG,
+    const result = await queryAiInterviewRecords(
       { creatorIds: [USER_ID, USER_ID_ALT] },
-      undefined,
       { kind: "restricted", userIds: [USER_ID_ALT] },
     );
 
@@ -202,9 +223,9 @@ describe("queryPaginatedInterviewRounds", () => {
   });
 
   it("filters by search across candidate name + round label", async () => {
-    const byName = await queryPaginatedInterviewRounds(ORG, { search: "郭靖" });
+    const byName = await queryAiInterviewRecords({ search: "郭靖" });
     expect(byName.total).toBe(2);
-    const byRound = await queryPaginatedInterviewRounds(ORG, { search: "二面" });
+    const byRound = await queryAiInterviewRecords({ search: "二面" });
     expect(byRound.total).toBe(1);
     expect(byRound.records[0]?.id).toBe("rnd-a2");
   });
@@ -223,7 +244,7 @@ describe("queryPaginatedInterviewRounds", () => {
       updatedAt: NOW,
     });
     try {
-      const result = await queryPaginatedInterviewRounds(ORG);
+      const result = await queryAiInterviewRecords();
       const row = result.records.find((record) => record.id === "rnd-a1");
       expect(row?.lastInterviewAt).toBe(startedAt.toISOString());
     } finally {
@@ -293,7 +314,7 @@ describe("queryPaginatedInterviewRounds", () => {
     });
 
     try {
-      const result = await queryPaginatedInterviewRounds(ORG);
+      const result = await queryAiInterviewRecords();
       const withDocument = result.records.find((record) => record.id === "rnd-a1");
       const withoutDocument = result.records.find((record) => record.id === "rnd-a2");
       expect(withDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
@@ -365,7 +386,7 @@ describe("queryPaginatedInterviewRounds", () => {
     });
 
     try {
-      const result = await queryPaginatedInterviewRounds(ORG);
+      const result = await queryAiInterviewRecords();
       const row = result.records.find((record) => record.id === "rnd-b1");
       expect(row?.feishuDocumentUrl).toBeNull();
       expect(row?.feishuEvaluationDocumentStatus).toBe("answers_available");
@@ -431,13 +452,179 @@ describe("loadAiCalendarEventPreview", () => {
   });
 });
 
-describe("summarizeInterviewRoundCounts", () => {
-  it("counts by round status", async () => {
-    const summary = await summarizeInterviewRoundCounts(ORG);
+describe("summarizeInterviewRecordCounts", () => {
+  it("counts AI rounds by status", async () => {
+    const summary = await summarizeInterviewRecordCounts(ORG, { includeHuman: false });
     expect(summary.total).toBe(3);
     expect(summary.pending).toBe(2);
     expect(summary.completed).toBe(1);
     expect(summary.inProgress).toBe(0);
     expect(summary.interrupted).toBe(0);
+    expect(summary.cancelled).toBe(0);
+  });
+});
+
+describe("queryPaginatedInterviewRecords (AI + human rounds)", () => {
+  const HUMAN_ROUND_ID = "hrnd-a1";
+
+  beforeAll(async () => {
+    await db.insert(humanInterviewRound).values({
+      createdAt: new Date("2026-05-13T16:00:00.000Z"),
+      format: "onsite",
+      id: HUMAN_ROUND_ID,
+      label: "复试",
+      organizationId: ORG,
+      recruitingRecordId: "cand-a",
+      roundKind: "second_interview",
+      scheduledAt: new Date("2026-05-15T10:00:00.000Z"),
+      status: "cancelled",
+      updatedAt: NOW,
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(humanInterviewRound).where(eq(humanInterviewRound.id, HUMAN_ROUND_ID));
+  });
+
+  it("merges human rounds into one paginated list ordered by creation time", async () => {
+    const result = await queryPaginatedInterviewRecords(ORG, undefined, undefined, {
+      includeHuman: true,
+    });
+
+    expect(result.total).toBe(4);
+    expect(result.records[0]).toMatchObject({
+      candidateId: "cand-a",
+      candidateName: "郭靖",
+      createdBy: USER_ID,
+      format: "onsite",
+      id: HUMAN_ROUND_ID,
+      kind: "human",
+      roundLabel: "复试",
+      status: "cancelled",
+    });
+
+    const secondPage = await queryPaginatedInterviewRecords(
+      ORG,
+      undefined,
+      { page: 2, pageSize: 2 },
+      { includeHuman: true },
+    );
+    expect(secondPage.total).toBe(4);
+    expect(secondPage.records).toHaveLength(2);
+    expect(secondPage.records.some((record) => record.id === HUMAN_ROUND_ID)).toBe(false);
+  });
+
+  it("omits human rounds without human interview read access", async () => {
+    const result = await queryPaginatedInterviewRecords(ORG, undefined, undefined, {
+      includeHuman: false,
+    });
+    expect(result.total).toBe(3);
+    expect(result.records.every((record) => record.kind === "ai")).toBe(true);
+  });
+
+  it("filters both kinds by status and search", async () => {
+    const cancelled = await queryPaginatedInterviewRecords(
+      ORG,
+      { status: "cancelled" },
+      undefined,
+      { includeHuman: true },
+    );
+    expect(cancelled.records.map((record) => record.id)).toEqual([HUMAN_ROUND_ID]);
+
+    const pending = await queryPaginatedInterviewRecords(ORG, { status: "pending" }, undefined, {
+      includeHuman: true,
+    });
+    expect(pending.records.map((record) => record.id).toSorted()).toEqual(["rnd-a1", "rnd-a2"]);
+
+    const byLabel = await queryPaginatedInterviewRecords(ORG, { search: "复试" }, undefined, {
+      includeHuman: true,
+    });
+    expect(byLabel.records.map((record) => record.id)).toEqual([HUMAN_ROUND_ID]);
+
+    const byName = await queryPaginatedInterviewRecords(ORG, { search: "郭靖" }, undefined, {
+      includeHuman: true,
+    });
+    expect(byName.total).toBe(3);
+  });
+
+  it("scopes human rounds by the recruiting record creator", async () => {
+    const owner = await queryPaginatedInterviewRecords(ORG, { creatorIds: [USER_ID] }, undefined, {
+      includeHuman: true,
+    });
+    expect(owner.records.map((record) => record.id).toSorted()).toEqual([
+      HUMAN_ROUND_ID,
+      "rnd-a1",
+      "rnd-a2",
+    ]);
+
+    const restricted = await queryPaginatedInterviewRecords(ORG, undefined, undefined, {
+      includeHuman: true,
+      visibilityScope: { kind: "restricted", userIds: [USER_ID_ALT] },
+    });
+    expect(restricted.records.map((record) => record.id)).toEqual(["rnd-b1"]);
+  });
+
+  it("sorts by last interview time with never-interviewed rounds last", async () => {
+    const conversationId = "conv_records_dao_last_interview_sort";
+    await db.insert(aiInterviewConversation).values({
+      aiRoundId: "rnd-a2",
+      conversationId,
+      createdAt: NOW,
+      lastSyncedAt: NOW,
+      organizationId: ORG,
+      recruitingRecordId: "cand-a",
+      startedAt: new Date("2026-05-13T11:00:00.000Z"),
+      status: "completed",
+      updatedAt: NOW,
+    });
+    try {
+      for (const sortOrder of ["asc", "desc"] as const) {
+        const result = await queryPaginatedInterviewRecords(
+          ORG,
+          undefined,
+          { sortBy: "lastInterviewAt", sortOrder },
+          { includeHuman: true },
+        );
+        expect(result.total).toBe(4);
+        expect(result.records[0]?.id).toBe("rnd-a2");
+        expect(result.records.slice(1).every((record) => record.lastInterviewAt === null)).toBe(
+          true,
+        );
+      }
+    } finally {
+      await db
+        .delete(aiInterviewConversation)
+        .where(eq(aiInterviewConversation.conversationId, conversationId));
+    }
+  });
+
+  it("shows the recruiting record's evaluation document on human rounds", async () => {
+    await db.insert(recruitingEvaluationDocument).values({
+      documentId: "records-human-doc",
+      documentUrl: "https://example.feishu.cn/docx/records-human-doc",
+      organizationId: ORG,
+      providerId: "feishu",
+      recruitingRecordId: "cand-a",
+      status: "ready",
+    });
+    try {
+      const result = await queryPaginatedInterviewRecords(ORG, undefined, undefined, {
+        includeHuman: true,
+      });
+      const human = result.records.find((record) => record.id === HUMAN_ROUND_ID);
+      expect(human?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/records-human-doc");
+    } finally {
+      await db
+        .delete(recruitingEvaluationDocument)
+        .where(eq(recruitingEvaluationDocument.recruitingRecordId, "cand-a"));
+    }
+  });
+
+  it("counts human rounds in the summary", async () => {
+    const summary = await summarizeInterviewRecordCounts(ORG, { includeHuman: true });
+    expect(summary.total).toBe(4);
+    expect(summary.pending).toBe(2);
+    expect(summary.completed).toBe(1);
+    expect(summary.cancelled).toBe(1);
   });
 });

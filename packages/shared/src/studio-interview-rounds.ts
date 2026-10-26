@@ -7,6 +7,9 @@
 import type {
   CandidateInterviewFeedback,
   CandidateOutcome,
+  HumanInterviewFormat,
+  HumanInterviewRoundOutcome,
+  HumanInterviewRoundStatus,
   PipelineStage,
   ScheduleEntryStatus,
 } from "@app/db-schema/studio-interviews";
@@ -93,4 +96,82 @@ export interface PaginatedStudioInterviewRoundsResult {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+// ── 面试记录：AI 面试与真人面试合并列表 / Interview records: AI + human rounds ──
+
+export type StudioInterviewRecordKind = "ai" | "human";
+
+/** 两类轮次状态的并集，供列表筛选与统计使用。/ Union of AI and human round statuses. */
+export const studioInterviewRecordStatusValues = [
+  "pending",
+  "in_progress",
+  "completed",
+  "interrupted",
+  "cancelled",
+] as const;
+export type StudioInterviewRecordStatus = (typeof studioInterviewRecordStatusValues)[number];
+
+export interface StudioAiInterviewRecordListRecord extends StudioInterviewRoundListRecord {
+  kind: "ai";
+  /** 本轮使用的面试官 Agent 名称；岗位未绑定 Agent 时为 null。/ Interviewer agent for this round. */
+  interviewerAgentName: string | null;
+}
+
+export interface StudioHumanInterviewRecordInterviewer {
+  id: string;
+  name: string;
+  image: string | null;
+}
+
+/** 真人面试轮次行；创建人取招聘记录的创建人。/ Human round row; creator is the recruiting record's creator. */
+export interface StudioHumanInterviewRecordListRecord {
+  kind: "human";
+  /** human_interview_round.id */
+  id: string;
+  /** 招聘记录 id / Recruiting record id. */
+  candidateId: string;
+  candidateName: string;
+  candidateAvatarVersion: string | null;
+  candidateEmail: string | null;
+  jobDescriptionId: string | null;
+  jobDescriptionDepartmentName: string | null;
+  jobDescriptionName: string | null;
+  resumeFileName: string | null;
+  hasResumeFile: boolean;
+  roundLabel: string;
+  format: HumanInterviewFormat;
+  scheduledAt: string | null;
+  lastInterviewAt: string | null;
+  status: HumanInterviewRoundStatus;
+  interviewers: StudioHumanInterviewRecordInterviewer[];
+  conclusion: HumanInterviewRoundOutcome | "none";
+  /** 招聘记录上的候选人评价表；与同一候选人的 AI 行共用。/ Record-level evaluation document. */
+  feishuDocumentUrl: string | null;
+  createdBy: string | null;
+  creatorName: string | null;
+  creatorImage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StudioInterviewRecordListRecord =
+  | StudioAiInterviewRecordListRecord
+  | StudioHumanInterviewRecordListRecord;
+
+export interface PaginatedStudioInterviewRecordsResult {
+  records: StudioInterviewRecordListRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface StudioInterviewRecordSummary {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  interrupted: number;
+  cancelled: number;
 }

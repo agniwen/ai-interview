@@ -1,6 +1,5 @@
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { loadCandidateAvatarVersions } from "@app/resume-processing/review/support/candidate-avatars-dao";
-import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 // Round-keyed DAO for AI 面试 列表与详情。
 // 主查询：FROM studio_interview_schedule LEFT JOIN studio_interview
 // LEFT JOIN job_description LEFT JOIN user LEFT JOIN (conversations 是否存在) AS hasReport。
@@ -8,13 +7,11 @@ import { buildListTextFilterWhere } from "@app/database/list-text-filters";
 // Round-keyed DAO. Drives off studio_interview_schedule and joins back to
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import { z } from "zod";
 import { db } from "../../../../../infrastructure/db/index";
-import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@app/database/pagination";
 import { serializeDate } from "@app/database/serialize";
-import { intersectRequestedCreatorIds } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import {
   department,
@@ -25,112 +22,13 @@ import {
 } from "@app/db-schema/schema";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
 import { deriveJdRequiredSkills } from "@app/shared/resume-screening";
-import {
-  buildCandidateInterviewFeedback,
-  scheduleEntryStatusSchema,
-} from "@app/db-schema/studio-interviews";
-import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
+import { buildCandidateInterviewFeedback } from "@app/db-schema/studio-interviews";
 import type {
-  PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
 } from "@app/shared/studio-interview-rounds";
 import { loadStudioCandidate } from "./studio-interviews";
 import { loadRoundFeishuEvaluationDocuments } from "./evaluation-documents";
-
-const SORT_COLUMNS = ["scheduledAt", "createdAt", "candidateName", "roundLabel"] as const;
-
-const ORDER_COLUMNS = {
-  candidateName: recruitingRecordReadModel.candidateName,
-  createdAt: aiInterviewRound.createdAt,
-  roundLabel: aiInterviewRound.roundLabel,
-  scheduledAt: aiInterviewRound.scheduledAt,
-} as const;
-
-const roundsPaginationSchema = makePaginationSchema(SORT_COLUMNS, {
-  defaultSortBy: "createdAt",
-});
-const roundsPaginationInputSchema = z.object({
-  page: z.union([z.string(), z.number()]).optional(),
-  pageSize: z.union([z.string(), z.number()]).optional(),
-  sortBy: z.string().optional(),
-  sortOrder: z.string().optional(),
-});
-type RoundsPaginationInput = z.input<typeof roundsPaginationInputSchema>;
-
-function parsePagination(params?: RoundsPaginationInput) {
-  return roundsPaginationSchema.parse(roundsPaginationInputSchema.parse(params ?? {}));
-}
-
-function csvToList(value?: string | null): string[] | undefined {
-  if (!value) {
-    return;
-  }
-  const items = value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return items.length > 0 ? items : undefined;
-}
-
-function parseStatusFilter(value?: string | null): ScheduleEntryStatus[] | undefined {
-  const items = csvToList(value);
-  if (!items) {
-    return;
-  }
-  const valid = items.flatMap((item) => {
-    const parsed = scheduleEntryStatusSchema.safeParse(item);
-    return parsed.success ? [parsed.data] : [];
-  });
-  return valid.length > 0 ? valid : undefined;
-}
-
-function buildWhere(
-  organizationId: string,
-  filters?: {
-    creatorIds?: string[];
-    forceEmpty?: boolean;
-    textFilters?: string;
-    search?: string;
-    statuses?: ScheduleEntryStatus[];
-  },
-) {
-  if (filters?.forceEmpty) {
-    return sql`false`;
-  }
-  const conditions: ReturnType<typeof eq | typeof or | typeof inArray>[] = [
-    eq(aiInterviewRound.organizationId, organizationId),
-  ];
-  if (filters?.search) {
-    const term = `%${filters.search}%`;
-    const searchOr = or(
-      ilike(recruitingRecordReadModel.candidateName, term),
-      ilike(recruitingRecordReadModel.candidateEmail, term),
-      ilike(recruitingRecordReadModel.targetRole, term),
-      ilike(recruitingRecordReadModel.resumeFileName, term),
-      ilike(aiInterviewRound.roundLabel, term),
-    );
-    if (searchOr) {
-      conditions.push(searchOr);
-    }
-  }
-  if (filters?.statuses && filters.statuses.length > 0) {
-    conditions.push(inArray(aiInterviewRound.status, filters.statuses));
-  }
-  if (filters?.creatorIds && filters.creatorIds.length > 0) {
-    conditions.push(inArray(aiInterviewRound.createdBy, filters.creatorIds));
-  }
-  return and(
-    ...conditions,
-    buildListTextFilterWhere("interviews", filters?.textFilters, {
-      candidateName: recruitingRecordReadModel.candidateName,
-      email: recruitingRecordReadModel.candidateEmail,
-      resumeFileName: recruitingRecordReadModel.resumeFileName,
-      targetRole: recruitingRecordReadModel.targetRole,
-      title: aiInterviewRound.roundLabel,
-    }),
-  );
-}
 
 function serializeRoundDerivedTimestamp(value: Date | string | null): string | null {
   if (value === null) {
@@ -196,198 +94,46 @@ async function loadRoundListDerivedFields(rows: { id: string }[], organizationId
   return { byRoundId, evaluationDocumentsByRoundId };
 }
 
-export async function queryPaginatedInterviewRounds(
-  organizationId: string,
-  filters?: {
-    creatorIds?: string[] | null;
-    textFilters?: string;
-    search?: string | null;
-    status?: string | null;
-  },
-  pagination?: RoundsPaginationInput,
-  visibilityScope?: RecruitingVisibilityScope,
-): Promise<PaginatedStudioInterviewRoundsResult> {
-  const requestedCreatorIds =
-    filters?.creatorIds?.filter((id) => id.trim().length > 0) || undefined;
-  const scopedCreatorIds = visibilityScope
-    ? intersectRequestedCreatorIds(requestedCreatorIds, visibilityScope)
-    : requestedCreatorIds;
-  const search = filters?.search?.trim() || undefined;
-  const statuses = parseStatusFilter(filters?.status);
-  const { page, pageSize, sortBy, sortOrder } = parsePagination(pagination);
-  const offset = (page - 1) * pageSize;
-  const where = buildWhere(organizationId, {
-    creatorIds: scopedCreatorIds ?? undefined,
-    forceEmpty: Array.isArray(scopedCreatorIds) && scopedCreatorIds.length === 0,
-    search,
-    statuses,
-    textFilters: filters?.textFilters,
-  });
-  const countQuery =
-    search || filters?.textFilters
-      ? db
-          .select({ count: count() })
-          .from(aiInterviewRound)
-          .leftJoin(
-            recruitingRecordReadModel,
-            eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
-          )
-          .where(where)
-      : db.select({ count: count() }).from(aiInterviewRound).where(where);
+const aiRoundListSelection = {
+  allowTextInput: aiInterviewRound.allowTextInput,
+  candidateEmail: recruitingRecordReadModel.candidateEmail,
+  candidateId: recruitingRecordReadModel.id,
+  candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
+  candidateName: recruitingRecordReadModel.candidateName,
+  candidatePhone: recruitingRecordReadModel.candidatePhone,
+  conversationId: aiInterviewRound.conversationId,
+  createdAt: aiInterviewRound.createdAt,
+  createdBy: aiInterviewRound.createdBy,
+  creatorImage: user.image,
+  creatorName: user.name,
+  creatorOrganizationName: user.feishuTenantName,
+  id: aiInterviewRound.id,
+  jobDescriptionDepartmentName: department.name,
+  jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
+  jobDescriptionName: jobDescription.name,
+  outcome: recruitingRecordReadModel.outcome,
+  pipelineStage: recruitingRecordReadModel.pipelineStage,
+  recruitingRecordId: aiInterviewRound.recruitingRecordId,
+  resumeContentHash: recruitingRecordReadModel.resumeContentHash,
+  resumeFileName: recruitingRecordReadModel.resumeFileName,
+  resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
+  roundLabel: aiInterviewRound.roundLabel,
+  scheduledAt: aiInterviewRound.scheduledAt,
+  scheduledEndAt: aiInterviewRound.scheduledEndAt,
+  sortOrder: aiInterviewRound.sortOrder,
+  status: aiInterviewRound.status,
+  targetRole: recruitingRecordReadModel.targetRole,
+  updatedAt: aiInterviewRound.updatedAt,
+};
 
-  const [rows, [totalRow]] = await Promise.all([
-    db
-      .select({
-        allowTextInput: aiInterviewRound.allowTextInput,
-        candidateEmail: recruitingRecordReadModel.candidateEmail,
-        candidateId: recruitingRecordReadModel.id,
-        candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
-        candidateName: recruitingRecordReadModel.candidateName,
-        candidatePhone: recruitingRecordReadModel.candidatePhone,
-        conversationId: aiInterviewRound.conversationId,
-        createdAt: aiInterviewRound.createdAt,
-        createdBy: aiInterviewRound.createdBy,
-        creatorImage: user.image,
-        creatorName: user.name,
-        creatorOrganizationName: user.feishuTenantName,
-        id: aiInterviewRound.id,
-        jobDescriptionDepartmentName: department.name,
-        jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
-        jobDescriptionName: jobDescription.name,
-        outcome: recruitingRecordReadModel.outcome,
-        pipelineStage: recruitingRecordReadModel.pipelineStage,
-        resumeContentHash: recruitingRecordReadModel.resumeContentHash,
-        resumeFileName: recruitingRecordReadModel.resumeFileName,
-        resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
-        roundLabel: aiInterviewRound.roundLabel,
-        scheduledAt: aiInterviewRound.scheduledAt,
-        scheduledEndAt: aiInterviewRound.scheduledEndAt,
-        sortOrder: aiInterviewRound.sortOrder,
-        status: aiInterviewRound.status,
-        targetRole: recruitingRecordReadModel.targetRole,
-        updatedAt: aiInterviewRound.updatedAt,
-      })
-      .from(aiInterviewRound)
-      .leftJoin(
-        recruitingRecordReadModel,
-        eq(aiInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
-      )
-      .leftJoin(
-        jobDescription,
-        and(
-          eq(recruitingRecordReadModel.jobDescriptionId, jobDescription.id),
-          eq(jobDescription.organizationId, recruitingRecordReadModel.organizationId),
-        ),
-      )
-      .leftJoin(
-        department,
-        and(
-          eq(jobDescription.departmentId, department.id),
-          eq(department.organizationId, recruitingRecordReadModel.organizationId),
-        ),
-      )
-      .leftJoin(user, eq(aiInterviewRound.createdBy, user.id))
-      .where(where)
-      .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
-      .limit(pageSize)
-      .offset(offset),
-    countQuery,
-  ]);
-
-  const [{ byRoundId: roundDerived, evaluationDocumentsByRoundId }, avatarVersions] =
-    await Promise.all([
-      loadRoundListDerivedFields(rows, organizationId),
-      loadCandidateAvatarVersions(rows.map((row) => row.resumeContentHash)),
-    ]);
-  const total = totalRow?.count ?? 0;
-  const records: StudioInterviewRoundListRecord[] = rows.map((row) => ({
-    allowTextInput: row.allowTextInput,
-    candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
-    candidateEmail: row.candidateEmail,
-    candidateId: row.candidateId ?? "",
-    candidateInviteExpiresAt: serializeDate(row.candidateInviteExpiresAt),
-    candidateName: row.candidateName ?? "",
-    candidatePhone: row.candidatePhone,
-    conversationId: row.conversationId,
-    createdAt: serializeDate(row.createdAt) ?? "",
-    createdBy: row.createdBy,
-    creatorImage: row.creatorImage,
-    creatorName: row.creatorName,
-    creatorOrganizationName: row.creatorOrganizationName,
-    feishuDocumentUrl: evaluationDocumentsByRoundId.get(row.id)?.url ?? null,
-    feishuEvaluationDocumentStatus:
-      evaluationDocumentsByRoundId.get(row.id)?.status ?? "unavailable",
-    hasReport: roundDerived.get(row.id)?.hasReport ?? false,
-    hasResumeFile: Boolean(row.resumeStorageKey),
-    id: row.id,
-    interviewLink: buildInterviewLink(row.candidateId ?? "", row.id),
-    jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
-    jobDescriptionId: row.jobDescriptionId,
-    jobDescriptionName: row.jobDescriptionName,
-    lastInterviewAt: roundDerived.get(row.id)?.lastInterviewAt ?? null,
-    outcome: row.outcome ?? "in_pipeline",
-    pipelineStage: row.pipelineStage ?? "screening",
-    resumeFileName: row.resumeFileName,
-    roundLabel: row.roundLabel,
-    scheduledAt: serializeDate(row.scheduledAt),
-    scheduledEndAt: serializeDate(row.scheduledEndAt),
-    sortOrder: row.sortOrder,
-    status: row.status,
-    targetRole: row.targetRole,
-    updatedAt: serializeDate(row.updatedAt) ?? "",
-  }));
-
-  return {
-    page,
-    pageSize,
-    records,
-    total,
-    totalPages: calcTotalPages(total, pageSize),
-  };
-}
-
-/**
- * 按候选人取所有面试轮次（按 sortOrder 升序）。
- * 用于招聘台详情弹窗里的「AI 面试」tab。
- *
- * List all rounds for a given candidate, sorted by sortOrder asc. Used by the
- * resume library detail dialog's "AI 面试" tab.
- */
-export async function listInterviewRoundsForCandidate(
-  candidateId: string,
+// 列表行：轮次 + 候选人快照 + 岗位 / 部门 + 创建人，再批量补报告、评价表与头像。
+// List rows: round + candidate snapshot + JD / department + creator, then batched derived fields.
+async function loadAiRoundListRows(
+  where: SQL | undefined,
   organizationId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
   const rows = await db
-    .select({
-      allowTextInput: aiInterviewRound.allowTextInput,
-      candidateEmail: recruitingRecordReadModel.candidateEmail,
-      candidateId: recruitingRecordReadModel.id,
-      candidateInviteExpiresAt: aiInterviewRound.candidateInviteExpiresAt,
-      candidateName: recruitingRecordReadModel.candidateName,
-      candidatePhone: recruitingRecordReadModel.candidatePhone,
-      conversationId: aiInterviewRound.conversationId,
-      createdAt: aiInterviewRound.createdAt,
-      createdBy: aiInterviewRound.createdBy,
-      creatorImage: user.image,
-      creatorName: user.name,
-      creatorOrganizationName: user.feishuTenantName,
-      id: aiInterviewRound.id,
-      jobDescriptionDepartmentName: department.name,
-      jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
-      jobDescriptionName: jobDescription.name,
-      outcome: recruitingRecordReadModel.outcome,
-      pipelineStage: recruitingRecordReadModel.pipelineStage,
-      resumeContentHash: recruitingRecordReadModel.resumeContentHash,
-      resumeFileName: recruitingRecordReadModel.resumeFileName,
-      resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
-      roundLabel: aiInterviewRound.roundLabel,
-      scheduledAt: aiInterviewRound.scheduledAt,
-      scheduledEndAt: aiInterviewRound.scheduledEndAt,
-      sortOrder: aiInterviewRound.sortOrder,
-      status: aiInterviewRound.status,
-      targetRole: recruitingRecordReadModel.targetRole,
-      updatedAt: aiInterviewRound.updatedAt,
-    })
+    .select(aiRoundListSelection)
     .from(aiInterviewRound)
     .leftJoin(
       recruitingRecordReadModel,
@@ -408,12 +154,7 @@ export async function listInterviewRoundsForCandidate(
       ),
     )
     .leftJoin(user, eq(aiInterviewRound.createdBy, user.id))
-    .where(
-      and(
-        eq(aiInterviewRound.recruitingRecordId, candidateId),
-        eq(aiInterviewRound.organizationId, organizationId),
-      ),
-    )
+    .where(and(eq(aiInterviewRound.organizationId, organizationId), where))
     .orderBy(asc(aiInterviewRound.sortOrder));
 
   const [{ byRoundId: roundDerived, evaluationDocumentsByRoundId }, avatarVersions] =
@@ -421,42 +162,73 @@ export async function listInterviewRoundsForCandidate(
       loadRoundListDerivedFields(rows, organizationId),
       loadCandidateAvatarVersions(rows.map((row) => row.resumeContentHash)),
     ]);
-  return rows.map((row) => ({
-    allowTextInput: row.allowTextInput,
-    candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
-    candidateEmail: row.candidateEmail,
-    candidateId: row.candidateId ?? candidateId,
-    candidateInviteExpiresAt: serializeDate(row.candidateInviteExpiresAt),
-    candidateName: row.candidateName ?? "",
-    candidatePhone: row.candidatePhone,
-    conversationId: row.conversationId,
-    createdAt: serializeDate(row.createdAt) ?? "",
-    createdBy: row.createdBy,
-    creatorImage: row.creatorImage,
-    creatorName: row.creatorName,
-    creatorOrganizationName: row.creatorOrganizationName,
-    feishuDocumentUrl: evaluationDocumentsByRoundId.get(row.id)?.url ?? null,
-    feishuEvaluationDocumentStatus:
-      evaluationDocumentsByRoundId.get(row.id)?.status ?? "unavailable",
-    hasReport: roundDerived.get(row.id)?.hasReport ?? false,
-    hasResumeFile: Boolean(row.resumeStorageKey),
-    id: row.id,
-    interviewLink: buildInterviewLink(row.candidateId ?? candidateId, row.id),
-    jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
-    jobDescriptionId: row.jobDescriptionId,
-    jobDescriptionName: row.jobDescriptionName,
-    lastInterviewAt: roundDerived.get(row.id)?.lastInterviewAt ?? null,
-    outcome: row.outcome ?? "in_pipeline",
-    pipelineStage: row.pipelineStage ?? "screening",
-    resumeFileName: row.resumeFileName,
-    roundLabel: row.roundLabel,
-    scheduledAt: serializeDate(row.scheduledAt),
-    scheduledEndAt: serializeDate(row.scheduledEndAt),
-    sortOrder: row.sortOrder,
-    status: row.status,
-    targetRole: row.targetRole,
-    updatedAt: serializeDate(row.updatedAt) ?? "",
-  }));
+  return rows.map((row) => {
+    const candidateId = row.candidateId ?? row.recruitingRecordId;
+    return {
+      allowTextInput: row.allowTextInput,
+      candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
+      candidateEmail: row.candidateEmail,
+      candidateId,
+      candidateInviteExpiresAt: serializeDate(row.candidateInviteExpiresAt),
+      candidateName: row.candidateName ?? "",
+      candidatePhone: row.candidatePhone,
+      conversationId: row.conversationId,
+      createdAt: serializeDate(row.createdAt) ?? "",
+      createdBy: row.createdBy,
+      creatorImage: row.creatorImage,
+      creatorName: row.creatorName,
+      creatorOrganizationName: row.creatorOrganizationName,
+      feishuDocumentUrl: evaluationDocumentsByRoundId.get(row.id)?.url ?? null,
+      feishuEvaluationDocumentStatus:
+        evaluationDocumentsByRoundId.get(row.id)?.status ?? "unavailable",
+      hasReport: roundDerived.get(row.id)?.hasReport ?? false,
+      hasResumeFile: Boolean(row.resumeStorageKey),
+      id: row.id,
+      interviewLink: buildInterviewLink(candidateId, row.id),
+      jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
+      jobDescriptionId: row.jobDescriptionId,
+      jobDescriptionName: row.jobDescriptionName,
+      lastInterviewAt: roundDerived.get(row.id)?.lastInterviewAt ?? null,
+      outcome: row.outcome ?? "in_pipeline",
+      pipelineStage: row.pipelineStage ?? "screening",
+      resumeFileName: row.resumeFileName,
+      roundLabel: row.roundLabel,
+      scheduledAt: serializeDate(row.scheduledAt),
+      scheduledEndAt: serializeDate(row.scheduledEndAt),
+      sortOrder: row.sortOrder,
+      status: row.status,
+      targetRole: row.targetRole,
+      updatedAt: serializeDate(row.updatedAt) ?? "",
+    };
+  });
+}
+
+/**
+ * 按轮次 id 批量取列表行，供面试记录列表在分页后补全当前页。顺序不保证。
+ * Load list rows for the given round ids (used after the merged list paginates). Order is unspecified.
+ */
+export function loadAiInterviewRoundListRecords(
+  roundIds: string[],
+  organizationId: string,
+): Promise<StudioInterviewRoundListRecord[]> {
+  if (roundIds.length === 0) {
+    return Promise.resolve([]);
+  }
+  return loadAiRoundListRows(inArray(aiInterviewRound.id, uniq(roundIds)), organizationId);
+}
+
+/**
+ * 按候选人取所有面试轮次（按 sortOrder 升序）。
+ * 用于招聘台详情弹窗里的「AI 面试」tab。
+ *
+ * List all rounds for a given candidate, sorted by sortOrder asc. Used by the
+ * resume library detail dialog's "AI 面试" tab.
+ */
+export function listInterviewRoundsForCandidate(
+  candidateId: string,
+  organizationId: string,
+): Promise<StudioInterviewRoundListRecord[]> {
+  return loadAiRoundListRows(eq(aiInterviewRound.recruitingRecordId, candidateId), organizationId);
 }
 
 export async function loadInterviewRoundDetail(
@@ -569,58 +341,6 @@ export async function loadInterviewRoundDetail(
     status: row.status,
     updatedAt: serializeDate(row.updatedAt) ?? "",
   };
-}
-
-export interface InterviewRoundSummary {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  interrupted: number;
-}
-
-export async function summarizeInterviewRoundCounts(
-  organizationId: string,
-  visibilityScope?: RecruitingVisibilityScope,
-): Promise<InterviewRoundSummary> {
-  if (visibilityScope?.kind === "none") {
-    return { completed: 0, inProgress: 0, interrupted: 0, pending: 0, total: 0 };
-  }
-  if (visibilityScope?.kind === "restricted" && visibilityScope.userIds.length === 0) {
-    return { completed: 0, inProgress: 0, interrupted: 0, pending: 0, total: 0 };
-  }
-  const visibilityCondition =
-    visibilityScope?.kind === "restricted"
-      ? inArray(aiInterviewRound.createdBy, visibilityScope.userIds)
-      : null;
-  const conditions = [
-    eq(aiInterviewRound.organizationId, organizationId),
-    visibilityCondition,
-  ].filter((condition) => condition !== null);
-  const rows = await db
-    .select({ count: count(), status: aiInterviewRound.status })
-    .from(aiInterviewRound)
-    .where(and(...conditions))
-    .groupBy(aiInterviewRound.status);
-
-  let total = 0;
-  let pending = 0;
-  let inProgress = 0;
-  let completed = 0;
-  let interrupted = 0;
-  for (const row of rows) {
-    total += row.count;
-    if (row.status === "pending") {
-      pending = row.count;
-    } else if (row.status === "in_progress") {
-      inProgress = row.count;
-    } else if (row.status === "completed") {
-      completed = row.count;
-    } else if (row.status === "interrupted") {
-      interrupted = row.count;
-    }
-  }
-  return { completed, inProgress, interrupted, pending, total };
 }
 
 /**

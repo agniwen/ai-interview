@@ -254,12 +254,13 @@ export const dataGridCellSelectionCellClasses = cn(
   // A light tint: the selection must read as a range without drowning the
   // gridlines under a heavy fill. The focused cell stays unfilled. Pinned
   // cells must stay OPAQUE (they hide scrolled content), so they get the
-  // tint pre-mixed over the background, and the focused pinned cell keeps
-  // a solid background instead of turning transparent.
+  // tint pre-mixed over the grid surface (--control, the pinned fill), and
+  // the focused pinned cell keeps that solid surface instead of turning
+  // transparent.
   "data-[cell-selected]:bg-primary/4",
-  "data-[cell-selected]:data-pinned:bg-[color-mix(in_oklab,var(--primary)_4%,var(--background))]",
+  "data-[cell-selected]:data-pinned:bg-[color-mix(in_oklab,var(--primary)_4%,var(--control))]",
   "data-[cell-focused]:bg-transparent!",
-  "data-[cell-focused]:data-pinned:bg-background!",
+  "data-[cell-focused]:data-pinned:bg-control!",
   // Every selection line is one layout-free ::before overlay per cell. It
   // reaches 1px BEYOND the cell so each line paints exactly ON the shared
   // gridline it replaces: the range perimeter and the interior dividers

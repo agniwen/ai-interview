@@ -1448,10 +1448,10 @@ function DataGridTableBodyRow<TData extends object>({
         "hover:bg-muted/40 data-[state=selected]:bg-muted/50",
         /* Pinned cells hide scrolled content behind an OPAQUE background,
            which also hides the row's translucent hover and selected tints;
-           they get the same tints premixed over the background instead,
-           the row-status treatment. */
-        "hover:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_40%,var(--background))]",
-        "data-[state=selected]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))]",
+           they get the same tints premixed over the grid surface (--control,
+           the pinned cells' own fill) so they match unpinned cells. */
+        "hover:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_40%,var(--control))]",
+        "data-[state=selected]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--control))]",
         props.onRowClick && "cursor-pointer",
         // Optional CRUD indications, active only when getRowStatus is
         // wired; the warning-muted defaults yield to tableClassNames
@@ -1461,7 +1461,7 @@ function DataGridTableBodyRow<TData extends object>({
         props.getRowStatus &&
           "data-[row-status=deleted]:bg-destructive/5 data-[row-status=deleted]:opacity-60 data-[row-status=dirty]:bg-amber-tint data-[row-status=new]:bg-green-tint data-[row-status=deleted]:[&_td]:line-through",
         props.getRowStatus &&
-          "data-[row-status=deleted]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--destructive)_5%,var(--background))] data-[row-status=dirty]:[&>td[data-pinned]]:bg-amber-tint data-[row-status=new]:[&>td[data-pinned]]:bg-green-tint",
+          "data-[row-status=deleted]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--destructive)_5%,var(--control))] data-[row-status=dirty]:[&>td[data-pinned]]:bg-amber-tint data-[row-status=new]:[&>td[data-pinned]]:bg-green-tint",
         rowStatus === "new" && props.tableClassNames?.rowNew,
         rowStatus === "dirty" && props.tableClassNames?.rowDirty,
         rowStatus === "deleted" && props.tableClassNames?.rowDeleted,
@@ -1950,6 +1950,7 @@ function DataGridTableRowSelect<TData extends object>({
         <>
           <Checkbox
             checked={checked}
+            disabled={!row.getCanSelect()}
             indeterminate={indeterminate}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             onClick={(event) => {

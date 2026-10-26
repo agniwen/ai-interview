@@ -1,4 +1,4 @@
-import type { StudioInterviewRoundListRecord } from "@app/shared/studio-interview-rounds";
+import type { StudioInterviewRecordListRecord } from "@app/shared/studio-interview-rounds";
 import { cn } from "@app/shared/utils";
 
 import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
@@ -16,7 +16,10 @@ export function CandidateRowAvatar({
 }: {
   documentKind: ReturnType<typeof getResumeDocumentFileIconKind> | null;
   muted?: boolean;
-  record: StudioInterviewRoundListRecord;
+  record: Pick<
+    StudioInterviewRecordListRecord,
+    "candidateAvatarVersion" | "candidateId" | "candidateName"
+  >;
 }) {
   return (
     <>

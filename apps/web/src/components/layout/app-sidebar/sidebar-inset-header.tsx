@@ -27,7 +27,7 @@ export function SidebarInsetHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-11 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 bg-transparent px-4 transition-[width,height] ease-linear after:pointer-events-none after:absolute after:top-0 after:right-0 after:left-0 after:h-[calc(var(--header-height)*2)] after:bg-linear-to-b after:from-background after:from-20% after:to-transparent after:content-[''] group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
+        "sticky top-0 z-11 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 bg-transparent px-4 transition-[width,height] ease-linear after:pointer-events-none after:absolute after:top-0 after:right-0 after:left-0 after:h-[calc(var(--header-height)*2)] after:bg-linear-to-b after:from-background after:from-20% after:to-transparent after:content-['']",
         className,
       )}
     >

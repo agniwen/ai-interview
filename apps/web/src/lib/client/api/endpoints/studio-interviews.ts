@@ -5,6 +5,10 @@ import type {
   HumanInterviewRoundRecord,
   OfferDraftRecord,
 } from "@app/shared/studio-pipeline-stages";
+import type {
+  StudioInterviewRecordSummary,
+  StudioInterviewRoundDetail,
+} from "@app/shared/studio-interview-rounds";
 /**
  * Studio 后台「面试管理」相关 API。
  * Studio admin "interview management" API.
@@ -22,7 +26,6 @@ import type {
 
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
-import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
 import type {
   CandidateExpectationsMeta,
   HumanInterviewMeetingInput,
@@ -97,22 +100,10 @@ export interface DedupSourceCandidate {
 }
 
 /**
- * 面试轮次概览计数（按状态分组）。
- * Interview round summary counts grouped by status.
+ * 拉取面试记录概览数据（AI 与真人面试轮次的各状态计数）。
+ * Fetch the interview records summary (status counts across AI and human rounds).
  */
-export interface InterviewRoundSummaryResponse {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  interrupted: number;
-}
-
-/**
- * 拉取轮次概览数据（各状态计数）。
- * Fetch the round summary (status counts).
- */
-export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoundSummaryResponse> {
+export function fetchStudioInterviewSummary(slug: string): Promise<StudioInterviewRecordSummary> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
     "加载概览失败",

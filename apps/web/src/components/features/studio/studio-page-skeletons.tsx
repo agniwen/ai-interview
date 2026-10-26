@@ -124,7 +124,7 @@ export function StudioTablePageSkeleton({
     <PageShell label={label}>
       {header ? <HeaderSkeleton /> : null}
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
-        {summary ? <StudioSummaryCardsSkeleton /> : null}
+        {summary ? <StudioSummaryCardsSkeleton compact /> : null}
         <ToolbarSkeleton filterCount={filterCount} />
         <DataGridContentSkeleton columnCount={columnCount} />
       </div>

@@ -1,0 +1,1 @@
+CREATE INDEX "human_interview_round_org_created_at_idx" ON "human_interview_round" ("organization_id","created_at");
