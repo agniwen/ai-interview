@@ -16,6 +16,11 @@ import { Route as parentRoute } from "./w.$slug.studio.offer-approval-templates"
 import { Route as newRoute } from "./w.$slug.studio.offer-approval-templates.new";
 import { Route as editRoute } from "./w.$slug.studio.offer-approval-templates.$templateId";
 
+// 标题在懒加载的流程编辑器（@xyflow/react）里，全量并行跑时首次加载可能超过 waitFor 默认的 1 秒。
+// The heading lives in the lazily loaded flow editor (@xyflow/react); under the full parallel suite
+// its first load can exceed waitFor's 1s default.
+const EDITOR_LOAD_TIMEOUT_MS = 5000;
+
 // SAFETY: React's test environment flag accepts a boolean.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 afterEach(() => {
@@ -115,7 +120,7 @@ describe("审批模板独立编辑页面", () => {
           await delay(20);
         });
         expect(host.querySelector("h1")?.textContent).toBe(heading);
-      });
+      }, EDITOR_LOAD_TIMEOUT_MS);
       expect(host.querySelector('[role="dialog"]')).toBeNull();
       expect(host.querySelector("table")).toBeNull();
       if (name !== null) {
