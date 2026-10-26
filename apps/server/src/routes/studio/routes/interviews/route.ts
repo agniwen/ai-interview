@@ -135,6 +135,7 @@ export const studioInterviewsRouter = factory
       "query",
       z.object({
         creatorIds: z.string().optional(),
+        kind: z.enum(["ai", "human"]).optional(),
         page: z.string().optional(),
         pageSize: z.string().optional(),
         search: z.string().optional(),
@@ -160,6 +161,7 @@ export const studioInterviewsRouter = factory
         activeOrg.id,
         {
           creatorIds: parseCsvParam(q.creatorIds),
+          kind: q.kind,
           search: q.search,
           status: q.status,
           textFilters: q.textFilters,

@@ -1,7 +1,7 @@
 import { lockAiRound } from "@app/recruiting-workflows/ai-interview-reports/ai-round-lifecycle";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../../infrastructure/db/index";
 import { recruitingFormSubmission, recruitingEvent, aiInterviewRound } from "@app/db-schema/schema";
@@ -591,12 +591,16 @@ export const studioInterviewDetailRouter = factory
         .update(aiInterviewRound)
         .set(update)
         .where(
-          and(eq(aiInterviewRound.id, roundId), eq(aiInterviewRound.organizationId, activeOrg.id)),
+          and(
+            eq(aiInterviewRound.id, roundId),
+            eq(aiInterviewRound.organizationId, activeOrg.id),
+            ne(aiInterviewRound.status, "completed"),
+          ),
         )
         .returning({ id: aiInterviewRound.id });
 
       if (result.length === 0) {
-        return c.json({ error: "记录不存在。" }, 404);
+        return c.json({ error: "面试已结束或不存在，不可编辑。" }, 409);
       }
 
       const detail = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);

@@ -69,6 +69,7 @@ const paginationInputSchema = z.object({
 type InterviewRecordsPaginationInput = z.input<typeof paginationInputSchema>;
 
 export interface InterviewRecordFilters {
+  kind?: StudioInterviewRecordKind;
   creatorIds?: string[] | null;
   search?: string | null;
   status?: string | null;
@@ -200,7 +201,7 @@ function aiBranch({
       )
       .leftJoin(searchResume, eq(searchResume.id, searchRecord.resumeId));
   }
-  return query.where(aiStatuses?.length === 0 ? sql`false` : where);
+  return query.where(aiStatuses?.length === 0 || filters?.kind === "human" ? sql`false` : where);
 }
 
 function humanBranch({
@@ -248,7 +249,7 @@ function humanBranch({
       )
       .leftJoin(searchResume, eq(searchResume.id, searchRecord.resumeId));
   }
-  return query.where(humanStatuses?.length === 0 ? sql`false` : where);
+  return query.where(humanStatuses?.length === 0 || filters?.kind === "ai" ? sql`false` : where);
 }
 
 function resolveCreatorScope(
@@ -288,6 +289,17 @@ async function loadHumanInterviewRecordListRecords(
         jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
         jobDescriptionName: jobDescription.name,
         label: humanInterviewRound.label,
+        meetingStatus: sql<string | null>`(
+          SELECT ${humanInterviewMeeting.status}
+          FROM ${humanInterviewMeetingRound}
+          INNER JOIN ${humanInterviewMeeting}
+            ON ${humanInterviewMeeting.id} = ${humanInterviewMeetingRound.meetingId}
+          WHERE ${humanInterviewMeetingRound.roundId} = ${humanInterviewRound.id}
+            AND ${humanInterviewMeeting.organizationId} = ${humanInterviewRound.organizationId}
+          ORDER BY (${humanInterviewMeeting.status} = 'cancelled') ASC,
+            ${humanInterviewMeeting.createdAt} DESC, ${humanInterviewMeeting.id} DESC
+          LIMIT 1
+        )`,
         outcome: humanInterviewRound.outcome,
         recruitingRecordId: humanInterviewRound.recruitingRecordId,
         resumeContentHash: recruitingRecordReadModel.resumeContentHash,
@@ -395,6 +407,7 @@ async function loadHumanInterviewRecordListRecords(
     jobDescriptionName: row.jobDescriptionName,
     kind: "human",
     lastInterviewAt: serializeDate(lastInterviewAtByRound.get(row.id) ?? null),
+    meetingStatus: row.meetingStatus,
     resumeFileName: row.resumeFileName,
     roundLabel: row.label,
     scheduledAt: serializeDate(row.scheduledAt),

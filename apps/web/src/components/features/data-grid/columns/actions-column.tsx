@@ -20,7 +20,7 @@ interface ActionInline<TData> {
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   disabled?: (row: TData) => boolean;
-  /** 禁用时显示在 title 里的解释文字。/ Reason shown in title when disabled. */
+  /** 禁用时通过 Tooltip 显示原因。/ Reason shown in a tooltip when disabled. */
   disabledReason?: (row: TData) => string | null;
   show?: (row: TData) => boolean;
 }
@@ -32,7 +32,7 @@ interface ActionMenuItem<TData> {
   separator?: "before";
   show?: (row: TData) => boolean;
   disabled?: (row: TData) => boolean;
-  /** 禁用时显示在 title 里的解释文字。/ Reason shown in title when disabled. */
+  /** 禁用时通过 Tooltip 显示原因。/ Reason shown in a tooltip when disabled. */
   disabledReason?: (row: TData) => string | null;
 }
 
@@ -151,7 +151,9 @@ export function actionsColumn<TData extends RowData>(
                 focusableWhenDisabled={reason !== null}
                 key={action.label}
                 onClick={async () => {
-                  await action.onClick(record);
+                  if (!disabled) {
+                    await action.onClick(record);
+                  }
                 }}
                 size="sm"
                 title={reason ? undefined : action.label}
@@ -194,19 +196,35 @@ export function actionsColumn<TData extends RowData>(
                 {visibleMenu.map((item, index) => {
                   const itemDisabled = item.disabled?.(record) ?? false;
                   const itemReason = itemDisabled ? (item.disabledReason?.(record) ?? null) : null;
+                  const menuItem = (
+                    <DropdownMenuItem
+                      disabled={itemDisabled}
+                      onClick={async () => {
+                        if (!itemDisabled) {
+                          await item.onClick(record);
+                        }
+                      }}
+                      variant={item.variant}
+                    >
+                      {item.label}
+                    </DropdownMenuItem>
+                  );
                   return (
                     <div key={item.label}>
                       {item.separator === "before" && index > 0 ? <DropdownMenuSeparator /> : null}
-                      <DropdownMenuItem
-                        disabled={itemDisabled}
-                        onClick={async () => {
-                          await item.onClick(record);
-                        }}
-                        title={itemReason ?? undefined}
-                        variant={item.variant}
-                      >
-                        {item.label}
-                      </DropdownMenuItem>
+                      {itemReason ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Disabled menu items ignore pointer events; expose their explanation to hover and keyboard focus.
+                              <div tabIndex={0}>{menuItem}</div>
+                            }
+                          />
+                          <TooltipContent side="left">{itemReason}</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        menuItem
+                      )}
                     </div>
                   );
                 })}

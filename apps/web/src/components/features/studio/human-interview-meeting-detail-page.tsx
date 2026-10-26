@@ -1,9 +1,4 @@
 import { cn } from "@app/shared/utils";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message-primitives";
 import { IconArrowLeft, IconRefresh, IconInfoCircle, IconMessage } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -60,21 +55,25 @@ function evaluationEmptyMessage(status: HumanInterviewMeetingDetail["evaluationS
   return "尚未提交面试评价。";
 }
 
-function MeetingTranscript({ detail }: { detail: HumanInterviewMeetingDetail }) {
+export function HumanInterviewMeetingTranscript({
+  detail,
+}: {
+  detail: HumanInterviewMeetingDetail;
+}) {
   return (
     <>
       {detail.recordingNotice ? <Notice>{detail.recordingNotice}</Notice> : null}
       {detail.transcriptNotice ? <Notice>{detail.transcriptNotice}</Notice> : null}
       {detail.transcript ? (
-        <Frame>
-          <FrameHeader className="h-auto min-h-11 flex-wrap justify-between gap-2 py-2">
-            <FrameTitle>对话记录</FrameTitle>
+        <section className="flex min-h-0 flex-col gap-3">
+          <header className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-medium text-sm">对话记录</h2>
             <span className="text-xs text-muted-foreground">
               共 {detail.transcript.turns.length} 段发言
               {detail.transcriptBasis === "evaluation" ? " · 评价对应转录" : ""}
             </span>
-          </FrameHeader>
-          <FramePanel className="overflow-hidden p-0">
+          </header>
+          <div>
             {detail.transcript.turns.length === 0 ? (
               <Empty>
                 <EmptyHeader>
@@ -82,56 +81,48 @@ function MeetingTranscript({ detail }: { detail: HumanInterviewMeetingDetail }) 
                 </EmptyHeader>
               </Empty>
             ) : (
-              <Conversation
-                className="h-[min(65dvh,44rem)] min-h-64"
-                initial={false}
-                aria-label="转录对话"
-              >
-                <ConversationContent className="gap-6 px-4 py-5">
-                  {detail.transcript.turns.map((turn) => {
-                    const isCandidate = turn.attribution?.role === "candidate";
-                    const speakerName =
-                      turn.speakerDisplayName?.replace(/^候选人\s*·\s*/, "") || "未命名发言人";
-                    const roleLabel = {
-                      candidate: "候选人",
-                      interviewer: "面试官",
-                      unknown: "身份未确认",
-                    }[turn.attribution?.role ?? "unknown"];
-                    return (
-                      <Message from={isCandidate ? "user" : "assistant"} key={turn.id}>
-                        <div
-                          className={cn(
-                            "flex flex-wrap items-center gap-2 text-muted-foreground text-xs",
-                            isCandidate ? "justify-end" : "justify-start",
-                          )}
-                        >
-                          <span className="font-medium text-foreground">{speakerName}</span>
-                          {speakerName === roleLabel ? null : <span>· {roleLabel}</span>}
-                          <span className="tabular-nums">
-                            {formatTranscriptTime(turn.startMs)} –{" "}
-                            {formatTranscriptTime(turn.endMs)}
-                          </span>
-                        </div>
-                        <MessageContent
-                          className={cn(
-                            !isCandidate &&
-                              "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-muted/60 group-[.is-assistant]:bg-muted/30 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
-                          )}
-                        >
-                          <p className="whitespace-pre-wrap wrap-anywhere">{turn.text}</p>
-                        </MessageContent>
-                      </Message>
-                    );
-                  })}
-                </ConversationContent>
-                <ConversationScrollButton aria-label="滚动到最新发言" />
-              </Conversation>
+              <div aria-label="转录对话" className="flex flex-col gap-6 py-5" role="log">
+                {detail.transcript.turns.map((turn) => {
+                  const isCandidate = turn.attribution?.role === "candidate";
+                  const speakerName =
+                    turn.speakerDisplayName?.replace(/^候选人\s*·\s*/, "") || "未命名发言人";
+                  const roleLabel = {
+                    candidate: "候选人",
+                    interviewer: "面试官",
+                    unknown: "身份未确认",
+                  }[turn.attribution?.role ?? "unknown"];
+                  return (
+                    <Message from={isCandidate ? "user" : "assistant"} key={turn.id}>
+                      <div
+                        className={cn(
+                          "flex flex-wrap items-center gap-2 text-muted-foreground text-xs",
+                          isCandidate ? "justify-end" : "justify-start",
+                        )}
+                      >
+                        <span className="font-medium text-foreground">{speakerName}</span>
+                        {speakerName === roleLabel ? null : <span>· {roleLabel}</span>}
+                        <span className="tabular-nums">
+                          {formatTranscriptTime(turn.startMs)} – {formatTranscriptTime(turn.endMs)}
+                        </span>
+                      </div>
+                      <MessageContent
+                        className={cn(
+                          !isCandidate &&
+                            "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-muted/60 group-[.is-assistant]:bg-muted/30 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap wrap-anywhere">{turn.text}</p>
+                      </MessageContent>
+                    </Message>
+                  );
+                })}
+              </div>
             )}
-          </FramePanel>
-        </Frame>
+          </div>
+        </section>
       ) : (
-        <Frame>
-          <FramePanel>
+        <section className="flex min-h-0 flex-col gap-3">
+          <div>
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -153,8 +144,8 @@ function MeetingTranscript({ detail }: { detail: HumanInterviewMeetingDetail }) 
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          </FramePanel>
-        </Frame>
+          </div>
+        </section>
       )}
       {detail.transcriptionError && detail.transcriptionError !== detail.recordingNotice ? (
         <Notice>{detail.transcriptionError}</Notice>
@@ -265,7 +256,7 @@ export function HumanInterviewMeetingDetailContent({
           {detail.evaluationError ? <Notice>{detail.evaluationError}</Notice> : null}
         </TabsContent>
         <TabsContent value="transcript" className="flex flex-col gap-4">
-          <MeetingTranscript detail={detail} />
+          <HumanInterviewMeetingTranscript detail={detail} />
         </TabsContent>
       </Tabs>
     </>

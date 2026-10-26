@@ -43,6 +43,8 @@ export interface StudioInterviewRoundListRecord {
   conversationId: string | null;
   candidateInviteExpiresAt: string | null;
   hasReport: boolean;
+  /** 本轮人工评价结论；独立于报告生成状态。 */
+  reviewOutcome: "pass" | "fail" | null;
   feishuDocumentUrl: string | null;
   feishuEvaluationDocumentStatus: FeishuEvaluationDocumentStatus;
   /** 完整面试链接相对路径 / Relative interview link path. */
@@ -144,6 +146,8 @@ export interface StudioHumanInterviewRecordListRecord {
   scheduledAt: string | null;
   lastInterviewAt: string | null;
   status: HumanInterviewRoundStatus;
+  /** 当前关联会议状态，用于安排编辑守卫。 */
+  meetingStatus: string | null;
   interviewers: StudioHumanInterviewRecordInterviewer[];
   conclusion: HumanInterviewRoundOutcome | "none";
   /** 招聘记录上的候选人评价表；与同一候选人的 AI 行共用。/ Record-level evaluation document. */

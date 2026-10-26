@@ -601,3 +601,44 @@ describe("Toolbar filter editing", () => {
     expect(document.querySelector('[data-slot="scroll-area-viewport"]')).not.toBeNull();
   });
 });
+
+describe("fixed interview type filter", () => {
+  it("keeps the selected type when clearing other conditions and excludes it from removable fields", async () => {
+    const onReset = vi.fn();
+    const { root, container } = await renderInAct(
+      <Toolbar
+        filterValues={{ email: "", kind: "human", name: "张三" }}
+        filters={[
+          {
+            key: "kind",
+            label: "面试类型",
+            options: [
+              { label: "全部", value: "all" },
+              { label: "AI面试", value: "ai" },
+              { label: "真人面试", value: "human" },
+            ],
+            required: true,
+            type: "select",
+            unfilteredValue: "all",
+          },
+          { key: "name", label: "姓名", type: "search" },
+          { key: "email", label: "邮箱", type: "search" },
+        ]}
+        onResetFilters={onReset}
+      />,
+    );
+    roots.push(root);
+    const fixedChip = container.querySelector<HTMLElement>('[data-slot="filter-chip"]');
+    expect(fixedChip?.textContent).toContain("面试类型");
+    expect(fixedChip?.textContent).toContain("真人面试");
+    act(() => {
+      fixedChip?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Delete" }));
+    });
+    expect(container.querySelector('[data-slot="filter-chip"]')?.textContent).toContain("真人面试");
+    await clickText("button", "清空筛选");
+    expect(onReset).toHaveBeenCalledWith({ email: "", name: "" });
+    await clickText("button", "添加筛选");
+    expect(fieldOption("面试类型")).toBeUndefined();
+    expect(container.querySelector('[aria-label="清空"]')).toBeNull();
+  });
+});

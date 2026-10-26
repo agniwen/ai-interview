@@ -19,7 +19,7 @@ const INTERVIEW_RECORD_TABLE_MAX_HEIGHT = "max(24rem, calc(100svh - 22rem))";
 
 export const INTERVIEW_RECORD_SORTABLE_COLUMN_IDS = ["createdAt", "lastInterviewAt"] as const;
 
-type InterviewRecordFilters = Record<"creatorIds" | "status", string>;
+type InterviewRecordFilters = Record<"creatorIds" | "status" | "kind", string>;
 
 function fetchInterviewRecordPage(
   slug: string,
@@ -32,6 +32,9 @@ function fetchInterviewRecordPage(
     sortBy: params.sortBy ?? "createdAt",
     sortOrder: params.sortOrder ?? "desc",
   };
+  if (params.filters.kind === "ai" || params.filters.kind === "human") {
+    query.kind = params.filters.kind;
+  }
   if (params.search) {
     query.search = params.search;
   }
@@ -63,7 +66,7 @@ export function useInterviewRecordList(slug: string) {
     allowedSortIds: INTERVIEW_RECORD_SORTABLE_COLUMN_IDS,
     defaultSorting: [{ desc: true, id: "createdAt" }],
     enabled: false,
-    initialFilters: { creatorIds: "", status: "" },
+    initialFilters: { creatorIds: "", kind: "all", status: "" },
     queryFn: fetchPage,
     queryKeyBase: ["studio-interviews", slug],
   });

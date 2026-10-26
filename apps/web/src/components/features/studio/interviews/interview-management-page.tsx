@@ -1,16 +1,20 @@
-import { IconRobot, IconTrash } from "@tabler/icons-react";
+import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
+import { findHumanInterviewRoundMeeting } from "@app/shared/human-interview-meeting-detail";
+import { MeetingLinksDialog } from "../human-interview-stage-meetings";
+import { canOpenMeetingLinks } from "../human-interview-stage-utils";
+import { HumanInterviewRecordEditDialog } from "./human-interview-record-edit-dialog";
+import { IconRobot } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
 import {
-  bulkDeleteStudioInterviewRounds,
-  deleteStudioInterviewRound,
   fetchStudioInterviewSummary,
+  listHumanInterviewMeetings,
   rpcFetch,
 } from "@/lib/client/api";
 import type {
-  StudioAiInterviewRecordListRecord,
+  StudioHumanInterviewRecordListRecord,
   StudioInterviewRecordListRecord,
 } from "@app/shared/studio-interview-rounds";
 import {
@@ -25,16 +29,6 @@ import {
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { CreatorCell } from "@/components/features/data-grid/cells/creator-cell";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +36,6 @@ import {
   customColumn,
   DataGrid,
   dateColumn,
-  selectColumn,
   textColumn,
 } from "@/components/features/data-grid";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
@@ -61,7 +54,6 @@ import {
 } from "@/components/features/resume/resume-document-preview-button";
 import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
 import { rpc } from "@/lib/client/rpc";
-import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   copyInterviewLink,
@@ -69,6 +61,7 @@ import {
 } from "@/components/features/studio/interviews/interview-link-actions";
 import { resolveAiInterviewLinkState } from "@/components/features/studio/interviews/ai-interview-link-state";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import { HumanInterviewRecordDetailDialog } from "./human-interview-record-detail-dialog";
 import { CandidateRowAvatar } from "./candidate-row-avatar";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
@@ -93,8 +86,8 @@ export function InterviewManagementPage() {
   const navigate = useNavigate();
   const routeSearch = useSearch({ from: "/w/$slug/studio/interviews" });
   const queryClient = useQueryClient();
+  const canUpdateHumanInterview = useHasPermission("humanInterview", "update");
   const canUpdateInterview = useHasPermission("interview", "update");
-  const canDeleteInterview = useHasPermission("interview", "delete");
   const canReadJobDescriptions = useHasPermission("jd", "read");
 
   // 列表按批无限加载（每批 40 条），筛选与排序仍走 URL。
@@ -142,6 +135,8 @@ export function InterviewManagementPage() {
   // the Panel resolves either to the same internal roundId.
   const [detailRoundId, setDetailRoundId] = useState<string | null>(null);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [humanEditRecord, setHumanEditRecord] =
+    useState<StudioHumanInterviewRecordListRecord | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [resumeEditRecordId, setResumeEditRecordId] = useState<string | null>(null);
   const detailOpen = detailRoundId !== null || detailRecordId !== null;
@@ -149,10 +144,24 @@ export function InterviewManagementPage() {
     setDetailRoundId(null);
     setDetailRecordId(null);
   }
-  const [deleteRecord, setDeleteRecord] = useState<StudioAiInterviewRecordListRecord | null>(null);
+  const [linksMeeting, setLinksMeeting] = useState<HumanInterviewMeetingRecord | null>(null);
+  const { mutate: openHumanInterviewLinks, isPending: loadingHumanLinks } = useMutation({
+    mutationFn: async (record: StudioHumanInterviewRecordListRecord) => {
+      const meetings = await listHumanInterviewMeetings(slug, {
+        interviewRecordId: record.candidateId,
+      });
+      const meeting = findHumanInterviewRoundMeeting(meetings, record.id);
+      if (!meeting || !canOpenMeetingLinks(meeting)) {
+        throw new Error("当前面试尚未创建会议，或会议已结束、取消，无法复制链接。");
+      }
+      return meeting;
+    },
+    onError: (error) => toast.error(error.message),
+    onSuccess: setLinksMeeting,
+  });
+  const [humanDetailRecord, setHumanDetailRecord] =
+    useState<StudioHumanInterviewRecordListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<StudioInterviewRecordListRecord | null>(null);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // 外部链接两种形态:
   //  - ?roundId=<roundId>   新飞书卡片走这条
@@ -194,30 +203,13 @@ export function InterviewManagementPage() {
     }
   }, [navigate, routeSearch, slug]);
 
-  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI初面列表，也会改变招聘台的
-  // hasInterviewRounds 标记和简历详情弹窗里的「AI初面」tab，所以同步失效
-  // studio-resumes / studio-resume-rounds，确保用户切回招聘台立即看到更新。
-  //
-  // Writes on this page (delete / reset / round toggle) can flip
-  // hasInterviewRounds on the resume-library row and the resume detail
-  // dialog's AI-rounds tab — invalidate the resume-side keys too so the
-  // library reflects the change without a manual refetch.
-  // AI 行打开 AI 面试详情；真人行跳到招聘记录的真人面试页签。
-  // AI rows open the AI round detail; human rows open the recruiting record's human interview tab.
-  const openRecordDetail = useCallback(
-    (row: StudioInterviewRecordListRecord) => {
-      if (row.kind === "ai") {
-        setDetailRoundId(row.id);
-        return;
-      }
-      void navigate({
-        params: { recordId: row.candidateId, slug },
-        search: { tab: "human-interview" },
-        to: "/w/$slug/studio/resumes/$recordId",
-      });
-    },
-    [navigate, slug],
-  );
+  const openRecordDetail = useCallback((row: StudioInterviewRecordListRecord) => {
+    if (row.kind === "ai") {
+      setDetailRoundId(row.id);
+    } else {
+      setHumanDetailRecord(row);
+    }
+  }, []);
 
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
@@ -255,7 +247,6 @@ export function InterviewManagementPage() {
   // Column definitions: round-keyed; candidate info shown as snapshot columns.
   const columns = useMemo(
     () => [
-      ...(canDeleteInterview ? [selectColumn<StudioInterviewRecordListRecord>()] : []),
       customColumn<StudioInterviewRecordListRecord>({
         cell: (r) => {
           const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
@@ -419,14 +410,44 @@ export function InterviewManagementPage() {
         inline: [
           { label: "查看", onClick: openRecordDetail },
           {
-            disabled: aiOnly(isRoundEditLocked, true),
-            disabledReason: aiOnly(roundEditLockedReason, null),
+            disabled: isRoundEditLocked,
+            disabledReason: roundEditLockedReason,
             label: "编辑",
-            onClick: aiAction((r) => setEditRecordId(r.id)),
-            show: (r) => isAiRecord(r) && canUpdateInterview,
+            onClick: (r) => {
+              if (r.kind === "ai") {
+                setEditRecordId(r.id);
+              } else {
+                setHumanEditRecord(r);
+              }
+            },
+            show: (r) => (r.kind === "ai" ? canUpdateInterview : canUpdateHumanInterview),
           },
         ],
         menu: [
+          {
+            disabled: (row) =>
+              loadingHumanLinks ||
+              row.kind !== "human" ||
+              !["scheduled", "in_progress"].includes(row.meetingStatus ?? ""),
+            disabledReason: (row) => {
+              if (loadingHumanLinks) {
+                return "正在加载面试链接…";
+              }
+              if (row.kind !== "human" || !row.meetingStatus) {
+                return "尚未创建面试会议。";
+              }
+              return ["scheduled", "in_progress"].includes(row.meetingStatus)
+                ? null
+                : "会议已结束或取消，无法复制链接。";
+            },
+            label: "复制面试链接",
+            onClick: (row) => {
+              if (row.kind === "human") {
+                openHumanInterviewLinks(row);
+              }
+            },
+            show: (row) => row.kind === "human",
+          },
           {
             disabled: aiOnly(
               (row) => isAiStageLocked(row) || resolveAiInterviewLinkState(row).copyDisabled,
@@ -445,19 +466,15 @@ export function InterviewManagementPage() {
             onClick: aiAction(copyPublicInterviewLink),
             show: isAiRecord,
           },
-          {
-            label: "删除",
-            onClick: aiAction(setDeleteRecord),
-            show: (r) => isAiRecord(r) && canDeleteInterview,
-            variant: "destructive",
-          },
         ],
       }),
     ],
     [
-      canDeleteInterview,
+      loadingHumanLinks,
+      openHumanInterviewLinks,
       canReadJobDescriptions,
       canUpdateInterview,
+      canUpdateHumanInterview,
       generateEvaluationDocument,
       generatingEvaluationDocumentRoundId,
       isGeneratingEvaluationDocument,
@@ -470,6 +487,18 @@ export function InterviewManagementPage() {
   // Status filter options: map to the round-level status enum.
   const filtersConfig = useMemo(
     () => [
+      {
+        key: "kind" as const,
+        label: "面试类型",
+        options: [
+          { label: "全部", value: "all" },
+          { label: "AI面试", value: "ai" },
+          { label: "真人面试", value: "human" },
+        ],
+        required: true,
+        type: "select" as const,
+        unfilteredValue: "all",
+      },
       {
         key: "textFilters" as const,
         resource: "interviews" as const,
@@ -531,44 +560,6 @@ export function InterviewManagementPage() {
     />
   );
 
-  // 删除单条：目前以 roundId 调用旧 candidateId 端点，T5 修正前暂时会 404。
-  // Delete single: calling old candidateId endpoint with roundId for now — will 404 until T5.
-  async function handleDelete() {
-    if (!(deleteRecord && canDeleteInterview)) {
-      return;
-    }
-    try {
-      await deleteStudioInterviewRound(slug, deleteRecord.id);
-      setDeleteRecord(null);
-      toast.success("面试记录已删除");
-      invalidateAll();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "删除失败");
-    }
-  }
-
-  async function handleBulkDelete() {
-    if (!canDeleteInterview) {
-      return;
-    }
-    const ids = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]);
-    if (ids.length === 0) {
-      return;
-    }
-    setIsBulkDeleting(true);
-    await runAsyncAction({
-      cleanup: () => setIsBulkDeleting(false),
-      onError: (error) => toast.error(error instanceof Error ? error.message : "批量删除失败"),
-      operation: async () => {
-        const result = await bulkDeleteStudioInterviewRounds(slug, ids);
-        toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
-        grid.setRowSelection({});
-        setBulkDeleteOpen(false);
-        invalidateAll();
-      },
-    });
-  }
-
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
@@ -576,29 +567,14 @@ export function InterviewManagementPage() {
         <DataGrid<StudioInterviewRecordListRecord>
           {...grid.bind}
           {...listGridProps}
-          canSelectRow={isAiRecord}
           columns={columns}
           getRowId={(r) => r.id}
           columnPinning={{
             end: ["actions"],
-            start: canDeleteInterview ? ["select", "candidateName"] : ["candidateName"],
+            start: ["candidateName"],
           }}
           filters={filtersConfig}
           headerExtra={stats}
-          bulkActions={
-            canDeleteInterview
-              ? ({ selectedIds }) => (
-                  <Button
-                    className="flex-1 sm:flex-none"
-                    onClick={() => setBulkDeleteOpen(true)}
-                    variant="destructive-subtle"
-                  >
-                    <IconTrash className="size-4" />
-                    批量删除 ({selectedIds.length})
-                  </Button>
-                )
-              : undefined
-          }
           empty={
             <Empty className="border-border">
               <EmptyHeader>
@@ -638,6 +614,23 @@ export function InterviewManagementPage() {
         roundId={detailRoundId}
       />
 
+      {canUpdateHumanInterview && humanEditRecord ? (
+        <HumanInterviewRecordEditDialog
+          record={humanEditRecord}
+          onClose={() => setHumanEditRecord(null)}
+          onUpdated={invalidateAll}
+        />
+      ) : null}
+
+      <MeetingLinksDialog
+        meeting={linksMeeting}
+        onOpenChange={(open) => !open && setLinksMeeting(null)}
+      />
+      <HumanInterviewRecordDetailDialog
+        record={humanDetailRecord}
+        onOpenChange={(open) => !open && setHumanDetailRecord(null)}
+      />
+
       {/* 编辑 dialog：T5 修正写入路径。/ Edit dialog: T5 fixes the write path. */}
       {canUpdateInterview ? (
         <StudioPersonEditDialog
@@ -657,58 +650,6 @@ export function InterviewManagementPage() {
         open={resumeEditRecordId !== null}
         recordId={resumeEditRecordId}
       />
-
-      <AlertDialog
-        onOpenChange={(open) => !open && setDeleteRecord(null)}
-        open={canDeleteInterview && deleteRecord !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这条面试记录？</AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后将无法恢复，所有关联的面试轮次、对话记录与面试报告都会一并级联删除。当前记录：
-              {deleteRecord?.candidateName ?? "未知候选人"}。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
-              删除记录
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog onOpenChange={setBulkDeleteOpen} open={canDeleteInterview && bulkDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              确认批量删除{" "}
-              {Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]).length}{" "}
-              条面试记录？
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              此操作不可恢复。所选记录及其附属数据（面试轮次安排、候选人对话记录、AI
-              生成的面试题与面试报告）都将被级联删除。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isBulkDeleting}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isBulkDeleting}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleBulkDelete();
-              }}
-              variant="destructive"
-            >
-              {isBulkDeleting
-                ? "正在删除…"
-                : `删除 ${Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]).length} 条记录`}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {previewRecord
         ? (() => {

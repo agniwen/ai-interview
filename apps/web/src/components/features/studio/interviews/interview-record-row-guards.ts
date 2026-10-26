@@ -4,8 +4,8 @@ import type {
   StudioInterviewRecordListRecord,
 } from "@app/shared/studio-interview-rounds";
 
-// 只对 AI 行生效的行级回调；真人行在本页只读，返回兜底值。
-// Row callbacks that only apply to AI rows; human rows are read-only here.
+// 只对 AI 行生效的行级回调；真人行返回兜底值。
+// Row callbacks that only apply to AI rows; human rows use the fallback.
 export function aiOnly<T>(
   fn: (row: StudioAiInterviewRecordListRecord) => T,
   fallback: T,
@@ -43,14 +43,27 @@ export function aiStageLockedReason(row: StudioAiInterviewRecordListRecord): str
   return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI初面相关操作已锁定。如需修改请先回退阶段或重新激活。`;
 }
 
-// 已结束的轮次不再允许编辑。Completed rounds are read-only.
-export function isRoundEditLocked(row: StudioAiInterviewRecordListRecord): boolean {
-  return isAiStageLocked(row) || row.status === "completed";
-}
-
-export function roundEditLockedReason(row: StudioAiInterviewRecordListRecord): string | null {
-  if (isAiStageLocked(row)) {
+export function roundEditLockedReason(row: StudioInterviewRecordListRecord): string | null {
+  if (row.status === "cancelled") {
+    return "面试已取消，不可编辑。";
+  }
+  if (row.kind === "ai" && isAiStageLocked(row)) {
     return aiStageLockedReason(row);
   }
-  return row.status === "completed" ? "面试已结束，不可编辑。" : null;
+  if (row.status === "completed") {
+    return "面试已结束，不可编辑。";
+  }
+  if (
+    row.kind === "human" &&
+    row.meetingStatus &&
+    !["scheduled", "not_held"].includes(row.meetingStatus)
+  ) {
+    return "会议已开始、结束或取消，不可编辑安排。";
+  }
+  return null;
+}
+
+// 已结束的轮次不再允许编辑。Completed rounds are read-only.
+export function isRoundEditLocked(row: StudioInterviewRecordListRecord): boolean {
+  return roundEditLockedReason(row) !== null;
 }

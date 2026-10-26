@@ -9,7 +9,9 @@ import { ToolbarDateEditor } from "./filter-date-editor";
 import { toolbarFilterLabels } from "./filter-labels";
 import { buildToolbarFilterQuery, toolbarFilterChanges } from "./filter-query";
 
-function buildField(config: ToolbarConditionConfig): FilterField<ToolbarFilterValue> {
+export function buildToolbarFilterField(
+  config: ToolbarConditionConfig,
+): FilterField<ToolbarFilterValue> {
   const operator = getToolbarFilterOperator(config);
   const field: FilterField<ToolbarFilterValue> = {
     defaultOperator: operator.value,
@@ -119,7 +121,7 @@ export function FilterConditions({
     query = buildToolbarFilterQuery(configs, values, ids, selected);
     setState({ query, signature });
   }
-  const fields = useMemo(() => configs.map((config) => buildField(config)), [configs]);
+  const fields = useMemo(() => configs.map((config) => buildToolbarFilterField(config)), [configs]);
 
   function applyQuery(next: FilterQuery<ToolbarFilterValue>) {
     const changes = toolbarFilterChanges(next, configs, values);

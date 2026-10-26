@@ -508,6 +508,9 @@ export async function editHumanInterviewRound({
     }
 
     if (existing.status === "completed") {
+      if (Object.keys(input).some((key) => key !== "feedback")) {
+        throw new EditRoundError("面试已结束，不可编辑安排", 409);
+      }
       // completed：只允许修订 feedback。
       // completed → feedback only.
       const feedback = normalizeRequiredFeedback(input.feedback ?? existing.feedback);

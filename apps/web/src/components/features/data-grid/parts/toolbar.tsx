@@ -1,3 +1,4 @@
+import { FixedSelectFilter } from "./fixed-select-filter";
 import { useFilterSelection } from "./filter-selection";
 import { CustomFilterInput } from "./custom-filter-input";
 import { IconFilterX, IconRefresh } from "@tabler/icons-react";
@@ -204,6 +205,16 @@ export function Toolbar({
             if (filter.type === "custom") {
               return (
                 <CustomFilterInput
+                  key={filter.key}
+                  config={filter}
+                  value={filterValues[filter.key] ?? ""}
+                  onChange={(value) => onFilterChange(filter.key, value)}
+                />
+              );
+            }
+            if (filter.required && !filter.disabled) {
+              return (
+                <FixedSelectFilter
                   key={filter.key}
                   config={filter}
                   value={filterValues[filter.key] ?? ""}

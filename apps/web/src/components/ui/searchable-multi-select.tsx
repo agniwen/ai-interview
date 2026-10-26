@@ -43,6 +43,8 @@ export interface SearchableMultiSelectProps {
   selectedFormat?: (count: number) => string;
   /** Trigger display mode. Defaults to selected item labels with +N overflow. */
   selectedDisplay?: SelectedDisplayMode;
+  /** Show avatars beside selected item labels. */
+  showSelectedAvatars?: boolean;
   /** Max selected item tags shown in the trigger before folding the rest into +N. */
   selectedPreviewLimit?: number;
   searchPlaceholder?: string;
@@ -71,6 +73,7 @@ export function SearchableMultiSelect({
   placeholder = "请选择",
   selectedFormat = (count) => `已选 ${count} 项`,
   selectedDisplay = "items",
+  showSelectedAvatars = false,
   selectedPreviewLimit,
   searchPlaceholder = "搜索...",
   emptyMessage = "没有匹配项",
@@ -135,6 +138,17 @@ export function SearchableMultiSelect({
                     <>
                       {visible.map((item) => (
                         <ComboboxChip aria-label={item.value} key={item.value} title={item.label}>
+                          {showSelectedAvatars ? (
+                            <Avatar
+                              className="size-4"
+                              label={`${item.label}的头像`}
+                              seed={`option:${item.value}`}
+                            >
+                              {item.avatarUrl ? (
+                                <AvatarImage alt={item.label} src={item.avatarUrl} />
+                              ) : null}
+                            </Avatar>
+                          ) : null}
                           {item.label}
                         </ComboboxChip>
                       ))}

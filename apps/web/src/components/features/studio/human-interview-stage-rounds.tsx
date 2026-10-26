@@ -442,24 +442,85 @@ function InterviewerAssignmentList({
   );
 }
 
-function RoundScheduledAtControl({
+function ScheduleEditActions({
+  expanded,
+  pending,
+  onCancel,
+}: {
+  expanded: boolean;
+  pending: boolean;
+  onCancel: () => void;
+}) {
+  if (expanded) {
+    return (
+      <div className="flex justify-end gap-2 pt-1">
+        <Button disabled={pending} onClick={onCancel} type="button" variant="outline">
+          取消
+        </Button>
+        <Button disabled={pending} type="submit">
+          {pending ? <IconLoader2 className="size-4 animate-spin" /> : null}
+          {pending ? "保存中…" : "保存修改"}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        aria-label="保存会议安排"
+        className="h-7 w-7 p-0"
+        disabled={pending}
+        size="icon"
+        title="保存会议安排"
+        type="submit"
+      >
+        {pending ? (
+          <IconLoader2 className="size-3.5 animate-spin" />
+        ) : (
+          <IconCheck className="size-3.5" />
+        )}
+      </Button>
+      <Button
+        aria-label="取消调整时间"
+        className="h-7 w-7 p-0"
+        disabled={pending}
+        onClick={onCancel}
+        size="icon"
+        title="取消修改会议安排"
+        type="button"
+        variant="outline"
+      >
+        <IconX className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+export function RoundScheduledAtControl({
   round,
   meeting,
   canUpdate,
   disabled,
   onRescheduled,
   slug,
-  dependencies,
+  dependencies = defaultRoundCardDependencies,
+  initiallyEditing = false,
+  onCancel,
 }: {
   round: HumanInterviewRoundRecord;
   meeting: HumanInterviewMeetingRecord | null;
   canUpdate: boolean;
   disabled?: boolean;
-  dependencies: RoundCardDependencies;
+  dependencies?: RoundCardDependencies;
+  initiallyEditing?: boolean;
+  onCancel?: () => void;
   onRescheduled: () => void;
   slug: string;
 }) {
-  const [editing, setEditing] = useState(false);
+  const fieldClassName = initiallyEditing ? "flex flex-col" : "contents";
+  const labelClassName = initiallyEditing ? "mb-2" : "sr-only";
+  const pickerClassName = initiallyEditing ? "w-full" : "h-7 w-[13.5rem] text-xs";
+  const [editing, setEditing] = useState(initiallyEditing);
   const [scheduledAt, setScheduledAt] = useState(() =>
     toDateTimeLocalInputValue(round.scheduledAt),
   );
@@ -472,7 +533,7 @@ function RoundScheduledAtControl({
     ),
   );
   const membersQuery = useQuery({
-    enabled: editing && meeting !== null,
+    enabled: editing,
     queryFn: () => dependencies.loadWorkspaceMembers(slug),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
@@ -496,12 +557,15 @@ function RoundScheduledAtControl({
   const validUntilInputId = `human-round-${round.id}-valid-until`;
   const mutation = useMutation({
     mutationFn: async () => {
+      if (!canReschedule) {
+        throw new Error("面试已结束或正在进行，不可编辑");
+      }
       const nextScheduledAt = dateTimeLocalInputToISOString(scheduledAt);
       const nextValidUntil = dateTimeLocalInputToISOString(validUntil);
       if (!nextScheduledAt) {
         throw new Error("请输入有效的面试时间");
       }
-      if (meeting && interviewerIds.length === 0) {
+      if (interviewerIds.length === 0) {
         throw new Error("请至少选择一位面试官");
       }
       try {
@@ -512,6 +576,7 @@ function RoundScheduledAtControl({
               validUntil: nextValidUntil,
             })
           : dependencies.patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
+              interviewerIds,
               scheduledAt: nextScheduledAt,
               validUntil: nextValidUntil,
             }));
@@ -564,6 +629,7 @@ function RoundScheduledAtControl({
       ),
     );
     setEditing(false);
+    onCancel?.();
   }
 
   function handleScheduledAtChange(value: string) {
@@ -578,75 +644,63 @@ function RoundScheduledAtControl({
     mutation.mutate();
   }
 
-  if (editing) {
+  if (editing && canReschedule) {
     return (
-      <form className="inline-flex min-h-7 flex-wrap items-center gap-1.5" onSubmit={handleSubmit}>
-        <Label className="sr-only" htmlFor={inputId}>
-          面试时间
-        </Label>
-        {dependencies.renderDateTimePicker({
-          className: "h-7 w-[13.5rem] text-xs",
-          disabled: mutation.isPending,
-          id: inputId,
-          onValueChange: handleScheduledAtChange,
-          required: true,
-          value: scheduledAt,
-        })}
-        <Label className="sr-only" htmlFor={validUntilInputId}>
-          有效时间至
-        </Label>
-        {dependencies.renderDateTimePicker({
-          className: "h-7 w-[13.5rem] text-xs",
-          disabled: mutation.isPending,
-          id: validUntilInputId,
-          onValueChange: setValidUntil,
-          value: validUntil,
-        })}
-        {meeting ? (
-          <div className="min-w-64">
-            <Label className="sr-only" htmlFor={`human-round-${round.id}-interviewers`}>
-              面试官
-            </Label>
-            <SearchableMultiSelect
-              disabled={mutation.isPending || membersQuery.isLoading}
-              emptyMessage="找不到匹配的成员"
-              id={`human-round-${round.id}-interviewers`}
-              onChange={setInterviewerIds}
-              options={memberOptions}
-              placeholder={membersQuery.isLoading ? "加载面试官…" : "选择面试官（可多选）"}
-              searchPlaceholder="搜索成员…"
-              selectedDisplay="count"
-              selectedFormat={(count) => `已选 ${count} 位面试官`}
-              value={interviewerIds}
-            />
-          </div>
-        ) : null}
-        <Button
-          aria-label="保存会议安排"
-          className="h-7 w-7 p-0"
-          disabled={mutation.isPending}
-          size="icon"
-          title="保存会议安排"
-          type="submit"
-        >
-          {mutation.isPending ? (
-            <IconLoader2 className="size-3.5 animate-spin" />
-          ) : (
-            <IconCheck className="size-3.5" />
-          )}
-        </Button>
-        <Button
-          aria-label="取消调整时间"
-          className="h-7 w-7 p-0"
-          disabled={mutation.isPending}
-          onClick={cancelEditing}
-          size="icon"
-          title="取消修改会议安排"
-          type="button"
-          variant="outline"
-        >
-          <IconX className="size-3.5" />
-        </Button>
+      <form
+        className={
+          initiallyEditing
+            ? "flex flex-col gap-5"
+            : "inline-flex min-h-7 flex-wrap items-center gap-1.5"
+        }
+        onSubmit={handleSubmit}
+      >
+        <div className={fieldClassName}>
+          <Label className={labelClassName} htmlFor={inputId}>
+            面试时间
+          </Label>
+          {dependencies.renderDateTimePicker({
+            className: pickerClassName,
+            disabled: mutation.isPending,
+            id: inputId,
+            onValueChange: handleScheduledAtChange,
+            required: true,
+            value: scheduledAt,
+          })}
+        </div>
+        <div className={fieldClassName}>
+          <Label className={labelClassName} htmlFor={validUntilInputId}>
+            有效时间至
+          </Label>
+          {dependencies.renderDateTimePicker({
+            className: pickerClassName,
+            disabled: mutation.isPending,
+            id: validUntilInputId,
+            onValueChange: setValidUntil,
+            value: validUntil,
+          })}
+        </div>
+        <div className="min-w-0">
+          <Label className={labelClassName} htmlFor={`human-round-${round.id}-interviewers`}>
+            面试官
+          </Label>
+          <SearchableMultiSelect
+            disabled={mutation.isPending || membersQuery.isLoading}
+            emptyMessage="找不到匹配的成员"
+            id={`human-round-${round.id}-interviewers`}
+            onChange={setInterviewerIds}
+            options={memberOptions}
+            placeholder={membersQuery.isLoading ? "加载面试官…" : "选择面试官（可多选）"}
+            searchPlaceholder="搜索成员…"
+            selectedDisplay="items"
+            showSelectedAvatars
+            value={interviewerIds}
+          />
+        </div>
+        <ScheduleEditActions
+          expanded={initiallyEditing}
+          pending={mutation.isPending}
+          onCancel={cancelEditing}
+        />
       </form>
     );
   }

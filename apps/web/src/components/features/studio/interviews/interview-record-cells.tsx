@@ -1,6 +1,5 @@
 import {
   humanInterviewFormatMeta,
-  humanInterviewRoundOutcomeMeta,
   scheduleEntryStatusMeta,
 } from "@app/db-schema/studio-interviews";
 import type {
@@ -10,7 +9,10 @@ import type {
 } from "@app/shared/studio-interview-rounds";
 import { Blobatar } from "@blobatar/react";
 import { IconSparkles, IconUser } from "@tabler/icons-react";
-import { PersonAvatar } from "@/components/features/studio/calendar/interview-evaluation-hover-card";
+import {
+  EvaluationConclusionBadge,
+  PersonAvatar,
+} from "@/components/features/studio/calendar/interview-evaluation-hover-card";
 import { uniqueText } from "@/components/features/studio/calendar/studio-calendar-people";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@app/shared/utils";
@@ -121,20 +123,17 @@ export function InterviewRecordInterviewersCell({
   );
 }
 
-/** AI 行显示报告是否生成；真人行显示面试评价结论。/ AI rows show the report; human rows show the verdict. */
+/** 两类面试均展示本轮评价结论。 */
 export function InterviewRecordResultCell({ record }: { record: StudioInterviewRecordListRecord }) {
-  if (record.kind === "ai") {
-    return record.hasReport ? (
-      <Badge variant="success">报告已生成</Badge>
-    ) : (
-      <span className="text-muted-foreground">—</span>
+  const conclusion = record.kind === "ai" ? (record.reviewOutcome ?? "none") : record.conclusion;
+  if (conclusion === "none") {
+    return (
+      <Badge className="w-16 justify-center" variant="outline">
+        未评价
+      </Badge>
     );
   }
-  if (record.conclusion === "none") {
-    return <span className="text-muted-foreground">未评价</span>;
-  }
-  const meta = humanInterviewRoundOutcomeMeta[record.conclusion];
-  return <Badge variant={meta.tone}>{meta.label}</Badge>;
+  return <EvaluationConclusionBadge className="w-16 justify-center" conclusion={conclusion} />;
 }
 
 /** 招聘记录上的候选人评价表链接；尚未生成时显示占位。/ Record-level evaluation document link. */
