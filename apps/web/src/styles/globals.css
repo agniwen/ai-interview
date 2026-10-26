@@ -96,21 +96,21 @@
 .dark .sky-backdrop-poster {
   background:
     image-set(
-        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.a01425beb9.avif")
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.967745bf33.avif")
           type("image/avif"),
-        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.b1c4e2165f.webp")
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.eeddb2733e.webp")
           type("image/webp")
       )
       center / cover no-repeat,
-    linear-gradient(160deg, #233c9e 0%, #101b48 60%, #1c3088 100%);
+    linear-gradient(160deg, #4862a6 0%, #222c48 60%, #435ca0 100%);
 }
 
 .dark .sky-backdrop-veil {
   background:
     radial-gradient(
       ellipse 85% 42% at 50% 0%,
-      rgb(5 11 32 / 72%) 0%,
-      rgb(5 11 32 / 38%) 45%,
+      rgb(5 11 32 / 40%) 0%,
+      rgb(5 11 32 / 18%) 45%,
       transparent 75%
     ),
     linear-gradient(
@@ -812,8 +812,10 @@
 
   --background: var(--gray-1);
   --home-canvas: var(--sidebar);
-  --home-surface: var(--background);
-  --home-card: var(--card);
+  /* 首页暗色比应用底色亮一级，卡片再亮一级，避免整页发闷。
+     The dark homepage sits one step above the app background, with cards one step higher. */
+  --home-surface: var(--gray-2);
+  --home-card: var(--gray-3);
   --foreground: var(--gray-12);
   --card: var(--gray-2);
   --card-foreground: var(--gray-12);

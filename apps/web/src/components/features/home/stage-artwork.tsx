@@ -275,7 +275,7 @@ export function StageArtwork({ className, palette, pattern }: StageArtworkProps)
           }}
         />
       ) : null}
-      <div className="absolute inset-0 hidden bg-black/20 dark:block" />
+      <div className="absolute inset-0 hidden bg-black/10 dark:block" />
     </div>
   );
 }

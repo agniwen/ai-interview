@@ -457,7 +457,7 @@ function StoryCard({ story }: { story: Story }) {
   return (
     <article
       // 外圆角 18 = 内边距 10 + 预览圆角 8，内外同心。 Outer 18 = 10 padding + 8 inner radius, so corners stay concentric.
-      className="flex h-full select-none flex-col overflow-hidden rounded-[18px] border border-transparent bg-card shadow-default px-2.5 pt-2.5 pb-5 xl:grid xl:h-[30rem] xl:grid-cols-[minmax(0,1fr)_40.5rem] xl:gap-7 xl:py-2.5 xl:pr-2.5 xl:pl-8"
+      className="flex h-full select-none flex-col overflow-hidden rounded-[18px] border border-transparent bg-home-card shadow-default px-2.5 pt-2.5 pb-5 xl:grid xl:h-[30rem] xl:grid-cols-[minmax(0,1fr)_40.5rem] xl:gap-7 xl:py-2.5 xl:pr-2.5 xl:pl-8"
       data-feature-story={story.id}
     >
       <div
@@ -565,7 +565,7 @@ export function FeatureBlocks() {
               className={cn(
                 "h-9 rounded-full border px-5 font-medium text-sm transition-colors duration-300",
                 selected
-                  ? "border-transparent bg-card text-foreground shadow-default"
+                  ? "border-transparent bg-home-card text-foreground shadow-default"
                   : "border-transparent bg-home-canvas text-muted-foreground hover:text-foreground dark:bg-white/[0.06]",
               )}
               key={story.id}
