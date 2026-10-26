@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { DetailBodySkeleton, DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import { StudioDateGroupHeaderSkeleton } from "./studio-date-group-virtual-list";
 import { StudioSummaryCardsSkeleton } from "./studio-summary-cards";
-import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description-charts-skeleton";
 import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
 import { DashboardPanelsSkeleton } from "./dashboard-page-skeleton";
 import { ResumePoolCardSkeleton } from "./resume-pool/resume-pool-card-skeleton";
@@ -146,7 +145,6 @@ export function JobDescriptionsPageSkeleton() {
   return (
     <PageShell label="岗位设置">
       <HeaderSkeleton />
-      <JobDescriptionChartsSkeleton />
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
         <ToolbarSkeleton filterCount={3} />
         <DataGridContentSkeleton columnCount={9} />

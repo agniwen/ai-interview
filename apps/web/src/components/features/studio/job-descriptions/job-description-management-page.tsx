@@ -1,20 +1,14 @@
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClientOnly, useNavigate, useRouter, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import type { DepartmentListRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
 import { DepartmentRail } from "@/components/features/studio/departments/department-rail";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
-import type {
-  JobDescriptionListRecord,
-  JobDescriptionMetrics,
-  JobDescriptionRecord,
-} from "@app/shared/job-descriptions";
+import type { JobDescriptionListRecord, JobDescriptionRecord } from "@app/shared/job-descriptions";
 import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
-import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
-import { JobDescriptionChartsSkeleton } from "@/components/features/studio/job-descriptions/job-description-charts-skeleton";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import {
   actionsColumn,
   customColumn,
@@ -56,7 +49,6 @@ import { JobDescriptionFormDialog } from "@/components/features/studio/job-descr
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import { useHydrated } from "@/hooks/use-hydrated";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -111,14 +103,11 @@ function recruitingStatusConfirmLabel(
 export function JobDescriptionManagementPage({
   departments,
   interviewers,
-  metrics,
 }: {
   departments: DepartmentListRecord[];
   interviewers: InterviewerListRecord[];
-  metrics: JobDescriptionMetrics;
 }) {
   const slug = useWorkspaceSlug();
-  const hydrated = useHydrated();
   const router = useRouter();
   const queryClient = useQueryClient();
   // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
@@ -559,12 +548,6 @@ export function JobDescriptionManagementPage({
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader title="岗位设置" />
-
-        <SkeletonReveal loading={!hydrated} skeleton={<JobDescriptionChartsSkeleton />}>
-          <ClientOnly fallback={null}>
-            <JobDescriptionCharts metrics={metrics} />
-          </ClientOnly>
-        </SkeletonReveal>
 
         <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
           <DepartmentRail

@@ -365,12 +365,11 @@ export function createJobDescriptionsRouter(
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const [departments, interviewers, metrics] = await Promise.all([
+      const [departments, interviewers] = await Promise.all([
         listAllDepartmentsWithReferenceCounts(activeOrg.id),
         listAllInterviewers(activeOrg.id),
-        dependencies.loadJobDescriptionMetrics(activeOrg.id),
       ]);
-      return c.json({ departments, interviewers, metrics }, 200);
+      return c.json({ departments, interviewers }, 200);
     })
     .get("/recruiting", dependencies.requirePermission("jd", "read"), async (c) => {
       const { activeOrg } = c.var;

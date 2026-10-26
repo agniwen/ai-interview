@@ -19,7 +19,6 @@ function StudioJobDescriptionsRoute() {
     <JobDescriptionManagementPage
       departments={state.departments}
       interviewers={state.interviewers}
-      metrics={state.metrics}
     />
   );
 }
