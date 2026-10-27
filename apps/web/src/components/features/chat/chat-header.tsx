@@ -4,7 +4,6 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { createContext, useContext, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
-import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -83,7 +82,6 @@ export function ChatHeader() {
 
   return (
     <SidebarInsetHeader
-      actions={<WorkspaceSwitcher />}
       className="absolute top-0 left-0"
       breadcrumb={
         <Breadcrumb>

@@ -14,6 +14,10 @@ import { useCallback } from "react";
 import { FeishuSignInButtons } from "@/components/features/auth/feishu-sign-in-buttons";
 import { SidebarAppUpdateButton } from "@/components/features/app-version/sidebar-app-update-button";
 import { useAppVersion } from "@/components/features/app-version/app-version-provider";
+import { useWorkspaceOrganizations } from "@/components/features/workspace/use-workspace-organizations";
+import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
+import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { ThemeSubmenu } from "@/components/theme/theme-toggle";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -58,10 +62,14 @@ function SidebarUserMenuLinks({
   showPlatformLink: boolean;
   onSignOut: () => void;
 }) {
+  const workspaceSlug = useOptionalWorkspaceSlug();
   const hasNavigationLinks = showHomeLink || showPlatformLink;
 
   return (
     <>
+      {workspaceSlug ? <WorkspaceSwitcher submenu /> : null}
+      <ThemeSubmenu />
+      <DropdownMenuSeparator />
       {showHomeLink ? (
         <DropdownMenuItem
           render={
@@ -113,6 +121,13 @@ export function SidebarUserSection({
   const isHydrated = useHydrated();
   const { data: session, isPending } = authClient.useSession();
   const appVersion = useAppVersion();
+  const workspaceSlug = useOptionalWorkspaceSlug();
+  const { data: organizations = [] } = useWorkspaceOrganizations(
+    Boolean(workspaceSlug && session?.user),
+  );
+  const workspaceName =
+    organizations.find((organization) => organization.slug === workspaceSlug)?.name ??
+    workspaceSlug;
   const latestBuildTime = appVersion?.latestBuildTime ?? null;
 
   const handleSignOut = useCallback(async () => {
@@ -133,27 +148,37 @@ export function SidebarUserSection({
     content = collapsed ? (
       <div className="h-9 w-full animate-pulse rounded-xl bg-muted" />
     ) : (
-      <div className="h-9 w-full animate-pulse rounded-xl bg-muted" />
+      <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
     );
   } else if (session?.user) {
-    // 复用 SidebarMenuButton，跟随侧栏 data-collapsible 的宽度过渡与文字淡出；收起时保持 p-1 让头像位置不变。
+    // 复用 SidebarMenuButton，跟随侧栏 data-collapsible 的宽度过渡与文字淡出；收起时恢复紧凑头像和 p-1 内边距。
     content = (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <SidebarMenuButton
-              className="h-9 rounded-[14px] p-1 transition-[width,height,padding,background-color,color] group-data-[collapsible=icon]:p-1!"
+              className="h-10 rounded-xl p-1.5 transition-[width,height,padding,background-color,color] group-data-[collapsible=icon]:p-1!"
               type="button"
             >
               <Avatar
                 label={`${userName}的头像`}
                 seed={`user:${userEmail || session.user.id}`}
-                size="sm"
+                className="size-[26px] group-data-[collapsible=icon]:size-6"
               >
                 <AvatarImage alt={userName} src={session.user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
-              <span className="min-w-0 flex-1 font-medium text-sm leading-none">{userName}</span>
+              <span className="flex min-w-0 flex-1 flex-col text-left">
+                <span className="truncate font-medium text-[13px] leading-4">{userName}</span>
+                {workspaceName ? (
+                  <span
+                    className="truncate text-[10px] leading-3 text-muted-foreground"
+                    title={workspaceName}
+                  >
+                    {workspaceName}
+                  </span>
+                ) : null}
+              </span>
             </SidebarMenuButton>
           }
         />

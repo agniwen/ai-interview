@@ -8,6 +8,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
 import * as m from "@/paraglide/messages";
@@ -18,6 +21,26 @@ const THEME_OPTIONS = [
   { icon: IconDeviceDesktop, label: m.theme_system, value: "system" },
 ] as const;
 
+function ThemeMenuItems() {
+  const { theme, setTheme } = useThemeTransition();
+  const isHydrated = useHydrated();
+  const activeTheme = isHydrated ? (theme ?? "system") : "system";
+
+  return (
+    <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
+      {THEME_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        return (
+          <DropdownMenuRadioItem key={option.value} value={option.value}>
+            <Icon className=" size-4" />
+            {option.label()}
+          </DropdownMenuRadioItem>
+        );
+      })}
+    </DropdownMenuRadioGroup>
+  );
+}
+
 export function ThemeToggle({
   className,
   size = "icon-sm",
@@ -25,10 +48,6 @@ export function ThemeToggle({
   className?: string;
   size?: "icon-xs" | "icon-sm" | "icon" | "icon-lg";
 }) {
-  const { theme, setTheme } = useThemeTransition();
-  const isHydrated = useHydrated();
-  const activeTheme = isHydrated ? (theme ?? "system") : "system";
-
   return (
     // Small non-modal theme picker: no body scroll lock or focus trap needed.
     <DropdownMenu modal={false}>
@@ -47,18 +66,23 @@ export function ThemeToggle({
         }
       />
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
-          {THEME_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            return (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <Icon className=" size-4" />
-                {option.label()}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
+        <ThemeMenuItems />
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+export function ThemeSubmenu() {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <IconSun className="mr-2 size-4 dark:hidden" />
+        <IconMoon className="mr-2 hidden size-4 dark:block" />
+        {m.theme_switcher_label()}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-40">
+        <ThemeMenuItems />
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }

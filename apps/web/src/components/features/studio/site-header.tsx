@@ -2,7 +2,6 @@
 
 import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
-import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
 import { useStudioHeaderOverrideValue } from "@/components/features/studio/studio-header-context";
 import { resolveStudioSidebarNavItem } from "@/components/features/studio/studio-sidebar-slots";
 import { UploadTaskInbox } from "@/components/features/studio/upload-task-inbox";
@@ -61,12 +60,7 @@ export function SiteHeader({ className }: { className?: string } = {}) {
     <SidebarInsetHeader
       className={className}
       activeMenuIcon={headerOverride === null && ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
-      actions={
-        <>
-          <WorkspaceSwitcher />
-          <UploadTaskInbox />
-        </>
-      }
+      actions={<UploadTaskInbox />}
       breadcrumb={
         headerOverride ?? (
           <Breadcrumb>

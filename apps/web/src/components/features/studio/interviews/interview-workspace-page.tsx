@@ -41,6 +41,7 @@ export function InterviewWorkspacePage() {
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader title="面试管理" />
       <Tabs
+        className="gap-4"
         value={view}
         onValueChange={(value) => {
           if (value !== "table" && value !== "list" && value !== "calendar") {
