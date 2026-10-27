@@ -27,6 +27,14 @@ function EditorRoute() {
     <JobDescriptionEditPage
       jobId={jobId}
       onBack={onBack}
+      onCreated={(id) => {
+        void navigate({
+          to: "/w/$slug/studio/job-descriptions/overlay/$jobId",
+          params: { slug, jobId: id },
+          search,
+          replace: true,
+        });
+      }}
       departments={state.departments}
       interviewers={state.interviewers}
     />
@@ -35,6 +43,8 @@ function EditorRoute() {
 }
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions/overlay/$jobId")({
   validateSearch: coerceSearchParams,
-  head: () => ({ meta: [{ title: formatDocumentTitle("编辑岗位") }] }),
+  head: ({ params }) => ({
+    meta: [{ title: formatDocumentTitle(params.jobId === "new" ? "新建岗位" : "编辑岗位") }],
+  }),
   component: EditorRoute,
 });

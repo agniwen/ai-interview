@@ -54,6 +54,7 @@ export function JobDescriptionFormDialog({
   interviewers,
   onDepartmentCreated,
   onSaved,
+  onCreated,
 }: {
   /** 新建岗位时预选的部门（如当前部门栏选中的部门）。Department preselected for a new job. */
   defaultDepartmentId?: string;
@@ -67,6 +68,7 @@ export function JobDescriptionFormDialog({
   /** 表单内新建部门后刷新部门列表。Refreshes the department list after an inline create. */
   onDepartmentCreated?: () => Promise<void> | void;
   onSaved: (record: JobDescriptionRecord) => void;
+  onCreated?: (id: string) => void;
 }) {
   const Surface = presentation === "page" ? EditorPageSurface : Modal;
   const slug = useWorkspaceSlug();
@@ -102,7 +104,11 @@ export function JobDescriptionFormDialog({
     form,
     onSaved: (saved) => {
       onSaved(saved);
-      onOpenChange(false);
+      if (!record && onCreated) {
+        onCreated(saved.id);
+      } else {
+        onOpenChange(false);
+      }
     },
     pendingGeneratedJobDescription,
     setPendingGeneratedJobDescription,
@@ -275,9 +281,7 @@ export function JobDescriptionFormDialog({
           <TabsContent motion="page" value="basic">
             <div
               className={
-                presentation === "page"
-                  ? "grid items-start gap-6 xl:grid-cols-[minmax(22rem,0.85fr)_minmax(0,1.15fr)]"
-                  : "mt-2 space-y-4"
+                presentation === "page" ? "mx-auto w-full max-w-4xl space-y-6" : "mt-2 space-y-4"
               }
             >
               <FieldGroup className="min-w-0">

@@ -45,7 +45,6 @@ import { createJobDescriptionReferralLink, rpcFetch } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useJobDescriptionList } from "@/components/features/studio/job-descriptions/use-job-description-list";
-import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -174,13 +173,6 @@ export function JobDescriptionManagementPage({
     },
   });
 
-  function handleJobDescriptionSaved(savedRecord: JobDescriptionRecord) {
-    if (!crud.editingRecord || crud.editingRecord.id === savedRecord.id) {
-      crud.setEditingRecord(savedRecord);
-    }
-    invalidateJobDescriptionData();
-  }
-
   const deepLinkSearch = useSearch({ from: "/w/$slug/studio/job-descriptions" });
   const navigate = useNavigate({ from: "/w/$slug/studio/job-descriptions" });
   const openEditorPage = useCallback(
@@ -207,10 +199,6 @@ export function JobDescriptionManagementPage({
       to: "/w/$slug/studio/job-descriptions/$jobId",
     });
   }, [deepLinkSearch, navigate, slug]);
-
-  function onFormOpenChange(next: boolean) {
-    crud.onFormOpenChange(next);
-  }
 
   async function copyReferralLink(record: JobDescriptionListRecord) {
     setCopyingReferralIds((current) => new Set(current).add(record.id));
@@ -258,10 +246,6 @@ export function JobDescriptionManagementPage({
     toast.success(recruitingStatusSuccessMessage(targetStatus));
     invalidateJobDescriptionData();
   }
-
-  const canOpenEditorDialog = crud.editingRecord
-    ? canUpdateJobDescription
-    : canCreateJobDescription;
 
   const columns = useMemo(
     () => [
@@ -593,7 +577,16 @@ export function JobDescriptionManagementPage({
                   </EmptyHeader>
                   {canCreateJobDescription ? (
                     <EmptyContent className="flex items-center justify-center">
-                      <Button disabled={missingRefs} onClick={() => crud.openCreate()}>
+                      <Button
+                        disabled={missingRefs}
+                        onClick={() => {
+                          queryClient.setQueryData(
+                            ["job-description-create-department", slug],
+                            selectedDepartmentId ?? "",
+                          );
+                          openEditorPage("new");
+                        }}
+                      >
                         <IconPlus className="size-4" />
                         创建在招岗位
                       </Button>
@@ -609,7 +602,13 @@ export function JobDescriptionManagementPage({
                 <Button
                   className="flex-1 sm:flex-none"
                   disabled={missingRefs}
-                  onClick={() => crud.openCreate()}
+                  onClick={() => {
+                    queryClient.setQueryData(
+                      ["job-description-create-department", slug],
+                      selectedDepartmentId ?? "",
+                    );
+                    openEditorPage("new");
+                  }}
                 >
                   <IconPlus className="size-4" />
                   创建在招岗位
@@ -619,19 +618,6 @@ export function JobDescriptionManagementPage({
           />
         </div>
       </div>
-
-      {canOpenEditorDialog ? (
-        <JobDescriptionFormDialog
-          defaultDepartmentId={selectedDepartmentId}
-          departments={departments}
-          interviewers={interviewers}
-          onDepartmentCreated={() => router.invalidate()}
-          onOpenChange={onFormOpenChange}
-          onSaved={handleJobDescriptionSaved}
-          open={crud.formDialogOpen}
-          record={crud.editingRecord}
-        />
-      ) : null}
 
       <EntityDeleteDialog
         confirmDisabled={(record) => record.resumeCount > 0}

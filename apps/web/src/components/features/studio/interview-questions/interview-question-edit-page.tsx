@@ -1,3 +1,4 @@
+import type { InterviewQuestionTemplateInput } from "@app/db-schema/interview-question-templates";
 import type { ComponentProps } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -17,14 +18,16 @@ type ReferenceProps = Pick<
 export function InterviewQuestionEditPage({
   templateId,
   onBack,
+  onCreated,
   jobDescriptions,
-}: ReferenceProps & { templateId: string; onBack: () => void }) {
+}: ReferenceProps & { templateId: string; onBack: () => void; onCreated: (id: string) => void }) {
   const slug = useWorkspaceSlug();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const canEdit = useHasPermission("questionTemplate", "update");
+  const isNew = templateId === "new";
+  const canEdit = useHasPermission("questionTemplate", isNew ? "create" : "update");
   const query = useQuery({
-    enabled: canEdit,
+    enabled: canEdit && !isNew,
     queryFn: () =>
       rpcFetch(
         rpc.api.w[":slug"].studio["interview-questions"][":id"].$get({
@@ -42,9 +45,9 @@ export function InterviewQuestionEditPage({
   let content;
   if (!canEdit) {
     content = <p className="py-8 text-muted-foreground">没有编辑沟通题的权限</p>;
-  } else if (query.isPending) {
+  } else if (!isNew && query.isPending) {
     content = <EditorPageSkeleton />;
-  } else if (query.isError) {
+  } else if (!isNew && query.isError) {
     content = (
       <div role="alert" className="space-y-3">
         <p>加载沟通题失败</p>
@@ -57,12 +60,22 @@ export function InterviewQuestionEditPage({
         </Button>
       </div>
     );
-  } else if (query.data) {
+  } else if (isNew || query.data) {
     content = (
       <InterviewQuestionTemplateEditorDialog
+        key={templateId}
         presentation="page"
+        onCreated={onCreated}
         open
-        record={query.data}
+        record={isNew ? null : (query.data ?? null)}
+        initialDraft={
+          isNew
+            ? queryClient.getQueryData<InterviewQuestionTemplateInput | null>([
+                "interview-question-create-draft",
+                slug,
+              ])
+            : undefined
+        }
         jobDescriptions={jobDescriptions}
         slug={slug}
         onOpenChange={(open) => {
@@ -82,7 +95,7 @@ export function InterviewQuestionEditPage({
   return (
     <>
       <EditorPageHeader label="返回沟通题" onBack={onBack} />
-      {content}
+      <div className="mx-auto w-full max-w-4xl min-w-0">{content}</div>
     </>
   );
 }

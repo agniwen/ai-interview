@@ -36,9 +36,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
-import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { InterviewQuestionTemplateEditorDialog } from "@/components/features/studio/interview-questions/interview-question-template-editor-dialog";
 import { InterviewQuestionTemplateAiCreateDialog } from "@/components/features/studio/interview-questions/interview-question-template-ai-create-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
@@ -138,25 +136,6 @@ export function InterviewQuestionTemplateManagementPage({
   );
   const navigate = useNavigate({ from: "/w/$slug/studio/question-bank/interview-questions" });
   const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
-  const setActiveTemplateId = useCallback(
-    (value: string | null) => {
-      void navigate({
-        replace: true,
-        resetScroll: false,
-        search: (prev: SearchParamsRecord) => {
-          const next = { ...prev };
-          if (value) {
-            next.templateId = value;
-          } else {
-            delete next.templateId;
-          }
-          return next;
-        },
-      });
-    },
-    [navigate],
-  );
-
   const crud = useEntityCrud<InterviewQuestionTemplateListRecord, InterviewQuestionTemplateRecord>({
     deleteEntity: (record) =>
       rpc.api.w[":slug"].studio["interview-questions"][":id"].$delete({
@@ -235,7 +214,6 @@ export function InterviewQuestionTemplateManagementPage({
     }
   }, [refreshRecord, slug]);
 
-  const [createDraft, setCreateDraft] = useState<InterviewQuestionTemplateInput | null>(null);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
   const openEditorPage = useCallback(
@@ -262,14 +240,6 @@ export function InterviewQuestionTemplateManagementPage({
     });
   }, [activeTemplateId, routeSearch, navigate, slug]);
 
-  function onEditorOpenChange(next: boolean) {
-    crud.onFormOpenChange(next);
-    if (!next) {
-      setCreateDraft(null);
-      void setActiveTemplateId(null);
-    }
-  }
-
   function handleAiGenerated({
     jobDescriptionId,
     questions,
@@ -280,15 +250,14 @@ export function InterviewQuestionTemplateManagementPage({
     if (!canCreateQuestionTemplate) {
       return;
     }
-    setCreateDraft({
+    queryClient.setQueryData(["interview-question-create-draft", slug], {
       description: "",
       jobDescriptionIds: [jobDescriptionId],
       questions,
       scope: "job_description",
       title: "",
     });
-    crud.setEditingRecord(null);
-    crud.setFormDialogOpen(true);
+    openEditorPage("new");
   }
 
   const columns = useMemo(
@@ -457,8 +426,8 @@ export function InterviewQuestionTemplateManagementPage({
                   <ButtonGroup>
                     <Button
                       onClick={() => {
-                        setCreateDraft(null);
-                        crud.openCreate();
+                        queryClient.setQueryData(["interview-question-create-draft", slug], null);
+                        openEditorPage("new");
                       }}
                     >
                       <IconPlus className="size-4" />
@@ -486,8 +455,8 @@ export function InterviewQuestionTemplateManagementPage({
                 <Button
                   className="flex-1 sm:flex-none"
                   onClick={() => {
-                    setCreateDraft(null);
-                    crud.openCreate();
+                    queryClient.setQueryData(["interview-question-create-draft", slug], null);
+                    openEditorPage("new");
                   }}
                 >
                   <IconPlus className="size-4" />
@@ -514,21 +483,6 @@ export function InterviewQuestionTemplateManagementPage({
           onGenerated={handleAiGenerated}
           onOpenChange={setAiCreateOpen}
           open={aiCreateOpen}
-        />
-      ) : null}
-
-      {(crud.editingRecord ? canUpdateQuestionTemplate : canCreateQuestionTemplate) ? (
-        <InterviewQuestionTemplateEditorDialog
-          initialDraft={createDraft}
-          jobDescriptions={jobDescriptions}
-          onOpenChange={onEditorOpenChange}
-          onSaved={() => {
-            grid.invalidate();
-            void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
-          }}
-          open={crud.formDialogOpen}
-          record={crud.editingRecord}
-          slug={slug}
         />
       ) : null}
 

@@ -4,6 +4,7 @@ import { createContext, useContext, useState } from "react";
 import type { HTMLAttributes, PropsWithChildren } from "react";
 import { createPortal } from "react-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FloatingBar } from "@/components/ui/floating-bar";
 
 const StudioContentOverlayTargetContext = createContext<HTMLElement | null>(null);
 const ignoreStudioContentOverlayTarget = (target: HTMLElement | null) => {
@@ -29,6 +30,21 @@ export function StudioContentOverlayTarget(props: HTMLAttributes<HTMLDivElement>
   const setTarget = useContext(StudioContentOverlaySetTargetContext);
 
   return <div data-slot="studio-content-overlay-root" {...props} ref={setTarget} />;
+}
+
+/** Page actions stay anchored to the content pane, including masked detail routes. */
+export function StudioPageActions({ children }: PropsWithChildren) {
+  const target = useContext(StudioContentOverlayTargetContext);
+  const content = (
+    <div
+      className={`${target ? "absolute" : "fixed"} pointer-events-none inset-x-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex justify-center`}
+    >
+      <FloatingBar className="flex max-w-full flex-wrap items-center justify-center gap-2 p-1">
+        {children}
+      </FloatingBar>
+    </div>
+  );
+  return target ? createPortal(content, target) : content;
 }
 
 export function StudioContentRouteOverlay({ children }: PropsWithChildren) {

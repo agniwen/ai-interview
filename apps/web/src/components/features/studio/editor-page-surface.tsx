@@ -1,6 +1,7 @@
 import { FloatingBar } from "@/components/ui/floating-bar";
 import type { ModalProps } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StudioPageActions } from "./studio-content-route-overlay";
 
 /** Page presentation for existing editors; form state and submission stay in their owning feature. */
 export function EditorPageSurface({
@@ -19,17 +20,17 @@ export function EditorPageSurface({
           : "mx-auto flex w-full max-w-[96rem] flex-col gap-6 pb-20"
       }
     >
-      <div className="sticky top-[var(--header-height)] z-10 space-y-4 bg-background py-3">
+      <div className="space-y-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <h1 className="text-2xl font-medium">{title}</h1>
             {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2">{footer}</div>
         </div>
         {headerExtra}
       </div>
       {children}
+      {footer ? <StudioPageActions>{footer}</StudioPageActions> : null}
     </section>
   );
 }

@@ -17,15 +17,17 @@ type ReferenceProps = Pick<
 export function JobDescriptionEditPage({
   jobId,
   onBack,
+  onCreated,
   departments,
   interviewers,
-}: ReferenceProps & { jobId: string; onBack: () => void }) {
+}: ReferenceProps & { jobId: string; onBack: () => void; onCreated: (id: string) => void }) {
   const slug = useWorkspaceSlug();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const canEdit = useHasPermission("jd", "update");
+  const isNew = jobId === "new";
+  const canEdit = useHasPermission("jd", isNew ? "create" : "update");
   const query = useQuery({
-    enabled: canEdit,
+    enabled: canEdit && !isNew,
     queryFn: () =>
       rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({ param: { id: jobId, slug } }),
@@ -41,9 +43,9 @@ export function JobDescriptionEditPage({
   let content;
   if (!canEdit) {
     content = <p className="py-8 text-muted-foreground">没有编辑岗位的权限</p>;
-  } else if (query.isPending) {
+  } else if (!isNew && query.isPending) {
     content = <EditorPageSkeleton />;
-  } else if (query.isError) {
+  } else if (!isNew && query.isError) {
     content = (
       <div role="alert" className="space-y-3">
         <p>加载岗位失败</p>
@@ -56,12 +58,19 @@ export function JobDescriptionEditPage({
         </Button>
       </div>
     );
-  } else if (query.data) {
+  } else if (isNew || query.data) {
     content = (
       <JobDescriptionFormDialog
+        key={jobId}
         presentation="page"
+        onCreated={onCreated}
         open
-        record={query.data}
+        record={isNew ? null : (query.data ?? null)}
+        defaultDepartmentId={
+          isNew
+            ? queryClient.getQueryData<string>(["job-description-create-department", slug])
+            : undefined
+        }
         departments={departments}
         interviewers={interviewers}
         onDepartmentCreated={() => router.invalidate()}
@@ -82,7 +91,7 @@ export function JobDescriptionEditPage({
   return (
     <>
       <EditorPageHeader label="返回岗位" onBack={onBack} />
-      {content}
+      <div className="mx-auto w-full max-w-4xl min-w-0">{content}</div>
     </>
   );
 }

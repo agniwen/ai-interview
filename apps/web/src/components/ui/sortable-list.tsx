@@ -23,7 +23,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import { memo, useCallback, useState } from "react";
+import { createContext, memo, useCallback, useContext, useState } from "react";
 import { cn } from "@app/shared/utils";
 
 /**
@@ -36,6 +36,8 @@ import { cn } from "@app/shared/utils";
  * drag-handle props via {@link SortableDragHandle}. Listeners are scoped to
  * the handle (not the whole row), so inputs inside a row stay interactive.
  */
+
+const DragPreviewContext = createContext(false);
 
 const SCREEN_READER_INSTRUCTIONS: ScreenReaderInstructions = {
   draggable: "按空格或回车开始拖动。移动时使用方向键，完成按空格/回车，取消按 Esc。",
@@ -143,7 +145,9 @@ export function SortableList({
       sensors={sensors}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <div className={cn("space-y-2", className)}>{children}</div>
+        <DragPreviewContext.Provider value={Boolean(renderOverlay)}>
+          <div className={cn("relative isolate space-y-2", className)}>{children}</div>
+        </DragPreviewContext.Provider>
       </SortableContext>
       {renderOverlay ? (
         <DragOverlay dropAnimation={DROP_ANIMATION}>
@@ -179,6 +183,7 @@ interface SortableItemProps {
 }
 
 function SortableItemImpl({ id, disabled, className, children }: SortableItemProps) {
+  const hasDragPreview = useContext(DragPreviewContext);
   const {
     setNodeRef,
     setActivatorNodeRef,
@@ -192,10 +197,11 @@ function SortableItemImpl({ id, disabled, className, children }: SortableItemPro
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     transition,
-    // While dragging, keep the row in layout but fade it — the overlay (if
-    // any) shows the moving copy. Without a visual cue users lose track of
-    // the source row.
-    opacity: isDragging ? 0.4 : undefined,
+    // Transformed siblings create stacking contexts; raise the moving row.
+    position: "relative",
+    zIndex: isDragging ? 1 : undefined,
+    // Only fade the source when a separate overlay renders its moving copy.
+    opacity: isDragging && hasDragPreview ? 0.4 : undefined,
   };
 
   const handleProps: SortableItemRenderArgs["handleProps"] = {

@@ -33,8 +33,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
-import { env } from "@/env/client";
-import { FollowUpContractHoverCard } from "./follow-up-contract-hover-card";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -86,7 +84,7 @@ export function InterviewQuestionTemplateEditorDialog({
   record,
   jobDescriptions,
   onSaved,
-  showDeveloperDetails = env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
+  onCreated,
   slug,
 }: {
   presentation?: "dialog" | "page";
@@ -96,7 +94,7 @@ export function InterviewQuestionTemplateEditorDialog({
   record: InterviewQuestionTemplateRecord | null;
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
-  showDeveloperDetails?: boolean;
+  onCreated?: (id: string) => void;
   slug: string;
 }) {
   const Surface = presentation === "page" ? EditorPageSurface : Modal;
@@ -138,7 +136,8 @@ export function InterviewQuestionTemplateEditorDialog({
             json: body,
             param: { slug },
           });
-      const payload = errorPayloadSchema.safeParse(await response.json().catch(() => null));
+      const result: unknown = await response.json().catch(() => null);
+      const payload = errorPayloadSchema.safeParse(result);
       if (!response.ok) {
         toast.error(
           (payload.success ? payload.data.error : undefined) ?? (isEdit ? "更新失败" : "创建失败"),
@@ -147,7 +146,12 @@ export function InterviewQuestionTemplateEditorDialog({
       }
       toast.success(isEdit ? "沟通题已更新" : "已创建沟通题");
       onSaved();
-      onOpenChange(false);
+      if (!isEdit && onCreated) {
+        const saved = z.object({ id: z.string() }).parse(result);
+        onCreated(saved.id);
+      } else {
+        onOpenChange(false);
+      }
     },
     validators: { onSubmit: interviewQuestionTemplateSchema },
   });
@@ -179,7 +183,7 @@ export function InterviewQuestionTemplateEditorDialog({
           </Button>
           <Button disabled={isSubmitting} form="interview-question-template-form" type="submit">
             {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-            {isEdit ? "保存" : "创建"}
+            {isEdit || presentation === "page" ? "保存" : "创建"}
           </Button>
         </>
       }
@@ -192,17 +196,11 @@ export function InterviewQuestionTemplateEditorDialog({
           void form.handleSubmit();
         }}
       >
-        <div
-          className={
-            presentation === "page"
-              ? "grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[24rem_minmax(0,1fr)]"
-              : "space-y-6"
-          }
-        >
+        <div className="min-w-0 space-y-6">
           <FieldGroup
             className={
               presentation === "page"
-                ? "gap-5 rounded-xl bg-background p-5 shadow-default"
+                ? "gap-5 rounded-xl bg-card text-card-foreground p-5 shadow-default"
                 : "gap-5"
             }
           >
@@ -262,7 +260,13 @@ export function InterviewQuestionTemplateEditorDialog({
               }}
             </form.Field>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div
+              className={
+                presentation === "page"
+                  ? "flex min-w-0 flex-col gap-5"
+                  : "grid gap-5 md:grid-cols-2"
+              }
+            >
               <form.Field name="scope">
                 {(field) => (
                   <Field>
@@ -338,6 +342,7 @@ export function InterviewQuestionTemplateEditorDialog({
               </form.Subscribe>
             </div>
             <SortableQuestionListEditor
+              collapsible={presentation === "page"}
               arrayFieldName="questions"
               contentFieldName="content"
               contentMaxLength={QUESTION_MAX_LENGTH}
@@ -351,23 +356,6 @@ export function InterviewQuestionTemplateEditorDialog({
                 sortOrder: sortIndex,
               })}
               form={form}
-              renderHeaderAccessory={(question, index) => {
-                const savedQuestion = record?.questions.find(
-                  (recordQuestion) => recordQuestion.id === question.id,
-                );
-                if (
-                  !showDeveloperDetails ||
-                  !question.id ||
-                  (!savedQuestion?.evaluationFocus?.trim() &&
-                    !savedQuestion?.followUpDirections?.trim())
-                ) {
-                  return null;
-                }
-                const contract = savedQuestion.followUpContract;
-                return contract ? (
-                  <FollowUpContractHoverCard contract={contract} questionNumber={index + 1} />
-                ) : null;
-              }}
               resetKey={record?.id ?? "new"}
             />
             <FieldError errors={questionListErrors} />

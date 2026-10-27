@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { StudioPageActions } from "@/components/features/studio/studio-content-route-overlay";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { rpcFetch } from "@/lib/client/api";
 import { approvalApi, approvalKeys } from "./queries";
@@ -109,13 +110,6 @@ function TemplateEditorForm({
                 <h1 className="text-sm font-semibold">
                   {templateId ? "编辑审批模板" : "新建审批模板"}
                 </h1>
-                <Button
-                  size="sm"
-                  disabled={!valid || save.isPending}
-                  onClick={() => save.mutate(draft)}
-                >
-                  {save.isPending ? "保存中…" : "保存模板"}
-                </Button>
               </div>
             }
             settings={
@@ -158,6 +152,11 @@ function TemplateEditorForm({
           />
         </Suspense>
       </section>
+      <StudioPageActions>
+        <Button size="sm" disabled={!valid || save.isPending} onClick={() => save.mutate(draft)}>
+          {save.isPending ? "保存中…" : "保存模板"}
+        </Button>
+      </StudioPageActions>
       <AlertDialog
         open={blocker.status === "blocked"}
         onOpenChange={(open) => {

@@ -33,6 +33,14 @@ function EditorRoute() {
     <InterviewQuestionEditPage
       templateId={templateId}
       onBack={onBack}
+      onCreated={(id) => {
+        void navigate({
+          to: "/w/$slug/studio/question-bank/interview-questions/overlay/$templateId",
+          params: { slug, templateId: id },
+          search,
+          replace: true,
+        });
+      }}
       jobDescriptions={state.jobDescriptions}
     />
   );
@@ -42,6 +50,10 @@ export const Route = createFileRoute(
   "/w/$slug/studio/question-bank/interview-questions/overlay/$templateId",
 )({
   validateSearch: coerceSearchParams,
-  head: () => ({ meta: [{ title: formatDocumentTitle("编辑沟通题") }] }),
+  head: ({ params }) => ({
+    meta: [
+      { title: formatDocumentTitle(params.templateId === "new" ? "新建沟通题" : "编辑沟通题") },
+    ],
+  }),
   component: EditorRoute,
 });

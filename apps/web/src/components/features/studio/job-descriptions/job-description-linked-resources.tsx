@@ -44,15 +44,15 @@ export function LinkedFormsList({
       </div>
 
       {isLoading ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <Card className="gap-0 overflow-hidden rounded-xl py-0">
+          <CardContent className="px-4 py-6 text-center text-muted-foreground text-sm">
             正在加载关联表单…
           </CardContent>
         </Card>
       ) : null}
       {!isLoading && templates.length === 0 ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <Card className="gap-0 overflow-hidden rounded-xl py-0">
+          <CardContent className="px-4 py-6 text-center text-muted-foreground text-sm">
             暂无该岗位专属的表单题。
           </CardContent>
         </Card>
@@ -60,10 +60,10 @@ export function LinkedFormsList({
       {!isLoading && templates.length > 0 ? (
         <div className="flex flex-col gap-2">
           {templates.map((template) => (
-            <Card className="gap-0 rounded-xl py-0" key={template.id}>
+            <Card className="gap-0 overflow-hidden rounded-xl py-0" key={template.id}>
               <CardContent className="p-0">
                 <a
-                  className="flex items-start justify-between gap-3 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+                  className="flex items-start justify-between gap-3 p-3 transition-colors hover:bg-muted/40"
                   href={`/w/${slug}/studio/question-bank/forms?templateId=${template.id}`}
                   target="_blank"
                   rel="noreferrer"
@@ -128,15 +128,15 @@ export function LinkedInterviewQuestionTemplatesList({
       </div>
 
       {isLoading ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <Card className="gap-0 overflow-hidden rounded-xl py-0">
+          <CardContent className="px-4 py-6 text-center text-muted-foreground text-sm">
             正在加载关联模版…
           </CardContent>
         </Card>
       ) : null}
       {!isLoading && templates.length === 0 ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <Card className="gap-0 overflow-hidden rounded-xl py-0">
+          <CardContent className="px-4 py-6 text-center text-muted-foreground text-sm">
             暂无该岗位专属的沟通题。
           </CardContent>
         </Card>
@@ -144,10 +144,10 @@ export function LinkedInterviewQuestionTemplatesList({
       {!isLoading && templates.length > 0 ? (
         <div className="flex flex-col gap-2">
           {templates.map((template) => (
-            <Card className="gap-0 rounded-xl py-0" key={template.id}>
+            <Card className="gap-0 overflow-hidden rounded-xl py-0" key={template.id}>
               <CardContent className="p-0">
                 <a
-                  className="flex items-start justify-between gap-3 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+                  className="flex items-start justify-between gap-3 p-3 transition-colors hover:bg-muted/40"
                   href={`/w/${slug}/studio/question-bank/interview-questions?templateId=${template.id}`}
                   target="_blank"
                   rel="noreferrer"

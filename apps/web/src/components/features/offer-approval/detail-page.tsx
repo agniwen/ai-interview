@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { offerApprovalLabels } from "@app/shared/offer-approval";
+import { StudioPageActions } from "@/components/features/studio/studio-content-route-overlay";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -150,7 +151,7 @@ export function OfferApprovalDetailPage({
   const showApprovalRecords =
     approval.canManage && (approval.notifications.length > 0 || previousApprovals.length > 0);
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-5">
+    <section className="mx-auto w-full max-w-5xl space-y-5 pb-24">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button
@@ -247,18 +248,6 @@ export function OfferApprovalDetailPage({
               <p className="text-xs text-muted-foreground">
                 当前处理：第 {current.position + 1} 节点
               </p>
-              <div className="flex gap-2">
-                <Button
-                  disabled={decision.isPending || !comment.trim()}
-                  onClick={() => decision.mutate("rejected")}
-                  variant="outline"
-                >
-                  驳回
-                </Button>
-                <Button disabled={decision.isPending} onClick={() => decision.mutate("approved")}>
-                  {decision.isPending ? "处理中…" : "通过"}
-                </Button>
-              </div>
             </div>
           </div>
         ) : null}
@@ -268,9 +257,6 @@ export function OfferApprovalDetailPage({
             <p className="text-sm text-muted-foreground">
               当前等待 {current?.approverName ?? "审批人"} 处理。
             </p>
-            <Button disabled={remind.isPending} onClick={() => remind.mutate()} variant="outline">
-              {remind.isPending ? "催办中…" : "催办当前审批人"}
-            </Button>
           </div>
         ) : null}
       </section>
@@ -352,6 +338,29 @@ export function OfferApprovalDetailPage({
             </AccordionItem>
           </Accordion>
         </section>
+      ) : null}
+      {canDecide || canRemind ? (
+        <StudioPageActions>
+          {canDecide ? (
+            <div className="flex gap-2">
+              <Button
+                disabled={decision.isPending || !comment.trim()}
+                onClick={() => decision.mutate("rejected")}
+                variant="outline"
+              >
+                驳回
+              </Button>
+              <Button disabled={decision.isPending} onClick={() => decision.mutate("approved")}>
+                {decision.isPending ? "处理中…" : "通过"}
+              </Button>
+            </div>
+          ) : null}
+          {canRemind ? (
+            <Button disabled={remind.isPending} onClick={() => remind.mutate()} variant="outline">
+              {remind.isPending ? "催办中…" : "催办当前审批人"}
+            </Button>
+          ) : null}
+        </StudioPageActions>
       ) : null}
     </section>
   );

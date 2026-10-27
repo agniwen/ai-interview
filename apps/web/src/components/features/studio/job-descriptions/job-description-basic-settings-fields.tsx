@@ -67,7 +67,7 @@ export function JobDescriptionBasicSettingsFields({
   selectedInterviewerIds: string[];
 }) {
   return (
-    <div className="divide-y divide-border/50 overflow-hidden rounded-xl bg-background shadow-default">
+    <div className="divide-y divide-border/50 overflow-hidden rounded-xl bg-card text-card-foreground shadow-default">
       <form.Field name="name">
         {(field) => {
           const errors = toFieldErrors(field.state.meta.errors);

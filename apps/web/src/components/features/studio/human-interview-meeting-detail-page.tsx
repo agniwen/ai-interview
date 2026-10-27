@@ -11,6 +11,7 @@ import type { HumanInterviewMeetingDetail } from "@app/shared/human-interview-me
 import { fetchHumanInterviewMeetingDetail } from "@/lib/client/api/endpoints/human-interview-meeting-detail";
 import { humanInterviewKeys } from "@/lib/client/api/query-keys";
 import { isApiError } from "@/lib/client/api";
+import { StudioPageActions } from "./studio-content-route-overlay";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
@@ -163,6 +164,7 @@ export function HumanInterviewMeetingDetailContent({
 }) {
   return (
     <>
+      {refreshAction ? <StudioPageActions>{refreshAction}</StudioPageActions> : null}
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold wrap-anywhere">面试详情 · {detail.candidateName}</h1>
@@ -171,7 +173,6 @@ export function HumanInterviewMeetingDetailContent({
         <Frame>
           <FrameHeader className="h-auto min-h-11 flex-wrap justify-between gap-2 py-2">
             <FrameTitle>{detail.roundLabel}</FrameTitle>
-            {refreshAction}
           </FrameHeader>
           <FramePanel>
             <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -371,6 +372,8 @@ export function HumanInterviewMeetingDetailPage(input: {
     );
   }
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-[96rem] flex-col gap-6 pb-6">{content}</main>
+    <main className="mx-auto flex w-full min-w-0 max-w-[96rem] flex-col gap-6 pb-24">
+      {content}
+    </main>
   );
 }

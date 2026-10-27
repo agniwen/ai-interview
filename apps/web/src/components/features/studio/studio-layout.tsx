@@ -49,7 +49,7 @@ export function StudioLayout({ children }: { children: ReactNode }) {
                   </>
                 ) : (
                   <ScrollArea
-                    className="min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
+                    className="min-h-0 flex-1 bg-background"
                     scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
                   >
                     <SiteHeader className="left-0" />

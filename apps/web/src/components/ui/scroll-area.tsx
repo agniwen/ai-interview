@@ -109,7 +109,7 @@ function ScrollArea({
 
   return (
     <OverlayScrollbarsComponent
-      className={cn("relative", className)}
+      className={cn("relative isolate [&>.os-scrollbar]:z-20", className)}
       data-slot="scroll-area"
       defer
       element="div"
