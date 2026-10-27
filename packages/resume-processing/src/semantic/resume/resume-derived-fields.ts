@@ -1,10 +1,12 @@
-import { and, asc, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import type { HumanInterviewStageProgress, ResumeStageProgress } from "@app/shared/studio-resumes";
 import { db } from "../../database";
 import {
   aiInterviewConversation,
   humanInterviewRound,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
   aiInterviewRound,
   recruitingOffer,
 } from "@app/db-schema/schema";
@@ -54,7 +56,7 @@ export async function loadResumeStageProgress(
     return result;
   }
 
-  const [aiRows, humanRows, offerRows, lastInterviewRows] = await Promise.all([
+  const [aiRows, humanRows, offerRows, lastInterviewRows, meetingRows] = await Promise.all([
     db
       .select({
         interviewRecordId: aiInterviewRound.recruitingRecordId,
@@ -67,6 +69,7 @@ export async function loadResumeStageProgress(
       .orderBy(asc(aiInterviewRound.recruitingRecordId), asc(aiInterviewRound.sortOrder)),
     db
       .select({
+        evaluationSubmittedAt: humanInterviewRound.evaluationSubmittedAt,
         feedback: humanInterviewRound.feedback,
         id: humanInterviewRound.id,
         interviewRecordId: humanInterviewRound.recruitingRecordId,
@@ -108,6 +111,26 @@ export async function loadResumeStageProgress(
         ),
       )
       .groupBy(aiInterviewConversation.recruitingRecordId),
+    db
+      .selectDistinctOn([humanInterviewMeetingRound.roundId], {
+        roundId: humanInterviewMeetingRound.roundId,
+        status: humanInterviewMeeting.status,
+      })
+      .from(humanInterviewMeetingRound)
+      .innerJoin(
+        humanInterviewMeeting,
+        eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
+      )
+      .innerJoin(
+        humanInterviewRound,
+        eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
+      )
+      .where(inArray(humanInterviewRound.recruitingRecordId, ids))
+      .orderBy(
+        humanInterviewMeetingRound.roundId,
+        desc(humanInterviewMeeting.createdAt),
+        desc(humanInterviewMeeting.id),
+      ),
   ]);
 
   const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();
@@ -136,6 +159,8 @@ export async function loadResumeStageProgress(
     };
   }
 
+  const meetingStatusByRound = new Map(meetingRows.map((row) => [row.roundId, row.status]));
+
   type HumanRow = (typeof humanRows)[number];
   const summarizeHumanRows = (rows: HumanRow[]): HumanInterviewStageProgress | null => {
     const countedRows = rows.filter((row) => row.status !== "cancelled");
@@ -146,6 +171,9 @@ export async function loadResumeStageProgress(
     return {
       activeRound: activeRound
         ? {
+            awaitingEvaluation:
+              meetingStatusByRound.get(activeRound.id) === "ended" &&
+              !activeRound.evaluationSubmittedAt,
             id: activeRound.id,
             label: activeRound.label,
             outcome: activeRound.outcome,

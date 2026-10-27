@@ -80,6 +80,8 @@ export interface HumanInterviewStageProgress {
     label: string;
     status: HumanInterviewRoundStatus;
     outcome: HumanInterviewRoundOutcome | null;
+    /** 最新会议已结束，但本轮评价尚未提交。 */
+    awaitingEvaluation?: boolean;
     scheduledAt: string | null;
   } | null;
 }
@@ -392,9 +394,10 @@ function describeHumanInterview(p: HumanInterviewProgress | null): Description {
     };
   }
   const roundIndex = p.activeRound.sortOrder + 1;
-  // 真人复面没有 in_progress 实时态，只有「已安排 / 待安排」两种 pending 子态。
-  // Human interview has no live in_progress; pending = scheduled or unscheduled.
-  const subLabel = p.activeRound.scheduledAt ? "已安排" : "待安排";
+  let subLabel = p.activeRound.scheduledAt ? "已安排" : "待安排";
+  if (p.activeRound.awaitingEvaluation) {
+    subLabel = "已面试 · 待评价";
+  }
   return {
     label: `真人复面 · 第 ${roundIndex}/${p.totalRounds} 轮（${p.activeRound.label}）· ${subLabel}`,
     tone: "info",

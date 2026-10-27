@@ -6,6 +6,8 @@ import { db } from "../../../../../infrastructure/db/index";
 import {
   aiInterviewConversation,
   humanInterviewRound,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
   aiInterviewRound,
   recruitingOffer,
   recruitingInitialInterview,
@@ -57,76 +59,98 @@ export async function loadResumeStageProgress(
     return result;
   }
 
-  const [aiRows, humanRows, offerRows, lastInterviewRows, initialRows] = await Promise.all([
-    db
-      .select({
-        interviewRecordId: aiInterviewRound.recruitingRecordId,
-        roundLabel: aiInterviewRound.roundLabel,
-        sortOrder: aiInterviewRound.sortOrder,
-        status: aiInterviewRound.status,
-      })
-      .from(aiInterviewRound)
-      .where(inArray(aiInterviewRound.recruitingRecordId, ids))
-      .orderBy(asc(aiInterviewRound.recruitingRecordId), asc(aiInterviewRound.sortOrder)),
-    db
-      .select({
-        feedback: humanInterviewRound.feedback,
-        id: humanInterviewRound.id,
-        interviewRecordId: humanInterviewRound.recruitingRecordId,
-        label: humanInterviewRound.label,
-        outcome: humanInterviewRound.outcome,
-        roundKind: humanInterviewRound.roundKind,
-        scheduledAt: humanInterviewRound.scheduledAt,
-        sortOrder: humanInterviewRound.sortOrder,
-        status: humanInterviewRound.status,
-      })
-      .from(humanInterviewRound)
-      .where(inArray(humanInterviewRound.recruitingRecordId, ids))
-      .orderBy(asc(humanInterviewRound.recruitingRecordId), asc(humanInterviewRound.sortOrder)),
-    db
-      .select({
-        id: recruitingOffer.id,
-        interviewRecordId: recruitingOffer.recruitingRecordId,
-        responseAt: recruitingOffer.responseAt,
-        sentAt: recruitingOffer.sentAt,
-        status: recruitingOffer.status,
-        version: recruitingOffer.version,
-      })
-      .from(recruitingOffer)
-      .where(inArray(recruitingOffer.recruitingRecordId, ids))
-      .orderBy(asc(recruitingOffer.recruitingRecordId), asc(recruitingOffer.version)),
-    db
-      .select({
-        interviewRecordId: aiInterviewConversation.recruitingRecordId,
-        lastInterviewAt:
-          sql<Date | null>`MAX(COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}))`.as(
-            "last_interview_at",
+  const [aiRows, humanRows, offerRows, lastInterviewRows, initialRows, meetingRows] =
+    await Promise.all([
+      db
+        .select({
+          interviewRecordId: aiInterviewRound.recruitingRecordId,
+          roundLabel: aiInterviewRound.roundLabel,
+          sortOrder: aiInterviewRound.sortOrder,
+          status: aiInterviewRound.status,
+        })
+        .from(aiInterviewRound)
+        .where(inArray(aiInterviewRound.recruitingRecordId, ids))
+        .orderBy(asc(aiInterviewRound.recruitingRecordId), asc(aiInterviewRound.sortOrder)),
+      db
+        .select({
+          evaluationSubmittedAt: humanInterviewRound.evaluationSubmittedAt,
+          feedback: humanInterviewRound.feedback,
+          id: humanInterviewRound.id,
+          interviewRecordId: humanInterviewRound.recruitingRecordId,
+          label: humanInterviewRound.label,
+          outcome: humanInterviewRound.outcome,
+          roundKind: humanInterviewRound.roundKind,
+          scheduledAt: humanInterviewRound.scheduledAt,
+          sortOrder: humanInterviewRound.sortOrder,
+          status: humanInterviewRound.status,
+        })
+        .from(humanInterviewRound)
+        .where(inArray(humanInterviewRound.recruitingRecordId, ids))
+        .orderBy(asc(humanInterviewRound.recruitingRecordId), asc(humanInterviewRound.sortOrder)),
+      db
+        .select({
+          id: recruitingOffer.id,
+          interviewRecordId: recruitingOffer.recruitingRecordId,
+          responseAt: recruitingOffer.responseAt,
+          sentAt: recruitingOffer.sentAt,
+          status: recruitingOffer.status,
+          version: recruitingOffer.version,
+        })
+        .from(recruitingOffer)
+        .where(inArray(recruitingOffer.recruitingRecordId, ids))
+        .orderBy(asc(recruitingOffer.recruitingRecordId), asc(recruitingOffer.version)),
+      db
+        .select({
+          interviewRecordId: aiInterviewConversation.recruitingRecordId,
+          lastInterviewAt:
+            sql<Date | null>`MAX(COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}))`.as(
+              "last_interview_at",
+            ),
+        })
+        .from(aiInterviewConversation)
+        .where(
+          and(
+            inArray(aiInterviewConversation.recruitingRecordId, ids),
+            inArray(aiInterviewConversation.status, ["completed", "done"]),
           ),
-      })
-      .from(aiInterviewConversation)
-      .where(
-        and(
-          inArray(aiInterviewConversation.recruitingRecordId, ids),
-          inArray(aiInterviewConversation.status, ["completed", "done"]),
+        )
+        .groupBy(aiInterviewConversation.recruitingRecordId),
+      db
+        .select({
+          id: recruitingInitialInterviewVersion.id,
+          recordedAt: sql<string>`${recruitingInitialInterview.snapshot}->>'recordedAt'`,
+          recruitingRecordId: recruitingInitialInterviewVersion.recruitingRecordId,
+          snapshotId: recruitingInitialInterviewVersion.initialInterviewId,
+          status: recruitingInitialInterviewVersion.status,
+        })
+        .from(recruitingInitialInterviewVersion)
+        .innerJoin(
+          recruitingInitialInterview,
+          eq(recruitingInitialInterview.id, recruitingInitialInterviewVersion.initialInterviewId),
+        )
+        .where(inArray(recruitingInitialInterviewVersion.recruitingRecordId, ids))
+        .orderBy(desc(recruitingInitialInterviewVersion.createdAt)),
+      db
+        .selectDistinctOn([humanInterviewMeetingRound.roundId], {
+          roundId: humanInterviewMeetingRound.roundId,
+          status: humanInterviewMeeting.status,
+        })
+        .from(humanInterviewMeetingRound)
+        .innerJoin(
+          humanInterviewMeeting,
+          eq(humanInterviewMeeting.id, humanInterviewMeetingRound.meetingId),
+        )
+        .innerJoin(
+          humanInterviewRound,
+          eq(humanInterviewRound.id, humanInterviewMeetingRound.roundId),
+        )
+        .where(inArray(humanInterviewRound.recruitingRecordId, ids))
+        .orderBy(
+          humanInterviewMeetingRound.roundId,
+          desc(humanInterviewMeeting.createdAt),
+          desc(humanInterviewMeeting.id),
         ),
-      )
-      .groupBy(aiInterviewConversation.recruitingRecordId),
-    db
-      .select({
-        id: recruitingInitialInterviewVersion.id,
-        recordedAt: sql<string>`${recruitingInitialInterview.snapshot}->>'recordedAt'`,
-        recruitingRecordId: recruitingInitialInterviewVersion.recruitingRecordId,
-        snapshotId: recruitingInitialInterviewVersion.initialInterviewId,
-        status: recruitingInitialInterviewVersion.status,
-      })
-      .from(recruitingInitialInterviewVersion)
-      .innerJoin(
-        recruitingInitialInterview,
-        eq(recruitingInitialInterview.id, recruitingInitialInterviewVersion.initialInterviewId),
-      )
-      .where(inArray(recruitingInitialInterviewVersion.recruitingRecordId, ids))
-      .orderBy(desc(recruitingInitialInterviewVersion.createdAt)),
-  ]);
+    ]);
 
   const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();
   for (const row of aiRows) {
@@ -154,6 +178,8 @@ export async function loadResumeStageProgress(
     };
   }
 
+  const meetingStatusByRound = new Map(meetingRows.map((row) => [row.roundId, row.status]));
+
   type HumanRow = (typeof humanRows)[number];
   const summarizeHumanRows = (rows: HumanRow[]): HumanInterviewStageProgress | null => {
     const countedRows = rows.filter((row) => row.status !== "cancelled");
@@ -164,6 +190,9 @@ export async function loadResumeStageProgress(
     return {
       activeRound: activeRound
         ? {
+            awaitingEvaluation:
+              meetingStatusByRound.get(activeRound.id) === "ended" &&
+              !activeRound.evaluationSubmittedAt,
             id: activeRound.id,
             label: activeRound.label,
             outcome: activeRound.outcome,

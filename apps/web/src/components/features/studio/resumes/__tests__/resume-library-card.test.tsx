@@ -72,6 +72,64 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
+  it.each(["second_interview", "final_interview"] as const)(
+    "distinguishes ended meetings awaiting evaluation from scheduled meetings in %s",
+    (stage) => {
+      const noop = vi.fn();
+      for (const awaitingEvaluation of [true, false, undefined]) {
+        const content = renderWithQueryClient(
+          <ResumeLibraryCard
+            canCreateInterview
+            canDeleteResumeLibrary={false}
+            canForceReparse={false}
+            canRetryResumeParse={false}
+            canUpdateResumeLibrary
+            currentMemberRole="member"
+            currentUserId="user-1"
+            onCopyDetailLink={noop}
+            onDelete={noop}
+            onEdit={noop}
+            onForceReparse={noop}
+            onLaunchInterview={noop}
+            onOpenDetail={noop}
+            onPreviewResume={noop}
+            onRetryParse={noop}
+            onSelectChange={noop}
+            onShowDuplicateMatches={noop}
+            onTransition={noop}
+            record={{
+              ...record,
+              pipelineStage: stage,
+              stageProgress: {
+                ...record.stageProgress,
+                humanInterview: {
+                  activeRound: {
+                    awaitingEvaluation,
+                    id: "round-1",
+                    label: "业务面试",
+                    outcome: null,
+                    scheduledAt: "2026-10-27T07:00:00.000Z",
+                    sortOrder: 0,
+                    status: "pending",
+                  },
+                  completedRounds: 0,
+                  completedRoundsMissingFeedback: 0,
+                  failedRounds: 0,
+                  passedRounds: 0,
+                  totalRounds: 1,
+                },
+              },
+            }}
+            retrying={false}
+            selected={false}
+          />,
+        );
+        expect(content.includes("已面试 · 待评价")).toBe(awaitingEvaluation === true);
+        expect(content.includes("已安排")).toBe(awaitingEvaluation !== true);
+      }
+    },
+  );
+
   it.each([null, "fail", "pass"] as const)(
     "only exposes AI launch after manual screening passes (%s)",
     (resumeEvaluationStatus) => {

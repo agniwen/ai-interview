@@ -119,6 +119,9 @@ function describeCompactHumanLifecycle(
   }
 
   const current = progress.activeRound.sortOrder + 1;
+  if (progress.activeRound.awaitingEvaluation) {
+    return `${current}/${progress.totalRounds} 已面试 · 待评价`;
+  }
   if (progress.activeRound.scheduledAt) {
     return `${current}/${progress.totalRounds} 已安排`;
   }
