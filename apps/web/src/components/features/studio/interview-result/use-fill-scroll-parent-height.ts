@@ -6,7 +6,7 @@ function findScrollParent(node: HTMLElement): HTMLElement | null {
   let parent = node.parentElement;
   while (parent) {
     const { overflowY } = getComputedStyle(parent);
-    if (overflowY === "auto" || overflowY === "scroll") {
+    if (overflowY === "auto" || overflowY === "scroll" || parent.dataset.slot === "scroll-area") {
       return parent;
     }
     parent = parent.parentElement;
@@ -36,10 +36,15 @@ export function useFillScrollParentHeight(active: boolean) {
       const update = () => {
         // 按滚动到顶部时的位置计算，切换页签前的滚动距离不影响结果。
         // Measured as if scrolled to the top, so a prior scroll offset does not skew it.
+        // OverlayScrollbars initializes after mount; its root is available before the viewport.
+        const viewport =
+          scroller.dataset.slot === "scroll-area"
+            ? (scroller.querySelector<HTMLElement>("[data-overlayscrollbars-viewport]") ?? scroller)
+            : scroller;
         const offsetTop =
           node.getBoundingClientRect().top -
           scroller.getBoundingClientRect().top +
-          scroller.scrollTop;
+          viewport.scrollTop;
         const paddingBottom = Number.parseFloat(getComputedStyle(scroller).paddingBottom);
         const available = scroller.clientHeight - offsetTop - paddingBottom;
         setHeight(Math.max(MIN_FILL_HEIGHT, Math.floor(available)));

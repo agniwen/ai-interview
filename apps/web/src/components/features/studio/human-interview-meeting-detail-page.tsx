@@ -5,7 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useFillScrollParentHeight } from "./interview-result/use-fill-scroll-parent-height";
 import { useStudioHeaderOverride } from "./studio-header-context";
 import type { HumanInterviewMeetingDetail } from "@app/shared/human-interview-meeting-detail";
 import { fetchHumanInterviewMeetingDetail } from "@/lib/client/api/endpoints/human-interview-meeting-detail";
@@ -58,15 +60,18 @@ function evaluationEmptyMessage(status: HumanInterviewMeetingDetail["evaluationS
 
 export function HumanInterviewMeetingTranscript({
   detail,
+  scrollable = false,
 }: {
   detail: HumanInterviewMeetingDetail;
+  scrollable?: boolean;
 }) {
+  const ConversationArea = scrollable ? ScrollArea : "div";
   return (
     <>
       {detail.recordingNotice ? <Notice>{detail.recordingNotice}</Notice> : null}
       {detail.transcriptNotice ? <Notice>{detail.transcriptNotice}</Notice> : null}
       {detail.transcript ? (
-        <section className="flex min-h-0 flex-col gap-3">
+        <section className={cn("flex min-h-0 flex-col gap-3", scrollable && "flex-1")}>
           <header className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-medium text-sm">对话记录</h2>
             <span className="text-xs text-muted-foreground">
@@ -74,7 +79,10 @@ export function HumanInterviewMeetingTranscript({
               {detail.transcriptBasis === "evaluation" ? " · 评价对应转录" : ""}
             </span>
           </header>
-          <div>
+          <ConversationArea
+            className={scrollable ? "min-h-0 flex-1" : undefined}
+            {...(scrollable ? { scrollFade: true } : {})}
+          >
             {detail.transcript.turns.length === 0 ? (
               <Empty>
                 <EmptyHeader>
@@ -119,7 +127,7 @@ export function HumanInterviewMeetingTranscript({
                 })}
               </div>
             )}
-          </div>
+          </ConversationArea>
         </section>
       ) : (
         <section className="flex min-h-0 flex-col gap-3">
@@ -162,6 +170,8 @@ export function HumanInterviewMeetingDetailContent({
   detail: HumanInterviewMeetingDetail;
   refreshAction?: ReactNode;
 }) {
+  const [tab, setTab] = useState("evaluation");
+  const [transcriptRef, transcriptHeight] = useFillScrollParentHeight(tab === "transcript");
   return (
     <>
       {refreshAction ? <StudioPageActions>{refreshAction}</StudioPageActions> : null}
@@ -218,12 +228,12 @@ export function HumanInterviewMeetingDetailContent({
           </FramePanel>
         </Frame>
       </header>
-      <Tabs defaultValue="evaluation" className="gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="gap-4">
         <TabsList aria-label="面试详情内容">
           <TabsTrigger value="evaluation">面试评价</TabsTrigger>
           <TabsTrigger value="transcript">完整转录</TabsTrigger>
         </TabsList>
-        <TabsContent value="evaluation" className="flex flex-col gap-4">
+        <TabsContent value="evaluation" className="flex flex-col gap-4 pb-24">
           {detail.transcriptBasis === "unlinked" && detail.transcriptNotice ? (
             <Notice>{detail.transcriptNotice}</Notice>
           ) : null}
@@ -256,8 +266,18 @@ export function HumanInterviewMeetingDetailContent({
           </Frame>
           {detail.evaluationError ? <Notice>{detail.evaluationError}</Notice> : null}
         </TabsContent>
-        <TabsContent value="transcript" className="flex flex-col gap-4">
-          <HumanInterviewMeetingTranscript detail={detail} />
+        <TabsContent value="transcript" className="min-h-0">
+          <div
+            ref={transcriptRef}
+            style={
+              transcriptHeight === null
+                ? undefined
+                : { height: Math.max(320, transcriptHeight - 24) }
+            }
+            className="flex min-h-0 flex-col gap-4 pb-20"
+          >
+            <HumanInterviewMeetingTranscript detail={detail} scrollable />
+          </div>
         </TabsContent>
       </Tabs>
     </>
@@ -372,8 +392,6 @@ export function HumanInterviewMeetingDetailPage(input: {
     );
   }
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-[96rem] flex-col gap-6 pb-24">
-      {content}
-    </main>
+    <main className="mx-auto flex w-full min-w-0 max-w-[96rem] flex-col gap-6">{content}</main>
   );
 }
