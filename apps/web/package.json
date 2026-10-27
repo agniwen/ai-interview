@@ -82,6 +82,7 @@
     "drizzle-orm": "catalog:",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
+    "foxact": "^0.3.12",
     "hono": "^4.12.18",
     "jotai": "^2.20.2",
     "lexical": "^0.52.0",

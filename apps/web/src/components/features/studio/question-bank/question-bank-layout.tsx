@@ -33,28 +33,47 @@ export function QuestionBankLayout() {
   const navigate = useNavigate();
   const activeTab: QuestionBankTab = useRouterState({
     select: (state) =>
-      state.location.pathname.endsWith("/interview-questions") ? "interview-questions" : "forms",
+      state.location.pathname.includes("/interview-questions") ? "interview-questions" : "forms",
   });
+
+  const isEditorPage = useRouterState({
+    select: (state) =>
+      /\/question-bank\/(?:interview-questions|forms)\/(?!overlay\/)[^/]+\/?$/.test(
+        state.location.pathname,
+      ),
+  });
+  const isOverlayEditor = useRouterState({
+    select: (state) => /\/(?:interview-questions|forms)\/overlay\//.test(state.location.pathname),
+  });
+  if (isEditorPage) {
+    return <Outlet />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-[96rem] space-y-6">
-      <PageHeader description={QUESTION_BANK_TABS[activeTab].description} title="面试题" />
-      <Tabs
-        onValueChange={(value) => {
-          if (isQuestionBankTab(value) && value !== activeTab) {
-            void navigate({ params: { slug }, to: QUESTION_BANK_TABS[value].to });
-          }
-        }}
-        value={activeTab}
+      <div
+        className="space-y-6"
+        aria-hidden={isOverlayEditor || undefined}
+        inert={isOverlayEditor || undefined}
       >
-        <TabsList>
-          {QUESTION_BANK_TAB_ORDER.map((tab) => (
-            <TabsTab key={tab} value={tab}>
-              {QUESTION_BANK_TABS[tab].label}
-            </TabsTab>
-          ))}
-        </TabsList>
-      </Tabs>
+        <PageHeader description={QUESTION_BANK_TABS[activeTab].description} title="面试题" />
+        <Tabs
+          onValueChange={(value) => {
+            if (isQuestionBankTab(value) && value !== activeTab) {
+              void navigate({ params: { slug }, to: QUESTION_BANK_TABS[value].to });
+            }
+          }}
+          value={activeTab}
+        >
+          <TabsList>
+            {QUESTION_BANK_TAB_ORDER.map((tab) => (
+              <TabsTab key={tab} value={tab}>
+                {QUESTION_BANK_TABS[tab].label}
+              </TabsTab>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
       <Outlet />
     </div>
   );

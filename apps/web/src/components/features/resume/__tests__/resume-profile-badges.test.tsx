@@ -106,6 +106,39 @@ describe("resume profile badges", () => {
     expect(html).toContain("工作经历");
   });
 
+  it("preserves distinct degree, education level, dates and full education description", () => {
+    const html = renderToStaticMarkup(
+      <ResumeProfileView
+        profile={{
+          ...profile,
+          educationExperiences: [
+            {
+              degree: "工学学士",
+              educationLevel: "本科",
+              graduationYear: "2022",
+              major: "计算机科学",
+              period: "2018.09–2022.06",
+              school: "测试大学",
+              summary: "主修分布式系统与数据库。\n毕业设计：面向实时分析的数据平台。",
+            },
+          ],
+        }}
+      />,
+    );
+    for (const value of [
+      "测试大学",
+      "计算机科学",
+      "本科",
+      "工学学士",
+      "2018.09–2022.06",
+      "2022",
+      "主修分布式系统与数据库。",
+      "毕业设计：面向实时分析的数据平台。",
+    ]) {
+      expect(html).toContain(value);
+    }
+  });
+
   it("can omit target roles when they are displayed with candidate information", () => {
     const html = renderToStaticMarkup(
       <ResumeProfileView profile={profile} showTargetRoles={false} />,

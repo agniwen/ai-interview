@@ -149,7 +149,7 @@ export function SearchableMultiSelect({
                               ) : null}
                             </Avatar>
                           ) : null}
-                          {item.label}
+                          <span className="min-w-0 truncate">{item.label}</span>
                         </ComboboxChip>
                       ))}
                       {hiddenCount > 0 ? (

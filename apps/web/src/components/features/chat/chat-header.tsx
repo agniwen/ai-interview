@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const DEFAULT_CHAT_HEADER_TITLE = "简历筛选助手";
+const DEFAULT_CHAT_HEADER_TITLE = "Hireseer Agent";
 const GENERATING_CHAT_TITLE = "生成中...";
 const UNTITLED_CHAT_TITLE = "未命名对话";
 

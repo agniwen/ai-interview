@@ -11,7 +11,7 @@ import type { JobDescriptionListRecord, JobDescriptionRecord } from "@app/shared
 import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -181,30 +181,32 @@ export function JobDescriptionManagementPage({
     invalidateJobDescriptionData();
   }
 
-  // 深链：其他页面（如简历详情的「关联岗位」）通过 ?jobDescriptionId=<id> 直接打开该岗位详情。
   const deepLinkSearch = useSearch({ from: "/w/$slug/studio/job-descriptions" });
   const navigate = useNavigate({ from: "/w/$slug/studio/job-descriptions" });
-  const openedDeepLinkRef = useRef<string | null>(null);
+  const openEditorPage = useCallback(
+    (id: string) => {
+      void navigate({
+        params: { jobId: id, slug },
+        resetScroll: false,
+        search: deepLinkSearch,
+        to: "/w/$slug/studio/job-descriptions/overlay/$jobId",
+      });
+    },
+    [navigate, slug, deepLinkSearch],
+  );
   useEffect(() => {
-    const parsedTargetId = z.string().safeParse(deepLinkSearch.jobDescriptionId);
-    const targetId = parsedTargetId.success ? parsedTargetId.data : null;
-    if (!targetId) {
-      // 参数已清空：重置去重标记，允许之后再次深链到同一个岗位。
-      openedDeepLinkRef.current = null;
+    const targetId = z.string().safeParse(deepLinkSearch.jobDescriptionId);
+    if (!targetId.success || !targetId.data) {
       return;
     }
-    if (openedDeepLinkRef.current === targetId) {
-      return;
-    }
-    openedDeepLinkRef.current = targetId;
-    // SAFETY: The configured detail loader reads only id before replacing this lookup with a full record.
-    void crud.openEdit({ id: targetId } as JobDescriptionListRecord);
-    // 打开后清掉 URL 参数，避免刷新/返回时重复弹窗。
+    const { jobDescriptionId: _legacyId, ...search } = deepLinkSearch;
     void navigate({
+      params: { jobId: targetId.data, slug },
       replace: true,
-      search: (prev) => ({ ...prev, jobDescriptionId: undefined }),
+      search,
+      to: "/w/$slug/studio/job-descriptions/$jobId",
     });
-  }, [deepLinkSearch.jobDescriptionId, crud, navigate]);
+  }, [deepLinkSearch, navigate, slug]);
 
   function onFormOpenChange(next: boolean) {
     crud.onFormOpenChange(next);
@@ -446,7 +448,7 @@ export function JobDescriptionManagementPage({
           {
             label: "编辑",
             onClick: (r) => {
-              void crud.openEdit(r);
+              openEditorPage(r.id);
             },
             show: () => canUpdateJobDescription,
           },
@@ -521,7 +523,13 @@ export function JobDescriptionManagementPage({
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [canDeleteJobDescription, canReadResumeLibrary, canUpdateJobDescription, copyingReferralIds],
+    [
+      canDeleteJobDescription,
+      canReadResumeLibrary,
+      canUpdateJobDescription,
+      copyingReferralIds,
+      openEditorPage,
+    ],
   );
 
   const filtersConfig = useMemo(

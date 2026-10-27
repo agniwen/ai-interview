@@ -17,6 +17,7 @@ import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { EditorPageSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -78,6 +79,7 @@ function toFormValues(record: InterviewQuestionTemplateRecord): InterviewQuestio
 
 // oxlint-disable-next-line complexity -- Dialog orchestrates schema, mode, and question array state together.
 export function InterviewQuestionTemplateEditorDialog({
+  presentation = "dialog",
   initialDraft,
   open,
   onOpenChange,
@@ -87,6 +89,7 @@ export function InterviewQuestionTemplateEditorDialog({
   showDeveloperDetails = env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
   slug,
 }: {
+  presentation?: "dialog" | "page";
   initialDraft?: InterviewQuestionTemplateInput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -96,6 +99,7 @@ export function InterviewQuestionTemplateEditorDialog({
   showDeveloperDetails?: boolean;
   slug: string;
 }) {
+  const Surface = presentation === "page" ? EditorPageSurface : Modal;
   const isEdit = record !== null;
   const resolvedInitialValues = useMemo(() => {
     if (record) {
@@ -161,7 +165,7 @@ export function InterviewQuestionTemplateEditorDialog({
   }, [open, form, resolvedInitialValues]);
 
   return (
-    <Modal
+    <Surface
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "编辑沟通题" : "创建沟通题"}
@@ -188,8 +192,20 @@ export function InterviewQuestionTemplateEditorDialog({
           void form.handleSubmit();
         }}
       >
-        <div className="space-y-6">
-          <FieldGroup className="gap-5">
+        <div
+          className={
+            presentation === "page"
+              ? "grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[24rem_minmax(0,1fr)]"
+              : "space-y-6"
+          }
+        >
+          <FieldGroup
+            className={
+              presentation === "page"
+                ? "gap-5 rounded-xl bg-background p-5 shadow-default"
+                : "gap-5"
+            }
+          >
             <form.Field name="title">
               {(field) => {
                 const errors = toFieldErrors(field.state.meta.errors);
@@ -314,7 +330,7 @@ export function InterviewQuestionTemplateEditorDialog({
             </div>
           </FieldGroup>
 
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">题目列表</h3>
               <form.Subscribe selector={(state) => state.values.questions.length}>
@@ -358,6 +374,6 @@ export function InterviewQuestionTemplateEditorDialog({
           </div>
         </div>
       </form>
-    </Modal>
+    </Surface>
   );
 }

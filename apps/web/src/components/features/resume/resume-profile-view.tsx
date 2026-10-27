@@ -1,20 +1,13 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import {
-  formatResumeEducationItem,
-  sortResumeEducationExperiences,
-} from "@app/shared/resume-education";
+import { sortResumeEducationExperiences } from "@app/shared/resume-education";
 import {
   isCurrentResumePeriod,
   sortResumeExperiencesByPeriod,
 } from "@app/shared/resume-experience";
-import { cn } from "@app/shared/utils";
-import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import { CandidateInfoField as DataField } from "@/components/features/candidate/candidate-info-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
-import { Frame, FramePanel } from "@/components/ui/frame";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
 
@@ -166,63 +159,55 @@ function EducationExperienceList({
   educationExperiences: ResumeEducationExperience[];
 }) {
   return (
-    <ScrollArea
-      className="min-w-0 max-w-full"
-      orientation="horizontal"
-      viewportClassName="h-auto"
-      scrollFade
-      viewportProps={{ "aria-label": "教育经历", role: "region", tabIndex: 0 }}
-    >
-      <Frame className="w-max flex-row gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0">
-        {educationExperiences.map((education, index) => {
-          const educationItem = formatResumeEducationItem(education) ?? {
-            level: null,
-            major: null,
-            school: "未发现学校",
-          };
-          const period = cleanText(education.period) ?? cleanText(education.graduationYear);
-          return (
-            <FramePanel
-              className={cn(
-                "flex min-w-64 flex-none flex-col gap-2 whitespace-nowrap p-5",
-                educationExperiences.length > 1 &&
-                  index === 0 &&
-                  "rounded-r-[2px] before:rounded-r-[1px]",
-                index > 0 &&
-                  index < educationExperiences.length - 1 &&
-                  "rounded-[2px] before:rounded-[1px]",
-                educationExperiences.length > 1 &&
-                  index === educationExperiences.length - 1 &&
-                  "rounded-l-[2px] before:rounded-l-[1px]",
-              )}
-              key={[
-                education.school,
-                education.major,
-                education.degree,
-                education.educationLevel,
-                education.period,
-                education.graduationYear,
-                education.summary,
-              ].join("\u001F")}
-            >
-              <ResumeEducationDisplayLine
-                className="text-sm"
-                item={educationItem}
-                majorLayout="block"
-              />
-              {isPresent(education.summary) ? (
-                <p className="mt-1 whitespace-nowrap text-foreground text-sm">
-                  {education.summary}
-                </p>
-              ) : null}
+    <ul className="flex min-w-0 flex-col gap-7">
+      {educationExperiences.map((education) => {
+        const details = [
+          { label: "专业", value: cleanText(education.major) },
+          { label: "学历", value: cleanText(education.educationLevel) },
+          { label: "学位", value: cleanText(education.degree) },
+          { label: "毕业年份", value: cleanText(education.graduationYear) },
+        ].filter((detail) => detail.value);
+        const period = cleanText(education.period);
+        return (
+          <li
+            className="min-w-0"
+            key={[
+              education.school,
+              education.major,
+              education.degree,
+              education.educationLevel,
+              education.period,
+              education.graduationYear,
+              education.summary,
+            ].join("\u001F")}
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <h5 className="min-w-0 break-words font-semibold text-[15px] leading-6">
+                {cleanText(education.school) ?? "未发现学校"}
+              </h5>
               {period ? (
-                <span className="pt-2 text-muted-foreground text-xs tabular-nums">{period}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{period}</span>
               ) : null}
-            </FramePanel>
-          );
-        })}
-      </Frame>
-    </ScrollArea>
+            </div>
+            {details.length > 0 ? (
+              <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] leading-5">
+                {details.map(({ label, value }) => (
+                  <div key={label} className="flex min-w-0 items-baseline gap-1.5">
+                    <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
+                    <dd className="min-w-0 break-words">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {isPresent(education.summary) ? (
+              <p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-6">
+                {education.summary}
+              </p>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -324,7 +309,13 @@ export function ResumeProfileView({
           {educationExperiences.length > 0 ? (
             <EducationExperienceList educationExperiences={educationExperiences} />
           ) : (
-            <ChipList items={schools} />
+            <ul className="flex flex-col gap-4">
+              {schools.map((school) => (
+                <li className="break-words font-medium text-base" key={school}>
+                  {school}
+                </li>
+              ))}
+            </ul>
           )}
         </ResumeProfileSection>
       ) : null}

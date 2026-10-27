@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconAdjustmentsHorizontal,
   IconCircleDot,
   IconListCheck,
   IconLoader2,
@@ -22,10 +23,11 @@ import type {
 } from "@app/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
 
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -42,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { EditorWorkspaceSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
@@ -152,6 +155,7 @@ function toFormValues(record: CandidateFormTemplateRecord): CandidateFormTemplat
 
 // oxlint-disable-next-line complexity -- Dialog orchestrates schema, mode, and question array state together.
 export function CandidateFormTemplateEditorDialog({
+  presentation = "dialog",
   initialDraft,
   open,
   onOpenChange,
@@ -159,6 +163,7 @@ export function CandidateFormTemplateEditorDialog({
   jobDescriptions,
   onSaved,
 }: {
+  presentation?: "dialog" | "page";
   initialDraft?: CandidateFormTemplateInput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -166,6 +171,9 @@ export function CandidateFormTemplateEditorDialog({
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
 }) {
+  const Surface = presentation === "page" ? EditorWorkspaceSurface : Modal;
+  const page = presentation === "page";
+  const isMobile = useIsMobile();
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
   const resolvedInitialValues = useMemo(() => {
@@ -233,8 +241,135 @@ export function CandidateFormTemplateEditorDialog({
     setSelectedQuestionId(resolvedInitialValues.questions[0]?.id ?? null);
   }, [form, open, resolvedInitialValues]);
 
+  const settingsFields = (
+    <div className={page ? "" : "shrink-0 border-b bg-muted/10 px-6 py-4"}>
+      <FieldGroup className="gap-5">
+        <form.Field name="title">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                <FieldLabel htmlFor={field.name}>
+                  表单标题 <span className="text-destructive">*</span>
+                </FieldLabel>
+                <FieldContent className="gap-2">
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    maxLength={TITLE_MAX_LENGTH}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="例如：候选人背景调查表"
+                    value={field.state.value}
+                  />
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
+
+        <form.Field name="description">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
+                <FieldContent className="gap-2">
+                  <div className="relative">
+                    <Textarea
+                      aria-invalid={!!errors?.length}
+                      className="max-h-32 min-h-16 resize-none pb-6"
+                      id={field.name}
+                      maxLength={DESCRIPTION_MAX_LENGTH}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                      placeholder="告知候选人这份表单的用途或填写须知"
+                      rows={2}
+                      value={field.state.value ?? ""}
+                    />
+                    <TextareaCounter maxLength={DESCRIPTION_MAX_LENGTH} value={field.state.value} />
+                  </div>
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
+
+        <div className={page ? "flex min-w-0 flex-col gap-5" : "grid gap-5 md:grid-cols-2"}>
+          <form.Field name="scope">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor={field.name}>
+                  作用范围 <span className="text-destructive">*</span>
+                </FieldLabel>
+                <FieldContent className="gap-2">
+                  <Select
+                    onValueChange={(value) => {
+                      const parsed = candidateFormScopeSchema.safeParse(value);
+                      if (!parsed.success) {
+                        return;
+                      }
+                      field.handleChange(parsed.data);
+                      if (parsed.data === "global") {
+                        form.setFieldValue("jobDescriptionIds", []);
+                      }
+                    }}
+                    value={field.state.value}
+                  >
+                    <SelectTrigger className="w-full" id={field.name}>
+                      <SelectValue placeholder="选择作用范围" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">全局（所有面试）</SelectItem>
+                      <SelectItem value="job_description">指定在招岗位</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
+
+          {currentScope === "job_description" ? (
+            <form.Field name="jobDescriptionIds">
+              {(field) => {
+                const errors = toFieldErrors(field.state.meta.errors);
+                return (
+                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                    <FieldLabel htmlFor={field.name}>
+                      绑定岗位 <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <FieldContent className="gap-2">
+                      <SearchableMultiSelect
+                        emptyMessage="没有匹配的岗位"
+                        invalid={!!errors?.length}
+                        onChange={(next) => field.handleChange(next)}
+                        options={jobDescriptions.map((jd) => ({
+                          label: jd.name,
+                          value: jd.id,
+                        }))}
+                        placeholder="选择岗位…"
+                        searchPlaceholder="搜索岗位…"
+                        selectedFormat={(count) => `已选 ${count} 个岗位`}
+                        selectedPreviewLimit={10}
+                        triggerClassName="min-h-8 min-w-0 flex-wrap !py-1 !pr-16 [&_[data-slot=combobox-chip]]:max-w-full [&_[data-slot=combobox-chip-input]]:h-[22px] [&_[data-slot=combobox-chip-input]]:min-w-0 [&_[data-slot=combobox-chip-input]]:w-0 [&_[data-slot=badge]]:h-[22px]"
+                        value={field.state.value ?? []}
+                      />
+                      <FieldError errors={errors} />
+                    </FieldContent>
+                  </Field>
+                );
+              }}
+            </form.Field>
+          ) : null}
+        </div>
+      </FieldGroup>
+    </div>
+  );
+
   return (
-    <Modal
+    <Surface
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "编辑表单题" : "创建表单题"}
@@ -255,7 +390,11 @@ export function CandidateFormTemplateEditorDialog({
       }
     >
       <form
-        className="flex min-h-full flex-col"
+        className={
+          page
+            ? "flex min-h-0 flex-1 flex-col max-md:overflow-y-auto max-md:pb-20"
+            : "flex min-h-full flex-col"
+        }
         id="form-template-form"
         onSubmit={(event) => {
           event.preventDefault();
@@ -263,185 +402,52 @@ export function CandidateFormTemplateEditorDialog({
           void form.handleSubmit();
         }}
       >
-        <div className="flex min-h-full flex-col">
-          <div className="shrink-0 border-b bg-muted/10 px-6 py-4">
-            <FieldGroup className="gap-5">
-              <form.Field name="title">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>
-                        表单标题 <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Input
-                          aria-invalid={!!errors?.length}
-                          id={field.name}
-                          maxLength={TITLE_MAX_LENGTH}
-                          onBlur={field.handleBlur}
-                          onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="例如：候选人背景调查表"
-                          value={field.state.value}
-                        />
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
-
-              <form.Field name="description">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
-                      <FieldContent className="gap-2">
-                        <div className="relative">
-                          <Textarea
-                            aria-invalid={!!errors?.length}
-                            className="max-h-32 min-h-16 resize-none pb-6"
-                            id={field.name}
-                            maxLength={DESCRIPTION_MAX_LENGTH}
-                            onBlur={field.handleBlur}
-                            onChange={(event) => field.handleChange(event.target.value)}
-                            placeholder="告知候选人这份表单的用途或填写须知"
-                            rows={2}
-                            value={field.state.value ?? ""}
-                          />
-                          <TextareaCounter
-                            maxLength={DESCRIPTION_MAX_LENGTH}
-                            value={field.state.value}
-                          />
-                        </div>
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <form.Field name="scope">
-                  {(field) => (
-                    <Field>
-                      <FieldLabel htmlFor={field.name}>
-                        作用范围 <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Select
-                          onValueChange={(value) => {
-                            const parsed = candidateFormScopeSchema.safeParse(value);
-                            if (!parsed.success) {
-                              return;
-                            }
-                            field.handleChange(parsed.data);
-                            if (parsed.data === "global") {
-                              form.setFieldValue("jobDescriptionIds", []);
-                            }
-                          }}
-                          value={field.state.value}
-                        >
-                          <SelectTrigger className="w-full" id={field.name}>
-                            <SelectValue placeholder="选择作用范围" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="global">全局（所有面试）</SelectItem>
-                            <SelectItem value="job_description">指定在招岗位</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FieldContent>
-                    </Field>
-                  )}
-                </form.Field>
-
-                {currentScope === "job_description" ? (
-                  <form.Field name="jobDescriptionIds">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>
-                            绑定岗位 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
-                            <SearchableMultiSelect
-                              emptyMessage="没有匹配的岗位"
-                              invalid={!!errors?.length}
-                              onChange={(next) => field.handleChange(next)}
-                              options={jobDescriptions.map((jd) => ({
-                                label: jd.name,
-                                value: jd.id,
-                              }))}
-                              placeholder="选择岗位…"
-                              searchPlaceholder="搜索岗位…"
-                              selectedFormat={(count) => `已选 ${count} 个岗位`}
-                              selectedPreviewLimit={2}
-                              value={field.state.value ?? []}
-                            />
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
-                ) : null}
-              </div>
-            </FieldGroup>
-          </div>
+        <div className={page ? "flex min-h-0 flex-1 flex-col" : "flex min-h-full flex-col"}>
+          {page && !isMobile ? null : settingsFields}
           <QuestionBuilderWorkspace
+            settings={page && !isMobile ? settingsFields : undefined}
+            page={page}
             form={form}
             selectedQuestionId={selectedQuestionId}
             setSelectedQuestionId={setSelectedQuestionId}
           />
         </div>
       </form>
-    </Modal>
+    </Surface>
   );
 }
 
-// tanstack-form's deeply-generic useForm return type can't be reified as a
-// prop type without losing the concrete form-data type, so accept it loosely
-// for the sub-components.
+// Preserve the concrete TanStack Form value type across builder components.
 // oxlint-disable-next-line no-explicit-any
 type TemplateFormApi = any;
 
-function QuestionBuilderWorkspace({
-  form,
-  selectedQuestionId,
-  setSelectedQuestionId,
-}: {
+interface QuestionBuilderProps {
+  settings?: ReactNode;
+  page: boolean;
   form: TemplateFormApi;
   selectedQuestionId: string | null;
   setSelectedQuestionId: (id: string | null) => void;
-}) {
+}
+
+function QuestionBuilderWorkspace(props: QuestionBuilderProps) {
   return (
-    <form.Field mode="array" name="questions">
+    <props.form.Field mode="array" name="questions">
       {/* oxlint-disable-next-line no-explicit-any */}
-      {(field: any) => (
-        <QuestionBuilderBody
-          field={field}
-          form={form}
-          selectedQuestionId={selectedQuestionId}
-          setSelectedQuestionId={setSelectedQuestionId}
-        />
-      )}
-    </form.Field>
+      {(field: any) => <QuestionBuilderBody {...props} field={field} />}
+    </props.form.Field>
   );
 }
 
 function QuestionBuilderBody({
+  settings,
+  page,
   field,
   form,
   selectedQuestionId,
   setSelectedQuestionId,
-}: {
+}: QuestionBuilderProps & {
   // oxlint-disable-next-line no-explicit-any
   field: any;
-  form: TemplateFormApi;
-  selectedQuestionId: string | null;
-  setSelectedQuestionId: (id: string | null) => void;
 }) {
   const questions = useStore(
     form.store,
@@ -520,65 +526,90 @@ function QuestionBuilderBody({
         </Card>
       </div>
 
-      <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
-        <aside className="flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4">
-          <div className="flex items-center gap-2">
-            <IconPlus className="size-4 text-muted-foreground" />
-            <h3 className="font-medium text-sm">题目类型</h3>
-          </div>
-          <div className="flex flex-col gap-2">
-            {candidateFormQuestionTypeSchema.options.map((type) => {
-              const Icon = QUESTION_TYPE_META[type].icon;
-              return (
-                <Button
-                  className="group relative h-auto overflow-hidden px-3 py-2.5 text-left"
-                  key={type}
-                  onClick={() => addQuestion(type)}
-                  type="button"
-                  variant="outline"
-                >
-                  <span className="flex min-w-0 items-center gap-3 transition-opacity group-focus-visible:opacity-35 group-hover:opacity-35">
-                    <Icon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-sm">
-                        {QUESTION_TYPE_LABELS[type]}
-                      </span>
-                      <span className="block text-muted-foreground text-xs leading-normal">
-                        {QUESTION_TYPE_META[type].description}
+      <div
+        className={
+          page
+            ? "hidden min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_300px] overflow-hidden md:grid xl:grid-cols-[320px_minmax(0,1fr)_340px]"
+            : "hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid"
+        }
+      >
+        <aside
+          className={
+            page
+              ? "flex min-h-0 flex-col border-r bg-background"
+              : "flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4"
+          }
+        >
+          {page ? (
+            <h2 className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 text-sm font-medium">
+              <IconAdjustmentsHorizontal className="size-4 text-muted-foreground" />
+              基础设置
+            </h2>
+          ) : null}
+          <div
+            className={
+              page ? "min-h-0 flex-1 space-y-5 overflow-y-auto pr-5 pt-4 pb-20" : "contents"
+            }
+          >
+            {page ? settings : null}
+            <div className="flex items-center gap-2">
+              <IconPlus className="size-4 text-muted-foreground" />
+              <h3 className="font-medium text-sm">题目类型</h3>
+            </div>
+            <div className="flex flex-col gap-2">
+              {candidateFormQuestionTypeSchema.options.map((type) => {
+                const Icon = QUESTION_TYPE_META[type].icon;
+                return (
+                  <Button
+                    className="group relative h-auto overflow-hidden px-3 py-2.5 text-left"
+                    key={type}
+                    onClick={() => addQuestion(type)}
+                    type="button"
+                    variant="outline"
+                  >
+                    <span className="flex min-w-0 items-center gap-3 transition-opacity group-focus-visible:opacity-35 group-hover:opacity-35">
+                      <Icon className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium text-sm">
+                          {QUESTION_TYPE_LABELS[type]}
+                        </span>
+                        <span className="block text-muted-foreground text-xs leading-normal">
+                          {QUESTION_TYPE_META[type].description}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-[1px] transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs shadow-xs">
-                      <IconPlus className="size-3.5" />
-                      点击添加
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-[1px] transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs shadow-xs">
+                        <IconPlus className="size-3.5" />
+                        点击添加
+                      </span>
                     </span>
-                  </span>
-                </Button>
-              );
-            })}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </aside>
 
         <section className="flex min-h-0 flex-col bg-muted/20">
-          <div className="flex shrink-0 items-center justify-between border-b bg-background px-5 py-3">
+          <div className="flex h-11 shrink-0 items-center justify-between border-b bg-background px-5">
             <div className="flex items-center gap-2">
               <IconListCheck className="size-4 text-muted-foreground" />
               <h3 className="font-medium text-sm">预览画布</h3>
             </div>
             <span className="text-muted-foreground text-xs">共 {items.length} 道</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            <Card className="mx-auto w-full max-w-2xl gap-0 rounded-xl border-border bg-card py-0">
-              <CardContent className="p-5">
-                <header className="mb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20">
+            <Card className="mx-auto w-full max-w-4xl gap-0 rounded-xl border-0 bg-background py-0 shadow-default">
+              <CardContent className="p-4">
+                <header className="mb-3">
                   <h2 className="text-lg">{templateTitle}</h2>
                   {templateDescription ? (
                     <p className="mt-1 text-muted-foreground text-sm">{templateDescription}</p>
                   ) : null}
                 </header>
                 <SortableList
-                  className="space-y-5"
+                  className="space-y-3"
                   ids={ids}
                   onReorder={(from, to) => field.moveValue(from, to)}
                 >
@@ -606,11 +637,11 @@ function QuestionBuilderBody({
         </section>
 
         <aside className="flex min-h-0 flex-col border-l bg-background">
-          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b px-4">
             <IconSettings2 className="size-4 text-muted-foreground" />
             <h3 className="font-medium text-sm">题目配置</h3>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20">
             {activeQuestion ? (
               <QuestionConfigPanel
                 form={form}
@@ -699,8 +730,8 @@ function QuestionCanvasCard({
     <div
       aria-label={`配置第 ${index + 1} 题`}
       className={cn(
-        "group -mx-2 cursor-pointer rounded-lg p-2 transition-colors",
-        isActive ? "bg-primary/5 ring-2 ring-primary/20" : "hover:bg-muted/40",
+        "group relative -mx-2 cursor-pointer rounded-lg p-2 transition-colors",
+        isActive ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted/40",
         isDragging ? "opacity-80 shadow-md" : "",
       )}
       onClick={onSelect}
@@ -713,18 +744,18 @@ function QuestionCanvasCard({
       role="button"
       tabIndex={0}
     >
-      <div className="grid grid-cols-[2rem_minmax(0,1fr)_2rem] items-start gap-2.5">
+      <div className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-start gap-2">
         <SortableDragHandle
           {...handleProps}
           aria-label={`拖动以调整第 ${index + 1} 题的顺序`}
-          className="size-8 opacity-45 transition-opacity group-hover:opacity-100"
+          className="size-6 opacity-45 transition-opacity group-hover:opacity-100"
           onClick={handleDragHandleClick}
           onKeyDown={handleDragHandleKeyDown}
         />
         <div className="min-w-0 flex-1">
           <Field>
             <FieldLabel
-              className="block min-w-0 whitespace-pre-wrap wrap-anywhere"
+              className="block min-w-0 pr-8 whitespace-pre-wrap wrap-anywhere"
               htmlFor={`preview-${question.id}`}
             >
               <span className="mr-1 text-muted-foreground">{index + 1}.</span>
@@ -746,7 +777,7 @@ function QuestionCanvasCard({
         </div>
         <Button
           aria-label={`删除第 ${index + 1} 题`}
-          className="size-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+          className="absolute top-1.5 right-1.5 size-6 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
           disabled={!onRemove}
           onClick={handleRemoveClick}
           onKeyDown={(event) => event.stopPropagation()}

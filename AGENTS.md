@@ -45,6 +45,8 @@ Read the matching reference before changing the corresponding behavior. Relative
 | Domain terminology or architecture decisions                                             | [Domain documentation](docs/agents/domain.md), root `CONTEXT.md`, and relevant `docs/adr/` entries                        |
 | GitHub issue work                                                                        | [Issue tracker](docs/agents/issue-tracker.md); for triage also read [triage labels](docs/agents/triage-labels.md)         |
 
+涉及 Studio sidepane 的新增、修改或接入时，必须阅读并遵守 [侧面板规范](docs/studio-side-pane.md)，包括数据未就绪时必须展示骨架屏的要求。
+
 ## Boundaries to keep visible
 
 - Keep `apps/web/src/routes/` limited to route declarations, loaders, search validation, and thin page composition. Feature UI/state belongs under `src/components/features/`; client utilities under `src/lib/client/`; Start helpers under `src/lib/start/`. This also applies to route-generator-excluded helper files.

@@ -235,50 +235,33 @@ export function CandidateFormTemplateManagementPage({
   const [createDraft, setCreateDraft] = useState<CandidateFormTemplateInput | null>(null);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
-  // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
-  // load the detail and pop the editor open.
-  const lastLoadedTemplateRef = useRef<string | null>(null);
-  const { setEditingRecord, setFormDialogOpen } = crud;
+  const openEditorPage = useCallback(
+    (id: string) => {
+      void navigate({
+        params: { slug, templateId: id },
+        resetScroll: false,
+        search: routeSearch,
+        to: "/w/$slug/studio/question-bank/forms/overlay/$templateId",
+      });
+    },
+    [navigate, slug, routeSearch],
+  );
   useEffect(() => {
-    if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
+    if (!activeTemplateId) {
       return;
     }
-    if (!canUpdateCandidateForm) {
-      void setActiveTemplateId(null);
-      return;
-    }
-    lastLoadedTemplateRef.current = activeTemplateId;
-    let cancelled = false;
-    void (async () => {
-      const detail = await loadTemplateDetailById(activeTemplateId);
-      if (cancelled) {
-        return;
-      }
-      if (!detail) {
-        toast.error("加载模版失败");
-        void setActiveTemplateId(null);
-        lastLoadedTemplateRef.current = null;
-        return;
-      }
-      setEditingRecord(detail);
-      setFormDialogOpen(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activeTemplateId,
-    canUpdateCandidateForm,
-    loadTemplateDetailById,
-    setActiveTemplateId,
-    setEditingRecord,
-    setFormDialogOpen,
-  ]);
+    const { templateId: _legacyId, ...search } = routeSearch;
+    void navigate({
+      params: { slug, templateId: activeTemplateId },
+      replace: true,
+      search,
+      to: "/w/$slug/studio/question-bank/forms/$templateId",
+    });
+  }, [activeTemplateId, routeSearch, navigate, slug]);
 
   function onEditorOpenChange(next: boolean) {
     crud.onFormOpenChange(next);
     if (!next) {
-      lastLoadedTemplateRef.current = null;
       setCreateDraft(null);
       void setActiveTemplateId(null);
     }
@@ -370,7 +353,7 @@ export function CandidateFormTemplateManagementPage({
           {
             label: "编辑",
             onClick: (r) => {
-              void crud.openEdit(r);
+              openEditorPage(r.id);
             },
             show: () => canUpdateCandidateForm,
           },
@@ -402,7 +385,7 @@ export function CandidateFormTemplateManagementPage({
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [canDeleteCandidateForm, canUpdateCandidateForm, openRefreshConfirm],
+    [canDeleteCandidateForm, canUpdateCandidateForm, openEditorPage, openRefreshConfirm],
   );
 
   const filtersConfig = useMemo(

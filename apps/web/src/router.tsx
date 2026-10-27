@@ -33,6 +33,32 @@ const humanInterviewDetailOverlayMask = createRouteMask({
   unmaskOnReload: true,
 });
 
+const jobDescriptionEditorMask = createRouteMask({
+  from: "/w/$slug/studio/job-descriptions/overlay/$jobId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/w/$slug/studio/job-descriptions/$jobId",
+  unmaskOnReload: true,
+});
+const interviewQuestionEditorMask = createRouteMask({
+  from: "/w/$slug/studio/question-bank/interview-questions/overlay/$templateId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/w/$slug/studio/question-bank/interview-questions/$templateId",
+  unmaskOnReload: true,
+});
+
+const candidateFormEditorMask = createRouteMask({
+  from: "/w/$slug/studio/question-bank/forms/overlay/$templateId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/w/$slug/studio/question-bank/forms/$templateId",
+  unmaskOnReload: true,
+});
+
 function DefaultNotFoundComponent() {
   return <NotFoundPage />;
 }
@@ -55,6 +81,9 @@ export function getRouter() {
       recruiterResumeOverlayMask,
       resumePoolOverlayMask,
       humanInterviewDetailOverlayMask,
+      jobDescriptionEditorMask,
+      interviewQuestionEditorMask,
+      candidateFormEditorMask,
     ],
     routeTree,
     scrollRestoration: true,

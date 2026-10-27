@@ -4,7 +4,8 @@ import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
 import { useStudioHeaderOverrideValue } from "@/components/features/studio/studio-header-context";
 import { resolveStudioSidebarNavItem } from "@/components/features/studio/studio-sidebar-slots";
-import { UploadTaskInbox } from "@/components/features/studio/upload-task-inbox";
+import { ApprovalInboxTrigger } from "@/components/features/offer-approval/inbox-trigger";
+import { UploadTaskInboxTrigger } from "@/components/features/studio/upload-task-inbox";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -53,6 +54,12 @@ function resolveSiteHeaderTitle(pathname: string): string {
 export function SiteHeader({ className }: { className?: string } = {}) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const title = resolveSiteHeaderTitle(pathname);
+  const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "").replace(/\/$/, "");
+  // Question-bank tabs are primary pages; record/editor routes are not.
+  const showGlobalActions =
+    /^\/studio(?:\/[^/]+)?$/.test(studioPath) ||
+    studioPath === "/studio/question-bank/forms" ||
+    studioPath === "/studio/question-bank/interview-questions";
   const ActiveMenuIcon = resolveStudioSidebarNavItem(pathname)?.icon;
   const headerOverride = useStudioHeaderOverrideValue();
 
@@ -60,7 +67,14 @@ export function SiteHeader({ className }: { className?: string } = {}) {
     <SidebarInsetHeader
       className={className}
       activeMenuIcon={headerOverride === null && ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
-      actions={<UploadTaskInbox />}
+      actions={
+        showGlobalActions ? (
+          <>
+            <ApprovalInboxTrigger />
+            <UploadTaskInboxTrigger />
+          </>
+        ) : undefined
+      }
       breadcrumb={
         headerOverride ?? (
           <Breadcrumb>

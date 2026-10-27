@@ -1,5 +1,7 @@
 "use client";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
 import { IconAlertCircle, IconInbox, IconLoader2, IconRefresh } from "@tabler/icons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -13,14 +15,6 @@ import {
 import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { getUploadTaskInboxPage } from "@/lib/client/api/endpoints/bulk-resume-upload";
@@ -31,6 +25,12 @@ import {
   resolveUploadTaskPreviewState,
 } from "./upload-task-inbox-model";
 import type { UploadTaskPreviewState } from "./upload-task-inbox-model";
+
+import { StudioSidePaneContent, useStudioSidePane } from "./studio-side-pane-context";
+import { StudioSidePaneSkeleton } from "./studio-side-pane-skeleton";
+import { StudioSidePaneHeader } from "./studio-side-pane-header";
+
+const UPLOAD_TASK_PANE_ID = "upload-tasks";
 
 const TASK_ROW_ESTIMATE = 76;
 interface UploadTaskPageParam {
@@ -119,14 +119,13 @@ function UploadTaskRow({
   );
 }
 
-export function UploadTaskInbox() {
+function UploadTaskInbox() {
   "use no memo";
 
   const slug = useWorkspaceSlug();
   const canReadUploadTasks = useHasPermission("resumeUploadBatch", "read");
   const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
   const canReadResumePool = useHasPermission("resumePool", "read");
-  const [open, setOpen] = useState(false);
   const [previewState, setPreviewState] = useState<UploadTaskPreviewState>(() => ({
     record: null,
     slug,
@@ -138,20 +137,19 @@ export function UploadTaskInbox() {
   const previewRecord = resolvedPreviewState.record;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const query = useInfiniteQuery({
-    enabled: open && canReadUploadTasks,
+    enabled: canReadUploadTasks,
     getNextPageParam: (lastPage: UploadTaskInboxPage) =>
       lastPage.nextCursor ? { cursor: lastPage.nextCursor } : undefined,
     initialPageParam: INITIAL_PAGE_PARAM,
     queryFn: ({ pageParam }) => getUploadTaskInboxPage(slug, pageParam.cursor),
     queryKey: ["upload-task-inbox", slug],
-    refetchInterval: open ? 5000 : false,
+    refetchInterval: 5000,
     staleTime: 3000,
   });
   const records = useMemo(
     () => query.data?.pages.flatMap((page) => page.records) ?? [],
     [query.data?.pages],
   );
-  const total = query.data?.pages[0]?.total ?? 0;
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
   const rowCount = records.length + (query.hasNextPage ? 1 : 0);
   // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual is compiler-incompatible and is intentionally skipped.
@@ -173,13 +171,6 @@ export function UploadTaskInbox() {
     setPreviewState({ record, slug });
   };
 
-  const handleInboxOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen && previewRecord) {
-      return;
-    }
-    setOpen(nextOpen);
-  };
-
   useEffect(() => {
     const lastRow = virtualRows.at(-1);
     if (lastRow && lastRow.index >= records.length - 3 && hasNextPage && !isFetchingNextPage) {
@@ -193,12 +184,7 @@ export function UploadTaskInbox() {
 
   let content;
   if (query.isPending) {
-    content = (
-      <div className="flex h-56 items-center justify-center gap-2 text-muted-foreground text-sm">
-        <IconLoader2 className="size-4 animate-spin" />
-        正在加载任务
-      </div>
-    );
+    content = <StudioSidePaneSkeleton label="正在加载上传任务" />;
   } else if (query.isError) {
     content = (
       <div className="flex h-56 flex-col items-center justify-center gap-3 px-8 text-center">
@@ -233,7 +219,7 @@ export function UploadTaskInbox() {
   } else {
     content = (
       <>
-        <div ref={scrollRef} className="h-[min(60vh,32rem)] overflow-y-auto">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualRows.map((virtualRow) => {
               const record = records[virtualRow.index];
@@ -264,57 +250,31 @@ export function UploadTaskInbox() {
             })}
           </div>
         </div>
-        <div className="border-border/60 border-t px-4 py-2 text-muted-foreground text-xs">
-          已显示 {records.length} / {total} 条任务
-        </div>
       </>
     );
   }
 
   return (
     <>
-      <Popover onOpenChange={handleInboxOpenChange} open={open}>
-        <PopoverTrigger
-          render={
+      <div className="flex min-h-0 flex-1 flex-col">
+        <StudioSidePaneHeader
+          title="上传任务"
+          actions={
             <Button
-              aria-label="打开上传任务 Inbox"
-              className="relative"
+              aria-label="刷新上传任务"
+              disabled={query.isFetching}
+              onClick={() => {
+                query.refetch();
+              }}
               size="icon-sm"
               variant="ghost"
             >
-              <IconInbox className="size-4" />
+              <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
             </Button>
           }
         />
-        <PopoverContent
-          align="end"
-          className="w-[min(26rem,calc(100vw-1rem))] overflow-hidden bg-background p-0"
-          sideOffset={8}
-        >
-          <PopoverHeader className="border-border/60 border-b px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <PopoverTitle className="text-[13px] leading-4">上传任务</PopoverTitle>
-                <PopoverDescription className="text-[11px] leading-4">
-                  当前工作区中由你提交的简历解析任务
-                </PopoverDescription>
-              </div>
-              <Button
-                aria-label="刷新上传任务"
-                disabled={query.isFetching}
-                onClick={() => {
-                  query.refetch();
-                }}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
-              </Button>
-            </div>
-          </PopoverHeader>
-          {content}
-        </PopoverContent>
-      </Popover>
+        {content}
+      </div>
       {previewRecord && previewTarget ? (
         <ResumeDocumentPreviewDialog
           downloadUrl={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/resume`}
@@ -329,6 +289,37 @@ export function UploadTaskInbox() {
           url={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/${previewTarget.path}`}
         />
       ) : null}
+    </>
+  );
+}
+
+export function UploadTaskInboxTrigger() {
+  const pane = useStudioSidePane(UPLOAD_TASK_PANE_ID);
+  const canReadUploadTasks = useHasPermission("resumeUploadBatch", "read");
+  if (!canReadUploadTasks) {
+    return null;
+  }
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              {...pane.triggerProps}
+              aria-label={pane.isOpen ? "关闭上传任务" : "打开上传任务"}
+              className={pane.isOpen ? "bg-accent" : undefined}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <IconInbox className="size-4" />
+            </Button>
+          }
+        />
+        <TooltipContent side="bottom">上传任务</TooltipContent>
+      </Tooltip>
+      <StudioSidePaneContent id={UPLOAD_TASK_PANE_ID}>
+        <UploadTaskInbox />
+      </StudioSidePaneContent>
     </>
   );
 }

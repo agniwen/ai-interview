@@ -15,6 +15,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
+import { EditorPageSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpcFetch } from "@/lib/client/api";
@@ -41,7 +42,9 @@ export function isJobDescriptionFormTab(value: string): value is JobDescriptionF
   return value === "basic" || value === "interview-questions" || value === "forms";
 }
 
+// oxlint-disable-next-line complexity -- Shared editor retains existing tabs, creation dependencies, and page/dialog presentation.
 export function JobDescriptionFormDialog({
+  presentation = "dialog",
   defaultDepartmentId = "",
   initialDraft,
   open,
@@ -54,6 +57,7 @@ export function JobDescriptionFormDialog({
 }: {
   /** 新建岗位时预选的部门（如当前部门栏选中的部门）。Department preselected for a new job. */
   defaultDepartmentId?: string;
+  presentation?: "dialog" | "page";
   initialDraft?: JobDescriptionFormValues | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,6 +68,7 @@ export function JobDescriptionFormDialog({
   onDepartmentCreated?: () => Promise<void> | void;
   onSaved: (record: JobDescriptionRecord) => void;
 }) {
+  const Surface = presentation === "page" ? EditorPageSurface : Modal;
   const slug = useWorkspaceSlug();
   const canCreateDepartment = useHasPermission("department", "create");
   const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
@@ -221,7 +226,7 @@ export function JobDescriptionFormDialog({
       onValueChange={(value) => isJobDescriptionFormTab(value) && setActiveTab(value)}
       value={activeTab}
     >
-      <Modal
+      <Surface
         bodyClassName="px-5 py-3"
         description="岗位 JD 用于描述职责和核心要求；内部标准可补充仅供招聘端使用的评价依据。"
         footer={
@@ -268,30 +273,40 @@ export function JobDescriptionFormDialog({
           }}
         >
           <TabsContent motion="page" value="basic">
-            <FieldGroup className="mt-2 gap-4">
-              <JobDescriptionBasicSettingsFields
-                allowCrossDepartmentInterviewers={allowCrossDepartmentInterviewers}
-                codeLocked={Boolean(record?.code)}
-                departments={departments}
-                evaluationFrozen={false}
-                form={form}
-                handleGenerateCode={actions.handleGenerateCode}
-                interviewers={interviewers}
-                interviewerOptions={interviewerOptions}
-                isGeneratingCode={actions.isGeneratingCode}
-                onCreateDepartment={
-                  canCreateDepartment ? () => setDepartmentDialogOpen(true) : undefined
-                }
-                reportingManagerOptions={reportingManagerOptions}
-                selectedDepartmentId={selectedDepartmentId}
-                selectedInterviewerIds={selectedInterviewerIds}
-              />
-              <JobDescriptionPromptFields
-                form={form}
-                handleGenerateJobDescription={actions.handleGenerateJobDescription}
-                isGeneratingJobDescription={actions.isGeneratingJobDescription}
-              />
-            </FieldGroup>
+            <div
+              className={
+                presentation === "page"
+                  ? "grid items-start gap-6 xl:grid-cols-[minmax(22rem,0.85fr)_minmax(0,1.15fr)]"
+                  : "mt-2 space-y-4"
+              }
+            >
+              <FieldGroup className="min-w-0">
+                <JobDescriptionBasicSettingsFields
+                  allowCrossDepartmentInterviewers={allowCrossDepartmentInterviewers}
+                  codeLocked={Boolean(record?.code)}
+                  departments={departments}
+                  evaluationFrozen={false}
+                  form={form}
+                  handleGenerateCode={actions.handleGenerateCode}
+                  interviewers={interviewers}
+                  interviewerOptions={interviewerOptions}
+                  isGeneratingCode={actions.isGeneratingCode}
+                  onCreateDepartment={
+                    canCreateDepartment ? () => setDepartmentDialogOpen(true) : undefined
+                  }
+                  reportingManagerOptions={reportingManagerOptions}
+                  selectedDepartmentId={selectedDepartmentId}
+                  selectedInterviewerIds={selectedInterviewerIds}
+                />
+              </FieldGroup>
+              <FieldGroup className="min-w-0 gap-6">
+                <JobDescriptionPromptFields
+                  form={form}
+                  handleGenerateJobDescription={actions.handleGenerateJobDescription}
+                  isGeneratingJobDescription={actions.isGeneratingJobDescription}
+                />
+              </FieldGroup>
+            </div>
           </TabsContent>
           {record ? (
             <TabsContent motion="page" value="interview-questions">
@@ -312,7 +327,7 @@ export function JobDescriptionFormDialog({
             </TabsContent>
           ) : null}
         </form>
-      </Modal>
+      </Surface>
       {/* 只有具备部门创建权限时才会出现打开入口。Only reachable through the permission-gated button. */}
       <DepartmentFormDialog
         onOpenChange={setDepartmentDialogOpen}

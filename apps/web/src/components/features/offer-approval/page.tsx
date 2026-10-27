@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { offerApprovalLabels } from "@app/shared/offer-approval";
 import { actionsColumn, customColumn, DataGrid } from "@/components/features/data-grid";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { StudioSidePaneSkeleton } from "@/components/features/studio/studio-side-pane-skeleton";
+import { StudioSidePaneHeader } from "@/components/features/studio/studio-side-pane-header";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,7 +74,13 @@ function isApprovalView(value: unknown): value is ApprovalView {
   return typeof value === "string" && Object.hasOwn(VIEW_LABELS, value);
 }
 
-export function OfferApprovalsPage({ slug }: { slug: string }) {
+export function OfferApprovalsPage({
+  slug,
+  sidePane = false,
+}: {
+  slug: string;
+  sidePane?: boolean;
+}) {
   const navigate = useNavigate();
   const [view, setView] = useState<ApprovalView>("pending");
   const [page, setPage] = useState(1);
@@ -177,6 +185,132 @@ export function OfferApprovalsPage({ slug }: { slug: string }) {
   );
 
   const emptyCopy = EMPTY_COPY[view];
+
+  if (sidePane) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <StudioSidePaneHeader
+          title="审批"
+          actions={
+            <Button
+              aria-label="刷新审批列表"
+              disabled={query.isFetching}
+              onClick={() => {
+                void query.refetch();
+              }}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
+            </Button>
+          }
+        />
+        <Tabs
+          className="shrink-0 px-3 pb-3"
+          aria-label="审批范围"
+          value={view}
+          onValueChange={(value) => {
+            if (isApprovalView(value)) {
+              setView(value);
+              setPage(1);
+            }
+          }}
+        >
+          <TabsList className="w-full">
+            {views.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {value === "all" ? "全部" : VIEW_LABELS[value]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+          {query.isPending && <StudioSidePaneSkeleton label="正在加载审批" variant="approvals" />}
+          {query.isError && (
+            <div role="alert" className="p-4 text-sm">
+              <p>加载审批列表失败</p>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  void query.refetch();
+                }}
+              >
+                重试
+              </Button>
+            </div>
+          )}
+          {query.isSuccess && !!query.data.items.length && (
+            <div className="flex flex-col gap-1">
+              {query.data.items.map((item) => (
+                <Link
+                  key={item.id}
+                  params={{ approvalId: item.id, slug }}
+                  to="/w/$slug/studio/offer-approvals/$approvalId"
+                  className="flex min-w-0 flex-col gap-2 rounded-lg p-3 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium">{item.candidateName}</span>
+                    <Badge variant={STATUS_BADGE_VARIANT[item.status]}>
+                      {offerApprovalLabels[item.status]}
+                    </Badge>
+                  </div>
+                  <p className="truncate text-sm">{item.position}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {item.applicantName} · 第 {item.attemptNumber} 轮
+                    </span>
+                    <TimeDisplay value={item.createdAt} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {item.completedSteps}/{item.totalSteps} 已通过
+                    {item.currentApprover ? ` · 当前：${item.currentApprover}` : ""}
+                  </p>
+                  {item.unavailable ? (
+                    <p className="text-xs text-destructive">存在不可用的审批人</p>
+                  ) : null}
+                  {item.invalidatedAt ? <Badge variant="outline">已不适用</Badge> : null}
+                </Link>
+              ))}
+            </div>
+          )}
+          {query.isSuccess && !query.data.items.length && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconClipboardCheck />
+                </EmptyMedia>
+                <EmptyTitle>{emptyCopy.title}</EmptyTitle>
+                <EmptyDescription>{emptyCopy.description}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+          {total > APPROVAL_PAGE_SIZE ? (
+            <div className="flex items-center justify-center gap-2 py-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={page === 1 || query.isFetching}
+                onClick={() => setPage(page - 1)}
+              >
+                上一页
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {page} / {Math.ceil(total / APPROVAL_PAGE_SIZE)}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={page * APPROVAL_PAGE_SIZE >= total || query.isFetching}
+                onClick={() => setPage(page + 1)}
+              >
+                下一页
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
