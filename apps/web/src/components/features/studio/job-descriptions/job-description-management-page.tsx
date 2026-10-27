@@ -547,7 +547,7 @@ export function JobDescriptionManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader title="岗位设置" />
+        <PageHeader title="岗位" />
 
         <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
           <DepartmentRail
@@ -571,7 +571,7 @@ export function JobDescriptionManagementPage({
                     </EmptyMedia>
                     <EmptyTitle>请先创建面试官</EmptyTitle>
                     <EmptyDescription>
-                      在招岗位需要指定面试官，先去「面试官 Agent 管理」完成配置。
+                      在招岗位需要指定面试官，先去「面试官 Agent」完成配置。
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>

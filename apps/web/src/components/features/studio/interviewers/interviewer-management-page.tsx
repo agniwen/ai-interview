@@ -185,7 +185,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader title="面试官 Agent 管理" />
+        <PageHeader title="面试官 Agent" />
 
         <DataCardList<InterviewerListRecord>
           {...grid.bind}
@@ -199,8 +199,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                   </EmptyMedia>
                   <EmptyTitle>请先创建部门</EmptyTitle>
                   <EmptyDescription>
-                    面试官 Agent
-                    必须挂在某个部门下，请联系有部门权限的成员在「岗位设置」中创建部门。
+                    面试官 Agent 必须挂在某个部门下，请联系有部门权限的成员在「岗位」中创建部门。
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>

@@ -24,7 +24,7 @@ function isQuestionBankTab(value: unknown): value is QuestionBankTab {
 }
 
 /**
- * 「面试题配置」页：表单题与沟通题各是一个子路由，各自保留列表的 URL 参数，标签切换即切换子路由。
+ * 「面试题」页：表单题与沟通题各是一个子路由，各自保留列表的 URL 参数，标签切换即切换子路由。
  * Question bank page: forms and interview questions are child routes that keep their own list
  * URL params; switching tabs navigates between them.
  */
@@ -38,7 +38,7 @@ export function QuestionBankLayout() {
 
   return (
     <div className="mx-auto w-full max-w-[96rem] space-y-6">
-      <PageHeader description={QUESTION_BANK_TABS[activeTab].description} title="面试题配置" />
+      <PageHeader description={QUESTION_BANK_TABS[activeTab].description} title="面试题" />
       <Tabs
         onValueChange={(value) => {
           if (isQuestionBankTab(value) && value !== activeTab) {

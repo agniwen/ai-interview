@@ -43,7 +43,7 @@ export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
     return state;
   },
   head: () => ({
-    meta: [{ title: formatDocumentTitle("岗位设置") }],
+    meta: [{ title: formatDocumentTitle("岗位") }],
   }),
   component: StudioJobDescriptionsRoute,
   pendingComponent: JobDescriptionsPageSkeleton,

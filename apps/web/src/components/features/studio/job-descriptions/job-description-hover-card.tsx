@@ -4,11 +4,14 @@ import type { JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { IconCopy } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -64,8 +67,27 @@ function JobDescriptionPreview({
       </div>
 
       <section className="flex flex-col gap-1">
-        <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
-        <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
+        <div className="flex items-center gap-1">
+          <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
+          <Button
+            aria-label="复制岗位 JD Markdown 原文"
+            disabled={!prompt.trim()}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(prompt);
+                toast.success("岗位 JD Markdown 原文已复制");
+              } catch {
+                toast.error("复制失败，请重试或手动复制");
+              }
+            }}
+            size="icon-xs"
+            title="复制 Markdown 原文"
+            variant="ghost"
+          >
+            <IconCopy />
+          </Button>
+        </div>
+        <ScrollArea className="max-h-80 [--scroll-fade-reveal:1rem]" scrollFade>
           <MarkdownView className="pr-3 text-sm" content={prompt.trim() || "未填写"} />
         </ScrollArea>
       </section>
@@ -83,7 +105,8 @@ function JobDescriptionPreview({
 
 const TRIGGER_BUTTON_CLASS =
   "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none";
-const HOVER_CARD_CONTENT_CLASS = "w-96 max-w-[calc(100vw-2rem)]";
+const HOVER_CARD_CONTENT_CLASS =
+  "w-[30rem] max-w-[calc(100vw-2rem)] max-h-[var(--available-height)] overflow-y-auto";
 
 export interface JobDescriptionHoverCardDependencies {
   fetchDetail: (slug: string, id: string) => Promise<JobDescriptionRecord>;

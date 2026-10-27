@@ -134,7 +134,7 @@ export function StudioTablePageSkeleton({
 
 export function QuestionBankPageSkeleton() {
   return (
-    <PageShell label="面试题配置">
+    <PageShell label="面试题">
       <HeaderSkeleton />
       <TabsSkeleton count={2} />
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
@@ -147,7 +147,7 @@ export function QuestionBankPageSkeleton() {
 
 export function InterviewerAgentsPageSkeleton() {
   return (
-    <PageShell label="面试官 Agent 管理">
+    <PageShell label="面试官 Agent">
       <HeaderSkeleton />
       <div className="flex flex-col gap-4" data-slot="data-card-list-shell-skeleton">
         <ToolbarSkeleton />
@@ -159,7 +159,7 @@ export function InterviewerAgentsPageSkeleton() {
 
 export function JobDescriptionsPageSkeleton() {
   return (
-    <PageShell label="岗位设置">
+    <PageShell label="岗位">
       <HeaderSkeleton />
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
         <ToolbarSkeleton filterCount={3} />

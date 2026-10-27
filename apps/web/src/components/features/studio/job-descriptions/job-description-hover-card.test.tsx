@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import { JobDescriptionHoverCardView } from "./job-description-hover-card";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -22,12 +23,14 @@ const record = {
   id: "job-1",
   interviewerIds: ["interviewer-1"],
   name: "前端工程师",
-  prompt: "熟悉 **React** 与 TypeScript",
+  prompt: "  # 岗位要求\n\n- 熟悉 **React** 与 TypeScript\n",
 } as JobDescriptionRecord;
 
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("JobDescriptionHoverCard", () => {
@@ -91,6 +94,29 @@ describe("JobDescriptionHoverCard", () => {
         expect(document.body.querySelector("strong")?.textContent).toBe("React");
         expect(getRevealState()).toBe("revealed");
       });
+
+      vi.spyOn(toast, "success").mockImplementation(() => "success");
+      vi.spyOn(toast, "error").mockImplementation(() => "error");
+      const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+      vi.stubGlobal("navigator", { clipboard: { writeText } });
+      const copyButton = document.body.querySelector<HTMLButtonElement>(
+        'button[aria-label="复制岗位 JD Markdown 原文"]',
+      );
+      expect(copyButton).not.toBeNull();
+      await act(async () => {
+        copyButton?.click();
+        await Promise.resolve();
+      });
+      expect(writeText).toHaveBeenCalledWith(record.prompt);
+      expect(toast.success).toHaveBeenCalledTimes(1);
+
+      writeText.mockRejectedValueOnce(new Error("Permission denied"));
+      await act(async () => {
+        copyButton?.click();
+        await Promise.resolve();
+      });
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      expect(toast.success).toHaveBeenCalledTimes(1);
 
       act(() => root.unmount());
     },

@@ -35,6 +35,7 @@ import { PaginationBar } from "./parts/pagination-bar";
 import { Toolbar } from "./parts/toolbar";
 import { DataGridVirtualTable } from "./parts/virtual-table";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
+import { useTableViewportHeight } from "./use-table-viewport-height";
 import { ListLoadError } from "./list-load-error";
 import { dataGridFeatures } from "./table-features";
 import type { DataGridFeatures } from "./table-features";
@@ -208,8 +209,8 @@ export interface DataGridProps<TData extends RowData> {
   maxHeight?: string | null;
 
   /**
-   * 行虚拟化 + 滚动加载：替代分页栏，必须同时给定 maxHeight。
-   * Row virtualization with load-on-scroll in place of the pagination bar; requires maxHeight.
+   * 行虚拟化 + 滚动加载：PC 端自动适配剩余高度，maxHeight 用作移动端和测量前的高度。
+   * Desktop virtualized tables fit the available space; maxHeight is the mobile/SSR fallback.
    */
   virtualized?: {
     hasNextPage: boolean;
@@ -233,6 +234,10 @@ function resolveRowSelectionEnabled<TData extends RowData>(
     return false;
   }
   return canSelectRow ? (row) => canSelectRow(row.original) : true;
+}
+
+function resolveTableMaxHeight(virtualized: boolean, maxHeight: string | null) {
+  return virtualized ? `var(--data-grid-auto-max-height, ${maxHeight ?? "60svh"})` : maxHeight;
 }
 
 export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
@@ -275,6 +280,9 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     totalPages,
     virtualized,
   } = props;
+
+  const tableHeightRef = useTableViewportHeight(Boolean(virtualized));
+  const tableMaxHeight = resolveTableMaxHeight(Boolean(virtualized), maxHeight);
 
   const normalizedPinning = useMemo(
     () => ({
@@ -441,7 +449,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         cellSelection,
         columnsPinnable: hasPinning,
         headerBackground: false,
-        headerSticky: Boolean(maxHeight),
+        headerSticky: Boolean(tableMaxHeight),
         rowBorder: true,
         // 虚拟滚动只渲染可视行，自动布局会随行内容改变列宽；固定布局按列 size 定宽，超出省略。
         // Virtualized rows would reflow auto-layout widths while scrolling; fixed layout pins
@@ -460,8 +468,10 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         <DataGridScrollArea
           // 视口的 size-full 在只有 max-height 的根节点下不生效，需继承最大高度才能成为滚动容器。
           // The viewport's size-full cannot resolve against a max-height-only root, so inherit it.
-          className={maxHeight ? "[&>[data-slot=scroll-area-viewport]]:max-h-[inherit]" : undefined}
-          style={maxHeight ? { maxHeight } : undefined}
+          className={
+            tableMaxHeight ? "[&>[data-slot=scroll-area-viewport]]:max-h-[inherit]" : undefined
+          }
+          style={tableMaxHeight ? { maxHeight: tableMaxHeight } : undefined}
         >
           {virtualized && !showSkeleton ? (
             <DataGridVirtualTable estimateRowHeight={DATA_GRID_ROW_HEIGHT} {...virtualized} />
@@ -507,22 +517,24 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         <ListLoadError compact error={error} onRetry={onRetry ?? onRefresh} />
       ) : null}
 
-      <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
-        {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
+      <div ref={tableHeightRef} className="min-w-0">
+        <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
+          {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
 
-        {rows.length === 0 && !isInitialLoading && !virtualized ? (
-          <PaginationBar
-            loading={loading || refetching}
-            onPageChange={pagination.onPageChange}
-            onPageSizeChange={pagination.onPageSizeChange}
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            pageSizeOptions={pageSizeOptions}
-            total={total}
-            totalPages={totalPages}
-          />
-        ) : null}
-      </SkeletonReveal>
+          {rows.length === 0 && !isInitialLoading && !virtualized ? (
+            <PaginationBar
+              loading={loading || refetching}
+              onPageChange={pagination.onPageChange}
+              onPageSizeChange={pagination.onPageSizeChange}
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={pageSizeOptions}
+              total={total}
+              totalPages={totalPages}
+            />
+          ) : null}
+        </SkeletonReveal>
+      </div>
     </div>
   );
 }

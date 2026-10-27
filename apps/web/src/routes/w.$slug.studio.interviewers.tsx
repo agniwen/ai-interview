@@ -32,7 +32,7 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
     }
     return state;
   },
-  head: () => ({ meta: [{ title: formatDocumentTitle("面试官 Agent 管理") }] }),
+  head: () => ({ meta: [{ title: formatDocumentTitle("面试官 Agent") }] }),
   component: StudioInterviewersRoute,
   pendingComponent: InterviewerAgentsPageSkeleton,
   shouldReload: false,

@@ -14,7 +14,7 @@ function StudioFormsRoute() {
   ) : null;
 }
 
-// 页面权限由父路由「面试题配置」校验，服务端函数同样按页面权限鉴权。
+// 页面权限由父路由「面试题」校验，服务端函数同样按页面权限鉴权。
 // The question bank parent route checks the page permission; the server function re-checks it.
 export const Route = createFileRoute("/w/$slug/studio/question-bank/forms")({
   validateSearch: coerceSearchParams,
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/w/$slug/studio/question-bank/forms")({
     }
     return state;
   },
-  head: () => ({ meta: [{ title: formatDocumentTitle("表单题 · 面试题配置") }] }),
+  head: () => ({ meta: [{ title: formatDocumentTitle("表单题 · 面试题") }] }),
   component: StudioFormsRoute,
   pendingComponent: () => (
     <StudioTablePageSkeleton columnCount={8} filterCount={3} header={false} label="表单题" />

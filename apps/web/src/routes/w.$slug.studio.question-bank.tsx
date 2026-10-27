@@ -7,7 +7,7 @@ import { requireStudioPagePermission } from "@/lib/start/studio-page-permission"
 export const Route = createFileRoute("/w/$slug/studio/question-bank")({
   loader: ({ parentMatchPromise }) =>
     requireStudioPagePermission(parentMatchPromise, "questionBank"),
-  head: () => ({ meta: [{ title: formatDocumentTitle("面试题配置") }] }),
+  head: () => ({ meta: [{ title: formatDocumentTitle("面试题") }] }),
   component: QuestionBankLayout,
   pendingComponent: QuestionBankPageSkeleton,
   shouldReload: false,
