@@ -71,11 +71,11 @@ function DepartmentRailItem({
 }
 
 /**
- * 岗位设置页左侧的部门栏：选择部门即筛选右侧岗位列表，同时承载部门的增删改。
- * Department rail on the job settings page: selecting a department filters the job list,
- * and the rail also hosts department create / edit / delete.
+ * 「管理部门」弹窗中的部门列表：选择部门即筛选岗位列表，每行承载编辑、删除与面试官查看。
+ * Department list in the "manage departments" dialog: selecting a department filters the job
+ * list, and each row hosts edit / delete / interviewer actions.
  */
-export function DepartmentRail({
+export function DepartmentManageList({
   departments,
   onChanged,
   onSelect,
@@ -108,28 +108,8 @@ export function DepartmentRail({
 
   return (
     <>
-      <aside
-        aria-labelledby="department-rail-title"
-        className="flex min-h-0 flex-col overflow-hidden rounded-lg bg-control shadow-default lg:sticky lg:top-4 lg:self-start"
-      >
-        <div className="flex h-11 items-center justify-between gap-2 border-border-subtle border-b pr-2 pl-4">
-          <h2 className="font-medium text-sm" id="department-rail-title">
-            部门
-          </h2>
-          {canCreateDepartment ? (
-            <Button
-              aria-label="新建部门"
-              onClick={crud.openCreate}
-              size="icon-sm"
-              title="新建部门"
-              type="button"
-              variant="ghost"
-            >
-              <IconPlus className="size-4" />
-            </Button>
-          ) : null}
-        </div>
-        <ul className="flex max-h-64 flex-col gap-0.5 overflow-y-auto p-1.5 lg:max-h-[calc(100svh-14rem)]">
+      <div className="flex min-h-0 flex-col">
+        <ul aria-label="部门" className="flex max-h-[60svh] flex-col gap-0.5 overflow-y-auto">
           <DepartmentRailItem
             count={totalJobCount}
             label="全部岗位"
@@ -189,13 +169,24 @@ export function DepartmentRail({
           ))}
         </ul>
         {departments.length === 0 ? (
-          <p className="px-3 pb-3 text-muted-foreground text-xs leading-relaxed">
+          <p className="px-2.5 py-2 text-muted-foreground text-xs leading-relaxed">
             {canCreateDepartment
-              ? "还没有部门，可点击右上角新建，或在创建岗位时直接新建。"
+              ? "还没有部门，可点击下方「新建部门」。"
               : "还没有部门，请联系管理员创建。"}
           </p>
         ) : null}
-      </aside>
+        {canCreateDepartment ? (
+          <Button
+            className="mt-2 self-start"
+            onClick={crud.openCreate}
+            type="button"
+            variant="outline"
+          >
+            <IconPlus className="size-4" />
+            新建部门
+          </Button>
+        ) : null}
+      </div>
 
       {(crud.editingRecord ? canUpdateDepartment : canCreateDepartment) ? (
         <DepartmentFormDialog

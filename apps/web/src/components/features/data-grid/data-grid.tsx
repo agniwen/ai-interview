@@ -193,6 +193,8 @@ export interface DataGridProps<TData extends RowData> {
    */
   filtersExtra?: ReactNode;
   toolbarRight?: ReactNode;
+  /** 渲染在工具栏最前面的节点。/ Node rendered first in the toolbar. */
+  toolbarLeft?: ReactNode;
   bulkActions?: (ctx: BulkActionContext<TData>) => ReactNode;
   headerExtra?: ReactNode;
 
@@ -275,6 +277,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     rowSelection,
     sorting,
     sortableColumnIds,
+    toolbarLeft,
     toolbarRight,
     total,
     totalPages,
@@ -510,6 +513,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         onResetFilters={onResetFilters}
         refreshing={refetching}
         searchLoading={loading}
+        toolbarLeft={toolbarLeft}
         toolbarRight={toolbarRight}
       />
 

@@ -94,9 +94,12 @@ export function FilterConditions({
   values,
   onChange,
   actions,
+  leading,
 }: {
   /** 与“添加筛选”同处一个容器的其他操作。/ Toolbar actions sharing the Add filter container. */
   actions?: ReactNode;
+  /** 排在筛选芯片最前面、随芯片一起换行的节点。/ Node leading the chips and wrapping with them. */
+  leading?: ReactNode;
   configs: ToolbarConditionConfig[];
   selected: string[];
   onSelectionChange: (keys: string[]) => void;
@@ -152,7 +155,11 @@ export function FilterConditions({
       variant="basic"
     >
       {/* 没有条件时整行移出布局，但保留其中的读屏播报区。/ An empty row leaves the layout but keeps its live region. */}
-      <FiltersRow className="min-w-0 max-w-full data-empty:sr-only" showBuilder={false} />
+      <FiltersRow
+        className="min-w-0 max-w-full data-empty:sr-only"
+        leading={leading}
+        showBuilder={false}
+      />
       <div
         className="flex min-w-0 flex-wrap items-center gap-2"
         data-slot="data-grid-toolbar-actions"

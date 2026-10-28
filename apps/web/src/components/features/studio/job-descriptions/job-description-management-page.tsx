@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import type { DepartmentListRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
-import { DepartmentRail } from "@/components/features/studio/departments/department-rail";
+import { DepartmentSelect } from "@/components/features/studio/departments/department-select";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
@@ -541,82 +541,81 @@ export function JobDescriptionManagementPage({
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader title="岗位" />
 
-        <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
-          <DepartmentRail
-            departments={departments}
-            onChanged={invalidateJobDescriptionData}
-            onSelect={(departmentId) => setFilter("departmentId", departmentId)}
-            selectedDepartmentId={selectedDepartmentId}
-          />
-
-          <DataGrid<JobDescriptionListRecord>
-            {...grid.bind}
-            {...listGridProps}
-            columnPinning={{ end: ["actions"], start: ["name"] }}
-            columns={columns}
-            empty={
-              missingRefs ? (
-                <Empty className="border-border">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <IconFileText className="size-5" />
-                    </EmptyMedia>
-                    <EmptyTitle>请先创建面试官</EmptyTitle>
-                    <EmptyDescription>
-                      在招岗位需要指定面试官，先去「面试官 Agent」完成配置。
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              ) : (
-                <Empty className="border-border">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <IconFileText className="size-5" />
-                    </EmptyMedia>
-                    <EmptyTitle>还没有在招岗位</EmptyTitle>
-                  </EmptyHeader>
-                  {canCreateJobDescription ? (
-                    <EmptyContent className="flex items-center justify-center">
-                      <Button
-                        disabled={missingRefs}
-                        onClick={() => {
-                          queryClient.setQueryData(
-                            ["job-description-create-department", slug],
-                            selectedDepartmentId ?? "",
-                          );
-                          openEditorPage("new");
-                        }}
-                      >
-                        <IconPlus className="size-4" />
-                        创建在招岗位
-                      </Button>
-                    </EmptyContent>
-                  ) : null}
-                </Empty>
-              )
-            }
-            filters={filtersConfig}
-            getRowId={(r) => r.id}
-            toolbarRight={
-              canCreateJobDescription ? (
-                <Button
-                  className="flex-1 sm:flex-none"
-                  disabled={missingRefs}
-                  onClick={() => {
-                    queryClient.setQueryData(
-                      ["job-description-create-department", slug],
-                      selectedDepartmentId ?? "",
-                    );
-                    openEditorPage("new");
-                  }}
-                >
-                  <IconPlus className="size-4" />
-                  创建在招岗位
-                </Button>
-              ) : null
-            }
-          />
-        </div>
+        <DataGrid<JobDescriptionListRecord>
+          {...grid.bind}
+          {...listGridProps}
+          columnPinning={{ end: ["actions"], start: ["name"] }}
+          columns={columns}
+          empty={
+            missingRefs ? (
+              <Empty className="border-border">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconFileText className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>请先创建面试官</EmptyTitle>
+                  <EmptyDescription>
+                    在招岗位需要指定面试官，先去「面试官 Agent」完成配置。
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Empty className="border-border">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconFileText className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>还没有在招岗位</EmptyTitle>
+                </EmptyHeader>
+                {canCreateJobDescription ? (
+                  <EmptyContent className="flex items-center justify-center">
+                    <Button
+                      disabled={missingRefs}
+                      onClick={() => {
+                        queryClient.setQueryData(
+                          ["job-description-create-department", slug],
+                          selectedDepartmentId ?? "",
+                        );
+                        openEditorPage("new");
+                      }}
+                    >
+                      <IconPlus className="size-4" />
+                      创建在招岗位
+                    </Button>
+                  </EmptyContent>
+                ) : null}
+              </Empty>
+            )
+          }
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarLeft={
+            <DepartmentSelect
+              departments={departments}
+              onChanged={invalidateJobDescriptionData}
+              onSelect={(departmentId) => setFilter("departmentId", departmentId)}
+              selectedDepartmentId={selectedDepartmentId}
+            />
+          }
+          toolbarRight={
+            canCreateJobDescription ? (
+              <Button
+                className="flex-1 sm:flex-none"
+                disabled={missingRefs}
+                onClick={() => {
+                  queryClient.setQueryData(
+                    ["job-description-create-department", slug],
+                    selectedDepartmentId ?? "",
+                  );
+                  openEditorPage("new");
+                }}
+              >
+                <IconPlus className="size-4" />
+                创建在招岗位
+              </Button>
+            ) : null
+          }
+        />
       </div>
 
       <EntityDeleteDialog

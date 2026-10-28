@@ -8,7 +8,6 @@ import {
 } from "@app/shared/job-description-interviewers";
 import { IconPlus } from "@tabler/icons-react";
 import { DatePicker } from "@/components/date-time-picker";
-import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldContent,
@@ -60,7 +59,7 @@ export function JobDescriptionBasicSettingsFields({
   interviewers: InterviewerListRecord[];
   interviewerOptions: { label: string; value: string }[];
   isGeneratingCode: boolean;
-  /** 传入时在部门选择旁显示「新建」。Shows an inline "create department" action when provided. */
+  /** 传入时在部门下拉末尾提供「新建部门」。Adds a "create department" row to the department select when provided. */
   onCreateDepartment?: () => void;
   reportingManagerOptions: SearchableSelectOption[];
   selectedDepartmentId: string;
@@ -167,44 +166,43 @@ export function JobDescriptionBasicSettingsFields({
                 </FieldDescription>
               </FieldContent>
               <div className={JOB_SETTING_CONTROL_CLASS}>
-                <div className="flex gap-2">
-                  <div className="min-w-0 flex-1">
-                    <SearchableSelect
-                      id={field.name}
-                      invalid={!!errors?.length}
-                      onChange={(value) => {
-                        const nextDepartmentId = normalizeDepartmentId(value);
-                        field.handleChange(nextDepartmentId);
-                        form.setFieldValue(
-                          "interviewerIds",
-                          filterInterviewerIdsByDepartment(
-                            interviewers,
-                            nextDepartmentId,
-                            selectedInterviewerIds,
-                            allowCrossDepartmentInterviewers,
-                          ),
-                        );
-                      }}
-                      options={departments.map((dept) => ({
-                        label: dept.name,
-                        value: dept.id,
-                      }))}
-                      placeholder={
-                        departments.length > 0
-                          ? "选择部门"
-                          : `暂无部门${onCreateDepartment ? "，请先新建" : ""}`
-                      }
-                      searchPlaceholder="搜索部门…"
-                      value={field.state.value || null}
-                    />
-                  </div>
-                  {onCreateDepartment ? (
-                    <Button onClick={onCreateDepartment} type="button" variant="outline">
-                      <IconPlus className="size-4" />
-                      新建
-                    </Button>
-                  ) : null}
-                </div>
+                <SearchableSelect
+                  action={
+                    onCreateDepartment
+                      ? {
+                          icon: <IconPlus className="size-4" />,
+                          label: "新建部门",
+                          onSelect: onCreateDepartment,
+                        }
+                      : undefined
+                  }
+                  id={field.name}
+                  invalid={!!errors?.length}
+                  onChange={(value) => {
+                    const nextDepartmentId = normalizeDepartmentId(value);
+                    field.handleChange(nextDepartmentId);
+                    form.setFieldValue(
+                      "interviewerIds",
+                      filterInterviewerIdsByDepartment(
+                        interviewers,
+                        nextDepartmentId,
+                        selectedInterviewerIds,
+                        allowCrossDepartmentInterviewers,
+                      ),
+                    );
+                  }}
+                  options={departments.map((dept) => ({
+                    label: dept.name,
+                    value: dept.id,
+                  }))}
+                  placeholder={
+                    departments.length > 0
+                      ? "选择部门"
+                      : `暂无部门${onCreateDepartment ? "，可在下拉中新建" : ""}`
+                  }
+                  searchPlaceholder="搜索部门…"
+                  value={field.state.value || null}
+                />
                 <FieldError errors={errors} />
               </div>
             </Field>

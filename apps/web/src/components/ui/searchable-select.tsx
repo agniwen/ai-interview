@@ -77,7 +77,20 @@ export interface SearchableSelectProps {
   onSearchChange?: (query: string) => void;
   /** 服务端搜索加载中，空列表时显示加载文案。Shows a loading message while results are empty. */
   loading?: boolean;
+  /**
+   * 列表末尾的常驻操作项（如「新建部门」），可用键盘选中，不参与搜索过滤。
+   * A trailing action row (e.g. "create department") that is keyboard-selectable and never filtered out.
+   */
+  action?: SearchableSelectAction;
 }
+
+export interface SearchableSelectAction {
+  label: string;
+  icon?: ReactNode;
+  onSelect: () => void;
+}
+
+const ACTION_OPTION_VALUE = "__searchable-select-action__";
 
 function getOptionSearchText(option: SearchableSelectOption) {
   return option.searchValue ?? `${option.label} ${option.description ?? ""}`;
@@ -126,6 +139,7 @@ export function SearchableSelect({
   modal = true,
   onSearchChange,
   loading = false,
+  action,
 }: SearchableSelectProps) {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -160,7 +174,18 @@ export function SearchableSelect({
     }
   };
 
+  const items = useMemo(
+    () => (action ? [...options, { label: action.label, value: ACTION_OPTION_VALUE }] : options),
+    [action, options],
+  );
+
   const handleValueChange = (next: SearchableSelectOption | null) => {
+    if (next?.value === ACTION_OPTION_VALUE) {
+      setInputValue(selectedLabel);
+      setOpen(false);
+      action?.onSelect();
+      return;
+    }
     if (!next && required) {
       return;
     }
@@ -179,12 +204,17 @@ export function SearchableSelect({
   return (
     <Combobox<SearchableSelectOption>
       disabled={disabled}
-      filter={onSearchChange ? null : filterSearchableOption}
+      filter={
+        onSearchChange
+          ? null
+          : (option: SearchableSelectOption, query: string) =>
+              option.value === ACTION_OPTION_VALUE || filterSearchableOption(option, query)
+      }
       inputValue={inputValue}
       isItemEqualToValue={(item, selectedItem) => item.value === selectedItem.value}
       itemToStringLabel={(item) => item.label}
       itemToStringValue={(item) => item.value}
-      items={options}
+      items={items}
       limit={INITIAL_RESULT_LIMIT}
       modal={modal}
       onInputValueChange={handleInputValueChange}
@@ -217,19 +247,31 @@ export function SearchableSelect({
       >
         <ComboboxEmpty>{loading ? "加载中…" : emptyMessage}</ComboboxEmpty>
         <ComboboxList className={cn("max-h-72 overflow-y-auto", listClassName)}>
-          {(option: SearchableSelectOption) => (
-            <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
-              <SearchableSelectOptionAvatar option={option} />
-              <div className="flex min-w-0 flex-col leading-tight">
+          {(option: SearchableSelectOption) =>
+            option.value === ACTION_OPTION_VALUE ? (
+              <ComboboxItem
+                // 常驻在列表底部，选项再多也无需滚动即可看到。/ Pinned to the list bottom so it stays visible however long the list is.
+                className="sticky bottom-0 z-10 mt-1 bg-popover before:pointer-events-none before:absolute before:inset-x-0 before:-top-0.5 before:h-px before:bg-border"
+                key={option.value}
+                value={option}
+              >
+                {action?.icon}
                 <span className="truncate">{option.label}</span>
-                {option.description ? (
-                  <span className="truncate text-muted-foreground text-xs">
-                    {option.description}
-                  </span>
-                ) : null}
-              </div>
-            </ComboboxItem>
-          )}
+              </ComboboxItem>
+            ) : (
+              <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
+                <SearchableSelectOptionAvatar option={option} />
+                <div className="flex min-w-0 flex-col leading-tight">
+                  <span className="truncate">{option.label}</span>
+                  {option.description ? (
+                    <span className="truncate text-muted-foreground text-xs">
+                      {option.description}
+                    </span>
+                  ) : null}
+                </div>
+              </ComboboxItem>
+            )
+          }
         </ComboboxList>
       </ComboboxContent>
     </Combobox>

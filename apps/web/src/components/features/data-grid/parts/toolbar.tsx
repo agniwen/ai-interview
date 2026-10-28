@@ -33,6 +33,8 @@ export interface ToolbarProps {
   onResetFilters?: (clearedValues?: Record<string, string>) => void;
   canResetFilters?: boolean;
   toolbarRight?: ReactNode;
+  /** 渲染在工具栏最前面的节点；有筛选芯片时与芯片同行。/ Node rendered first in the toolbar, inline with filter chips when present. */
+  toolbarLeft?: ReactNode;
   filtersExtra?: ReactNode;
   bulkActionsSlot?: ReactNode;
 }
@@ -56,6 +58,7 @@ export function Toolbar({
   onResetFilters,
   refreshing,
   searchLoading,
+  toolbarLeft,
   toolbarRight,
 }: ToolbarProps) {
   const textConfig = filters?.find((filter) => filter.type === "text-filters");
@@ -127,9 +130,15 @@ export function Toolbar({
     }
   }
   if (
-    ![filters?.length, filtersExtra, toolbarRight, onRefresh, onResetFilters, bulkActionsSlot].some(
-      Boolean,
-    )
+    ![
+      filters?.length,
+      filtersExtra,
+      toolbarLeft,
+      toolbarRight,
+      onRefresh,
+      onResetFilters,
+      bulkActionsSlot,
+    ].some(Boolean)
   ) {
     return null;
   }
@@ -258,6 +267,7 @@ export function Toolbar({
         <FilterConditions
           actions={actions}
           configs={conditions}
+          leading={toolbarLeft}
           selected={selected}
           onSelectionChange={setSelected}
           onChange={onFilterChange}
@@ -268,6 +278,7 @@ export function Toolbar({
           className="flex min-w-0 flex-wrap items-center gap-2"
           data-slot="data-grid-toolbar-actions"
         >
+          {toolbarLeft}
           {actions}
         </div>
       )}

@@ -934,6 +934,8 @@ export interface FiltersRowProps {
   showClear?: boolean;
   /** 为 false 时不渲染“添加筛选”，由调用方把 `FiltersBuilder` 放到别处。/ Omit the Add filter popover so a consumer can place `FiltersBuilder` elsewhere. */
   showBuilder?: boolean;
+  /** 渲染在芯片之前、与芯片同行换行的节点。/ Node placed before the chips, wrapping with them. */
+  leading?: React.ReactNode;
   className?: string;
 }
 
@@ -942,7 +944,13 @@ export interface FiltersRowProps {
  * every segment of every chip its own tab stop. There is NO combinator here,
  * because a chip row can draw a word between two pills but not a parenthesis.
  */
-export function FiltersRow({ trigger, showClear, showBuilder = true, className }: FiltersRowProps) {
+export function FiltersRow({
+  trigger,
+  showClear,
+  showBuilder = true,
+  leading,
+  className,
+}: FiltersRowProps) {
   const actions = useFilterActions();
   const sizes = filterControlSizes(actions);
   const { query, ruleCount, announcement, announcementSeq } = useFilterState();
@@ -957,6 +965,7 @@ export function FiltersRow({ trigger, showClear, showBuilder = true, className }
   // Flattened, not `query.rules.filter(isFilterRule)`: a query built in the
   // advanced builder would otherwise hide nested conditions that still filter.
   const rules = React.useMemo(() => flattenFilterRules(query), [query]);
+  const empty = rules.length === 0 && !leading;
 
   const chips = () =>
     Array.from(rootRef.current?.querySelectorAll<HTMLElement>('[data-slot="filter-chip"]') ?? []);
@@ -1029,7 +1038,7 @@ export function FiltersRow({ trigger, showClear, showBuilder = true, className }
     <div
       ref={rootRef}
       data-slot="filters"
-      data-empty={rules.length === 0 || undefined}
+      data-empty={empty || undefined}
       /* A presence hook, so a consumer can tint the whole read-only bar. */
       data-readonly={actions.readOnly || undefined}
       className={cn(
@@ -1038,7 +1047,7 @@ export function FiltersRow({ trigger, showClear, showBuilder = true, className }
         filtersBarVariants({ size: sizes.button }),
         /* An empty toolbar is still a flex child, so it took a gap with no
            width. The gap goes, not the toolbar, which owns the row's name. */
-        rules.length === 0 && "gap-0",
+        empty && "gap-0",
         className,
       )}
     >
@@ -1052,6 +1061,7 @@ export function FiltersRow({ trigger, showClear, showBuilder = true, className }
         className={cn(filtersBarVariants({ size: sizes.button }))}
         onKeyDown={onKeyDown}
       >
+        {leading}
         {rules.map((rule, index) => (
           <FilterChip key={rule.id} rule={rule} index={index} />
         ))}
