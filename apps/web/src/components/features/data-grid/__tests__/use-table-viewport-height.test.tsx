@@ -54,20 +54,20 @@ it("fits the scroll parent, remeasures toolbar changes and releases sizing on mo
   }
   const height = () =>
     Number.parseFloat(table.style.getPropertyValue("--data-grid-auto-max-height"));
-  expect(height()).toBe(527);
+  expect(height()).toBe(526);
   tableTop = 300;
   act(() => resize());
-  expect(height()).toBe(477);
+  expect(height()).toBe(476);
   scroller.scrollTop = 100;
   tableTop = 200;
   act(() => resize());
-  expect(height()).toBe(477);
+  expect(height()).toBe(476);
   vi.stubGlobal("innerWidth", 600);
   act(() => window.dispatchEvent(new Event("resize")));
   expect(table.style.getPropertyValue("--data-grid-auto-max-height")).toBe("");
   vi.stubGlobal("innerWidth", 1280);
   act(() => window.dispatchEvent(new Event("resize")));
-  expect(height()).toBe(477);
+  expect(height()).toBe(476);
   act(() => root.render(<Table enabled={false} />));
   expect(disconnect).toHaveBeenCalled();
   expect(table.style.getPropertyValue("--data-grid-auto-max-height")).toBe("");

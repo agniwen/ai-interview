@@ -1,6 +1,6 @@
 /**
  * Surface depth follows the four elevation tokens in globals.css:
- * - Resting controls: shadow-default (0.5px ring + tight drop) instead of a border.
+ * - Resting controls: shadow-default (1px ring + tight drop) instead of a border.
  * - Anchored popups: shadow-large. Modals: shadow-extra-large.
  * Fields keep a transparent 1px border so invalid/focus states can still colour it.
  */

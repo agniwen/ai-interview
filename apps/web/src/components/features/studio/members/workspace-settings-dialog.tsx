@@ -108,7 +108,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
               <FieldLabel htmlFor="workspace-name">工作区名称</FieldLabel>
               <Input
                 aria-invalid={!!fieldError}
-                autoComplete="organization"
+                autoComplete="off"
                 disabled={submitting}
                 id="workspace-name"
                 maxLength={80}

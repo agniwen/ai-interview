@@ -34,7 +34,8 @@ export function useTableViewportHeight(enabled: boolean) {
         );
         // Normalize outer scrolling so scrolling the page cannot grow the table.
         const scrollOffset = scroller?.scrollTop ?? window.scrollY;
-        const available = Math.floor(bottom - top - scrollOffset - padding - 49);
+        // 合计栏 48px + 表格外框上下各 1px。 The 48px total footer plus the frame's 1px top and bottom borders.
+        const available = Math.floor(bottom - top - scrollOffset - padding - 50);
         node.style.setProperty("--data-grid-auto-max-height", `${Math.max(120, available)}px`);
       };
       update();

@@ -87,7 +87,7 @@ export function DepartmentSelect({
         value={selectedDepartmentId || ALL_DEPARTMENTS_VALUE}
       >
         {/* 与筛选芯片同款：字段名 + 值。/ Matches the filter chips: field name + value. */}
-        <ButtonGroup className="h-8 min-w-0 max-w-full">
+        <ButtonGroup attached className="h-8 min-w-0 max-w-full">
           <ButtonGroupText
             className="shrink-0 cursor-default bg-control"
             // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- The label text is the ButtonGroupText child; htmlFor ties it to the trigger.
@@ -95,10 +95,7 @@ export function DepartmentSelect({
           >
             部门
           </ButtonGroupText>
-          <SelectTrigger
-            className="h-8 min-w-40 rounded-lg bg-control font-medium shadow-default"
-            id={triggerId}
-          >
+          <SelectTrigger className="h-8 min-w-40 rounded-lg bg-control font-medium" id={triggerId}>
             <SelectValue />
           </SelectTrigger>
         </ButtonGroup>

@@ -22,8 +22,13 @@ export function Tabs({
 }): React.ReactElement {
   return (
     <TabsContext.Provider value={{ activationMode }}>
+      {/* 内容整体放进弹窗（portal）时根节点是空的，empty:hidden 避免它在父级 gap 里占位。
+          A Tabs root whose content portals into a modal is empty; hide it so it takes no gap slot. */}
       <TabsPrimitive.Root
-        className={cn("flex flex-col gap-2 data-[orientation=vertical]:flex-row", className)}
+        className={cn(
+          "flex flex-col gap-2 data-[orientation=vertical]:flex-row empty:hidden",
+          className,
+        )}
         data-slot="tabs"
         {...props}
       />

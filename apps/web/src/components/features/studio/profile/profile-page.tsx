@@ -375,7 +375,7 @@ export function ProfilePage() {
               <div className="flex flex-col gap-1">
                 <Input
                   id="profile-name"
-                  autoComplete="name"
+                  autoComplete="off"
                   disabled={isPending || saveStatus === "saving"}
                   maxLength={PROFILE_NAME_MAX_LENGTH}
                   onBlur={handleSaveNow}

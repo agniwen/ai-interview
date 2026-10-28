@@ -475,9 +475,9 @@
   --radius-4xl: calc(var(--radius) + 16px);
 
   /* 四级深度（参考 Interfere）：border 描边 → default 静止控件/卡片 → large 锚定浮层 → extra-large 对话框。
-     暗色下投影消失，改用 0.5px 白色内高光；数值在 :root / .dark 的 --elevation-* 里。
+     1px 描边保证 1x 屏可读；暗色下投影消失，改用 1px 白色内描边加顶部高光；数值在 :root / .dark 的 --elevation-* 里。
      Four depth levels: border → default (resting controls, cards) → large (anchored popups)
-     → extra-large (modals). Dark mode trades drop shadows for a 0.5px inner highlight. */
+     → extra-large (modals). Rings are 1px so they survive 1x displays; dark mode trades drop shadows for a 1px inner ring and top highlight. */
   --shadow-border: var(--elevation-border);
   --shadow-default: var(--elevation-default);
   --shadow-large: var(--elevation-large);
@@ -626,7 +626,10 @@
   --tomato-a11: #cd2200ea;
 
   --elevation-border: 0 0 0 1px #00000012;
-  --elevation-default: 0 0 0 0.5px #0000000f, 0 1px 1px -1px #0000001a, 0 1px 2px 0 #0000000d;
+  /* 控件/卡片外框色，shadow-default 与拼接控件的分隔线共用。 Resting control ring colour, shared by shadow-default and fused-group dividers. */
+  --control-ring: var(--gray-a3);
+  --elevation-default:
+    0 0 0 1px var(--control-ring), 0 1px 2px -1px #0000001f, 0 1px 3px 0 #0000000d;
   --elevation-large:
     0 0 0 0.5px color-mix(in oklab, var(--gray-a3), var(--gray-3) 25%),
     0 2px 3px -2px var(--gray-a3), 0 3px 12px -4px rgb(0 0 0 / 0.1),
@@ -682,7 +685,7 @@
   /* Opaque equivalent of gray-a4 over the control surface; sticky grid lines must not accumulate alpha. */
   --table-border: var(--gray-4);
   --border-strong: var(--gray-a6);
-  --input: var(--gray-a5);
+  --input: var(--gray-a6);
   --ring: #5eb1ef;
   /* Only charts that followed the light primary green adopt the brand blue. */
   --chart-primary: #0090ff;
@@ -804,7 +807,10 @@
   --tomato-a11: #ff977d;
 
   --elevation-border: 0 0 0 1px #ffffff12;
-  --elevation-default: inset 0 0 0 0.5px #ffffff12;
+  --control-ring: var(--gray-a4);
+  --elevation-default:
+    inset 0 0 0 1px var(--control-ring), inset 0 1px 0 0 var(--gray-a3),
+    0 1px 2px 0 rgb(0 0 0 / 0.5);
   --elevation-large:
     0 0 0 1px color-mix(in oklab, var(--gray-a3), var(--gray-6) 25%),
     0 2px 3px -2px rgb(0 0 0 / 0.15), 0 3px 8px -2px rgb(0 0 0 / 0.4),
@@ -842,11 +848,11 @@
   --destructive: oklch(0.704 0.191 22.216);
   /* 暗色实心 Danger 文字用纯白。 Solid danger text is white in dark mode. */
   --on-danger-solid: #ffffff;
-  --border-subtle: var(--gray-a3);
-  --border: var(--gray-a4);
-  --table-border: var(--gray-5);
-  --border-strong: var(--gray-a6);
-  --input: var(--gray-a5);
+  --border-subtle: var(--gray-a4);
+  --border: var(--gray-a5);
+  --table-border: var(--gray-6);
+  --border-strong: var(--gray-a7);
+  --input: var(--gray-a7);
   --ring: #4f70d2;
   --chart-1: #38bdf8;
   --chart-2: #c084fc;

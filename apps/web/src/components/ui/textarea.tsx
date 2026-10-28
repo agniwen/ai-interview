@@ -2,7 +2,13 @@ import { cn } from "@app/shared/utils";
 import * as React from "react";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 
-function Textarea({ className, ref, ...props }: React.ComponentProps<"textarea">) {
+// 与 Input 一致，默认关闭浏览器自动填充。 Autofill is off by default, matching Input.
+function Textarea({
+  autoComplete = "off",
+  className,
+  ref,
+  ...props
+}: React.ComponentProps<"textarea">) {
   return (
     <span
       className={cn(cossFieldSurfaceClass, "inline-flex w-full text-base md:text-[13px]")}
@@ -15,13 +21,19 @@ function Textarea({ className, ref, ...props }: React.ComponentProps<"textarea">
         )}
         data-slot="textarea"
         ref={ref}
+        autoComplete={autoComplete}
         {...props}
       />
     </span>
   );
 }
 
-function TextareaControl({ className, ref, ...props }: React.ComponentProps<"textarea">) {
+function TextareaControl({
+  autoComplete = "off",
+  className,
+  ref,
+  ...props
+}: React.ComponentProps<"textarea">) {
   return (
     <textarea
       className={cn(
@@ -30,6 +42,7 @@ function TextareaControl({ className, ref, ...props }: React.ComponentProps<"tex
       )}
       data-slot="textarea"
       ref={ref}
+      autoComplete={autoComplete}
       {...props}
     />
   );

@@ -312,7 +312,7 @@ export function MailIngestAccountCard() {
             >
               <Input
                 id="mail-ingest-email"
-                autoComplete="email"
+                autoComplete="off"
                 disabled={disabled}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, emailAddress: event.target.value }))

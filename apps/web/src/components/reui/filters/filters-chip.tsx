@@ -877,6 +877,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
     // alone joined the arrow-key query with no `tabIndex` to land on.
     return (
       <ButtonGroup
+        attached
         data-slot="filter-chip"
         data-unknown=""
         role="group"
@@ -939,6 +940,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
 
   return (
     <ButtonGroup
+      attached
       data-slot="filter-chip"
       role="group"
       aria-label={actions.labels.filterLabel(

@@ -121,7 +121,7 @@ function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowC
         tableClassNames={{ bodyRow: DATA_GRID_ROW_CLASS }}
         tableLayout={{ cellBorder: true, headerBackground: false, rowBorder: true, width: "auto" }}
       >
-        <ReuiDataGridContainer className="rounded-lg bg-control shadow-default [--border:var(--table-border)]">
+        <ReuiDataGridContainer className="rounded-lg border border-border bg-control [--border:var(--table-border)]">
           <DataGridScrollArea>
             <DataGridTable />
           </DataGridScrollArea>
@@ -467,7 +467,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         headerSticky: "sticky top-0 z-40 bg-control",
       }}
     >
-      <ReuiDataGridContainer className="rounded-lg bg-control shadow-default [--border:var(--table-border)]">
+      <ReuiDataGridContainer className="rounded-lg border border-border bg-control [--border:var(--table-border)]">
         <DataGridScrollArea
           // 视口的 size-full 在只有 max-height 的根节点下不生效，需继承最大高度才能成为滚动容器。
           // The viewport's size-full cannot resolve against a max-height-only root, so inherit it.

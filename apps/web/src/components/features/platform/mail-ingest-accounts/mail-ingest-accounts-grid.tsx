@@ -333,7 +333,7 @@ function PlatformMailIngestAccountDialog({
             >
               <Input
                 id="platform-mail-ingest-email"
-                autoComplete="email"
+                autoComplete="off"
                 disabled={pending}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, emailAddress: event.target.value }))
