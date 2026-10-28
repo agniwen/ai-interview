@@ -8,6 +8,11 @@ import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { EditorPageHeader } from "../editor-page-header";
 import { FormTemplateEditorSkeleton } from "./form-template-editor-skeleton";
+import {
+  SubjectAgentScope,
+  useSubjectAgentHeaderActions,
+  useSubjectAgentSubject,
+} from "@/components/features/subject-agent/subject-agent-page";
 import { CandidateFormTemplateEditorDialog } from "./form-template-editor-dialog";
 
 type ReferenceProps = Pick<
@@ -39,6 +44,13 @@ export function CandidateFormEditPage({
     refetchOnWindowFocus: false,
     staleTime: 0,
   });
+  // 表单题只有编辑页（新建走弹窗），使用记录会话（ADR-0045）。
+  const agentSubject = useSubjectAgentSubject({
+    enabled: canEdit && Boolean(query.data),
+    kind: "candidate_form_template",
+    recordId: templateId,
+  });
+  const headerActions = useSubjectAgentHeaderActions(agentSubject);
   let content;
   if (!canEdit) {
     content = <p className="py-8 text-muted-foreground">没有编辑表单题的权限</p>;
@@ -80,8 +92,8 @@ export function CandidateFormEditPage({
   }
   return (
     <>
-      <EditorPageHeader label="返回表单题" onBack={onBack} />
-      {content}
+      <EditorPageHeader actions={headerActions} label="返回表单题" onBack={onBack} />
+      <SubjectAgentScope subject={agentSubject}>{content}</SubjectAgentScope>
     </>
   );
 }

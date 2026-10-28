@@ -48,12 +48,14 @@ export function StudioLayout({ children }: { children: ReactNode }) {
                     </PendingOutlet>
                   </>
                 ) : (
+                  // 主滚动区不隔离层叠：顶栏需要盖住遮罩详情路由的覆盖层（z-10），滚动条与覆盖层同级，被后者遮住。
                   <ScrollArea
-                    className="min-h-0 flex-1 bg-background"
+                    className="min-h-0 flex-1 bg-background isolation-auto [&_[data-overlayscrollbars-viewport]]:z-auto! [&>.os-scrollbar]:z-10"
                     scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
                   >
                     <SiteHeader className="left-0" />
-                    <PendingOutlet className="@container/main flex w-[100cqw] min-w-full flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
+                    {/* 窄页面（标记 data-studio-fit-width）打开侧面板时仍放得下，改为跟随可视宽度，不出现横向滚动。 */}
+                    <PendingOutlet className="@container/main flex w-[100cqw] min-w-full has-[[data-studio-fit-width]]:w-full flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
                       {children}
                     </PendingOutlet>
                   </ScrollArea>

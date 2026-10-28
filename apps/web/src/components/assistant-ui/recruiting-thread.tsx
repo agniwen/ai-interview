@@ -38,6 +38,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { RecruitingMarkdownText } from "./recruiting-markdown-text";
 import {
+  assistantMessageContentClass,
+  assistantMessageRootClass,
+  userMessageBubbleClass,
+  userMessageRootClass,
+} from "./recruiting-message-style";
+import {
   RecruitingThinkingIndicator,
   ThinkingClockContext,
   useThinkingClock,
@@ -60,6 +66,7 @@ import {
 } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { RecruitingActionProposalToolUI } from "./recruiting-action-proposal";
+import { ToolChipsGroup } from "./tool-chips";
 import { RecruitingResumeReviewCard } from "./recruiting-resume-review-card";
 import { shouldPresentResumeReviewCard } from "./recruiting-tool-presentation";
 import { useRecruitingComposerShellLayout } from "./use-recruiting-composer-shell-layout";
@@ -218,12 +225,11 @@ function AssistantRunningIndicator() {
 
 function AssistantMessage() {
   return (
-    <MessagePrimitive.Root
-      className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full min-w-0 px-2 duration-150"
-      data-role="assistant"
-    >
-      <div className="aui-assistant-message-content min-w-0 max-w-full text-foreground leading-7 wrap-break-word">
-        <MessagePrimitive.Parts components={{ Text: RecruitingMarkdownText }} />
+    <MessagePrimitive.Root className={assistantMessageRootClass} data-role="assistant">
+      <div className={assistantMessageContentClass}>
+        <MessagePrimitive.Parts
+          components={{ Text: RecruitingMarkdownText, ToolGroup: ToolChipsGroup }}
+        />
         <AssistantRunningIndicator />
       </div>
       <div className="mt-1 flex min-h-8 items-center">
@@ -237,10 +243,13 @@ function AssistantMessage() {
 function UserMessage() {
   return (
     <MessagePrimitive.Root
-      className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150 [&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]"
+      className={cn(
+        userMessageRootClass,
+        "[&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]",
+      )}
       data-role="user"
     >
-      <div className="aui-user-message-content max-w-[70%] rounded-[14px] border border-transparent bg-control px-3.5 py-2 text-foreground text-sm leading-6 shadow-default wrap-break-word empty:hidden">
+      <div className={userMessageBubbleClass}>
         <MessagePrimitive.Parts components={{ Text: RecruitingDirectiveText }} />
       </div>
       <div className="flex min-h-8 items-center justify-end">
@@ -471,8 +480,9 @@ const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRe
   display: "standalone",
   render: ({ result, status }) => {
     const cards = result?.candidateSummaryCards ?? [];
+    // 运行状态由工具调用条展示。
     if (status.type === "running") {
-      return <ToolNotice>正在检索候选人...</ToolNotice>;
+      return null;
     }
     if (cards.length === 0) {
       return (

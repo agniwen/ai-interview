@@ -7,12 +7,19 @@ import {
   buildJobDescriptionInterviewerOptions,
   filterInterviewerIdsByDepartment,
 } from "@app/shared/job-description-interviewers";
+import { pickJobDescriptionAgentPageContext } from "@app/shared/job-description-agent";
+import type { JobDescriptionAgentPageContext } from "@app/shared/job-description-agent";
 import { jobDescriptionFormSchema } from "@app/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
+import {
+  subscribeToFormStore,
+  useRegisterSubjectAgentForm,
+} from "@/components/features/subject-agent/subject-agent-context";
+import type { SubjectAgentFormBridge } from "@/components/features/subject-agent/subject-agent-context";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { EditorPageSurface } from "../editor-page-surface";
@@ -118,6 +125,44 @@ export function JobDescriptionFormDialog({
   useEffect(() => {
     submitRef.current = actions.submitJobDescription;
   }, [actions.submitJobDescription]);
+  // 岗位助手只写入未保存的表单（ADR-0045）；不在助手 Provider 内时登记为空操作。
+  const agentFormBridge = useMemo<SubjectAgentFormBridge>(
+    () => ({
+      getPageContext: () => pickJobDescriptionAgentPageContext(form.state.values),
+      getSavedContext: () =>
+        record ? pickJobDescriptionAgentPageContext(resolvedInitialValues) : null,
+      kind: "job_description",
+      subscribe: (listener) => subscribeToFormStore(form.store, listener),
+      write: (values: Partial<JobDescriptionAgentPageContext>) => {
+        setActiveTab("basic");
+        // 先写跨部门开关和部门，再写面试官：补丁已在 Server 端校验过三者的组合。
+        const writes = [
+          ["allowCrossDepartmentInterviewers", values.allowCrossDepartmentInterviewers],
+          ["departmentId", values.departmentId],
+          ["interviewerIds", values.interviewerIds],
+          ["reportingManagerUserId", values.reportingManagerUserId],
+          ["name", values.name],
+          ["prompt", values.prompt],
+          ["internalCriteria", values.internalCriteria],
+          ["headcount", values.headcount],
+          ["priority", values.priority],
+          ["jobWeight", values.jobWeight],
+          ["salaryMinK", values.salaryMinK],
+          ["salaryMaxK", values.salaryMaxK],
+          ["targetDate", values.targetDate],
+          ["publishedDate", values.publishedDate],
+          ["referralChannels", values.referralChannels],
+        ] as const;
+        for (const [field, value] of writes) {
+          if (value !== undefined) {
+            form.setFieldValue(field, value);
+          }
+        }
+      },
+    }),
+    [form, record, resolvedInitialValues],
+  );
+  useRegisterSubjectAgentForm(agentFormBridge);
   // 只在打开或切换记录时重置；打开期间部门/面试官列表刷新（如表单内新建部门）不能清掉正在编辑的内容。
   // Reset only on open or a record switch; list refreshes while open (e.g. an inline department
   // create) must not wipe in-progress edits.

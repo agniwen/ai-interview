@@ -59,6 +59,7 @@ import { getGlobalConfig } from "@app/recruiting/global-config";
 import { listAllDepartmentsWithReferenceCounts } from "../departments/dao";
 import { listAllInterviewers } from "../interviewers/dao";
 import { createJobDescriptionReferralLink } from "./dao/referral-links";
+import { deleteSubjectThreadsForSubjects } from "../../../chat/routes/subject-threads/dao";
 import {
   generateStructuredJobBlueprintPreview,
   publishStructuredJob,
@@ -1042,6 +1043,11 @@ export function createJobDescriptionsRouter(
             status: 409 as const,
           };
         }
+        await deleteSubjectThreadsForSubjects(tx, {
+          organizationId: activeOrg.id,
+          subjectIds: [id],
+          subjectKind: "job_description",
+        });
         await tx.delete(jobDescription).where(condition);
         return null;
       });

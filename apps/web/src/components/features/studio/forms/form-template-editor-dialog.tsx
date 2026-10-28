@@ -44,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useCandidateFormAgentBridge } from "./use-candidate-form-agent-bridge";
 import { EditorWorkspaceSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
@@ -240,6 +241,12 @@ export function CandidateFormTemplateEditorDialog({
     // oxlint-disable-next-line react/set-state-in-effect -- Opening a different template resets dialog-local selection without remounting the animated root.
     setSelectedQuestionId(resolvedInitialValues.questions[0]?.id ?? null);
   }, [form, open, resolvedInitialValues]);
+  useCandidateFormAgentBridge({
+    savedValues: record ? resolvedInitialValues : null,
+    setSelectedQuestionId,
+    setValue: (field, value) => form.setFieldValue(field, value),
+    store: form.store,
+  });
 
   const settingsFields = (
     <div className={page ? "" : "shrink-0 border-b bg-muted/10 px-6 py-4"}>

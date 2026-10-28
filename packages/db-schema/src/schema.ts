@@ -12,6 +12,7 @@ import type {
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { ArcMessage, ArcMessageRole } from "./ai-message";
+import type { ChatSubjectKind, ChatThreadRunState } from "./chat-subject-threads";
 import type {
   BackgroundCheckCollectionStatus,
   BackgroundCheckDraftInput,
@@ -3390,7 +3391,15 @@ export const interviewConversationTurn = pgTable(
 export const chatConversation = pgTable(
   "chat_conversation",
   {
+    // 实体会话的归档时间；为空表示活动会话（ADR-0045）。
+    // Archive time of a Subject Thread; null means the thread is active (ADR-0045).
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    // 实体会话的创建人，仅用于展示；成员删除后保留会话。
+    // Subject Thread creator for display only; the thread outlives the member.
+    createdByUserId: text("created_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     id: text("id").primaryKey(),
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
     jobDescription: text("job_description").default("").notNull(),
@@ -3401,25 +3410,47 @@ export const chatConversation = pgTable(
         onDelete: "cascade",
       }),
     resumeImports: jsonb("resume_imports").$type<Record<string, string>>().default({}).notNull(),
+    runState: jsonb("run_state").$type<ChatThreadRunState>(),
+    subjectId: text("subject_id"),
+    subjectKind: text("subject_kind").$type<ChatSubjectKind>(),
     title: text("title").default("").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    // 个人会话的所有者；实体会话为空，避免成员账号删除时级联删除团队历史。
+    // Personal-chat owner; null for Subject Threads so deleting a member keeps team history.
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("chat_conversation_user_id_idx").on(table.userId),
     index("chat_conversation_user_updated_idx").on(table.userId, table.updatedAt),
     index("chat_conversation_organization_idx").on(table.organizationId),
+    index("chat_conversation_subject_idx").on(
+      table.organizationId,
+      table.subjectKind,
+      table.subjectId,
+    ),
+    uniqueIndex("chat_conversation_active_subject_uq")
+      .on(table.organizationId, table.subjectKind, table.subjectId)
+      .where(sql`${table.subjectKind} IS NOT NULL AND ${table.archivedAt} IS NULL`),
+    check(
+      "chat_conversation_subject_pair_check",
+      sql`(${table.subjectKind} IS NULL) = (${table.subjectId} IS NULL)`,
+    ),
+    check(
+      "chat_conversation_owner_check",
+      sql`(${table.subjectKind} IS NULL) = (${table.userId} IS NOT NULL)`,
+    ),
   ],
 );
 
 export const chatMessage = pgTable(
   "chat_message",
   {
+    // 用户消息的发送人；助手与系统消息为空（ADR-0045）。
+    // Author of a user message; null for assistant and system messages (ADR-0045).
+    authorUserId: text("author_user_id").references(() => user.id, { onDelete: "set null" }),
     content: jsonb("content").$type<ArcMessage>().notNull(),
     conversationId: text("conversation_id")
       .notNull()

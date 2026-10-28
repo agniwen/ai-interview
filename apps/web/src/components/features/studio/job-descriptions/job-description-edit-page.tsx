@@ -8,6 +8,12 @@ import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { EditorPageHeader } from "../editor-page-header";
 import { EditorPageSkeleton } from "../editor-page-surface";
+import {
+  SubjectAgentScope,
+  useAttachSubjectDraftOnCreate,
+  useSubjectAgentHeaderActions,
+  useSubjectAgentSubject,
+} from "@/components/features/subject-agent/subject-agent-page";
 import { JobDescriptionFormDialog } from "./job-description-form-dialog";
 
 type ReferenceProps = Pick<
@@ -40,6 +46,14 @@ export function JobDescriptionEditPage({
     refetchOnWindowFocus: false,
     staleTime: 0,
   });
+  // 已保存的岗位使用记录会话，新建页使用仅本人可见的草稿会话（ADR-0045）。
+  const agentSubject = useSubjectAgentSubject({
+    enabled: canEdit && (isNew || Boolean(query.data)),
+    kind: "job_description",
+    recordId: isNew ? null : jobId,
+  });
+  const headerActions = useSubjectAgentHeaderActions(agentSubject);
+  const handleCreated = useAttachSubjectDraftOnCreate(agentSubject, onCreated);
   let content;
   if (!canEdit) {
     content = <p className="py-8 text-muted-foreground">没有编辑岗位的权限</p>;
@@ -63,7 +77,7 @@ export function JobDescriptionEditPage({
       <JobDescriptionFormDialog
         key={jobId}
         presentation="page"
-        onCreated={onCreated}
+        onCreated={handleCreated}
         open
         record={isNew ? null : (query.data ?? null)}
         defaultDepartmentId={
@@ -90,8 +104,12 @@ export function JobDescriptionEditPage({
   }
   return (
     <>
-      <EditorPageHeader label="返回岗位" onBack={onBack} />
-      <div className="mx-auto w-full max-w-4xl min-w-0">{content}</div>
+      <EditorPageHeader actions={headerActions} label="返回岗位" onBack={onBack} />
+      <SubjectAgentScope subject={agentSubject}>
+        <div data-studio-fit-width className="mx-auto w-full max-w-4xl min-w-0">
+          {content}
+        </div>
+      </SubjectAgentScope>
     </>
   );
 }

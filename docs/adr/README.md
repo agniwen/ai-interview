@@ -56,12 +56,14 @@
 | [Keep independent interviewer evaluations](0042-keep-independent-interviewer-evaluations.md)                                            | accepted               | 2026-10-08 |
 | [Replace recruiting groups with reporting-line visibility](0043-replace-recruiting-groups-with-reporting-line-visibility.md)            | accepted               | 2026-10-22 |
 | [Define built-in recruiting workspace roles](0044-define-built-in-recruiting-workspace-roles.md)                                        | accepted               | 2026-10-22 |
+| [Use shared subject threads for Studio detail agents](0045-use-shared-subject-threads-for-studio-detail-agents.md)                      | accepted               | 2026-10-28 |
 
 ## 当前适用范围
 
 - ADR 0029、0030、0031 定义新简历评价与岗位保存流程；更早的数字评分、hard gate、发布与结构化升级方案仅用于解释历史数据。
 - ADR 0040 进一步允许私有内部标准，取代 ADR 0029/0031 的 JD-only 输入限制；不恢复旧评分配置。
 - ADR 0036 定义当前招聘表与历史归档表边界；ADR 0042 定义面试官独立评价。表中 accepted 不表示某份早期决策的所有部分仍适用于新流程。
+- ADR 0045 允许 Studio 详情页 Agent 使用按记录团队共享的实体会话，仅在该范围内取代 ADR 0013“不绑定单个岗位或候选人”的表述；`/chat` 仍是个人的工作区 Copilot，ADR 0013 其余规则继续适用。
 
 ## 设计文档（非 ADR）
 

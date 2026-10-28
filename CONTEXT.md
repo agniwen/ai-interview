@@ -128,6 +128,10 @@ _Avoid_: Full resume, raw resume text, search row
 The temporary recruiting-data boundary used by the workspace recruiting copilot for the current turn or short conversation segment.
 _Avoid_: Saved filter, default workspace setting, permission scope
 
+**Subject Thread**:
+A Studio detail-page agent conversation that belongs to one workspace record, such as a job description or resume record, and is shared by every member who can view that record. A record has at most one active thread; earlier threads are archived on the same record. Its Chinese product label is “实体会话”.
+_Avoid_: Personal chat, chat session list, record comment thread
+
 ### Candidates and Resumes
 
 **Candidate**:

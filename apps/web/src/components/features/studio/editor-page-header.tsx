@@ -1,9 +1,19 @@
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { useStudioHeaderOverride } from "./studio-header-context";
+import { useStudioHeaderActions, useStudioHeaderOverride } from "./studio-header-context";
 
-export function EditorPageHeader({ onBack, label }: { onBack: () => void; label: string }) {
+export function EditorPageHeader({
+  actions = null,
+  label,
+  onBack,
+}: {
+  /** 页面级顶栏操作，显示在顶栏右侧。Page-level actions shown on the right of the header. */
+  actions?: ReactNode;
+  label: string;
+  onBack: () => void;
+}) {
   const header = useMemo(
     () => (
       <Button onClick={onBack} size="sm" variant="ghost">
@@ -14,5 +24,6 @@ export function EditorPageHeader({ onBack, label }: { onBack: () => void; label:
     [label, onBack],
   );
   useStudioHeaderOverride(header);
+  useStudioHeaderActions(actions);
   return null;
 }

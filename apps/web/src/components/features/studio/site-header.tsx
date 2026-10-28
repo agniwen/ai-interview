@@ -2,7 +2,10 @@
 
 import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
-import { useStudioHeaderOverrideValue } from "@/components/features/studio/studio-header-context";
+import {
+  useStudioHeaderActionsValue,
+  useStudioHeaderOverrideValue,
+} from "@/components/features/studio/studio-header-context";
 import { resolveStudioSidebarNavItem } from "@/components/features/studio/studio-sidebar-slots";
 import { ApprovalInboxTrigger } from "@/components/features/offer-approval/inbox-trigger";
 import { UploadTaskInboxTrigger } from "@/components/features/studio/upload-task-inbox";
@@ -62,6 +65,7 @@ export function SiteHeader({ className }: { className?: string } = {}) {
     studioPath === "/studio/question-bank/interview-questions";
   const ActiveMenuIcon = resolveStudioSidebarNavItem(pathname)?.icon;
   const headerOverride = useStudioHeaderOverrideValue();
+  const pageActions = useStudioHeaderActionsValue();
 
   return (
     <SidebarInsetHeader
@@ -73,7 +77,9 @@ export function SiteHeader({ className }: { className?: string } = {}) {
             <ApprovalInboxTrigger />
             <UploadTaskInboxTrigger />
           </>
-        ) : undefined
+        ) : (
+          pageActions
+        )
       }
       breadcrumb={
         headerOverride ?? (

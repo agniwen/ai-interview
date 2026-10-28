@@ -9,6 +9,12 @@ import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { EditorPageHeader } from "../editor-page-header";
 import { EditorPageSkeleton } from "../editor-page-surface";
+import {
+  SubjectAgentScope,
+  useAttachSubjectDraftOnCreate,
+  useSubjectAgentHeaderActions,
+  useSubjectAgentSubject,
+} from "@/components/features/subject-agent/subject-agent-page";
 import { InterviewQuestionTemplateEditorDialog } from "./interview-question-template-editor-dialog";
 
 type ReferenceProps = Pick<
@@ -42,6 +48,14 @@ export function InterviewQuestionEditPage({
     refetchOnWindowFocus: false,
     staleTime: 0,
   });
+  // 已保存的沟通题使用记录会话，新建页使用仅本人可见的草稿会话（ADR-0045）。
+  const agentSubject = useSubjectAgentSubject({
+    enabled: canEdit && (isNew || Boolean(query.data)),
+    kind: "interview_question_template",
+    recordId: isNew ? null : templateId,
+  });
+  const headerActions = useSubjectAgentHeaderActions(agentSubject);
+  const handleCreated = useAttachSubjectDraftOnCreate(agentSubject, onCreated);
   let content;
   if (!canEdit) {
     content = <p className="py-8 text-muted-foreground">没有编辑沟通题的权限</p>;
@@ -65,7 +79,7 @@ export function InterviewQuestionEditPage({
       <InterviewQuestionTemplateEditorDialog
         key={templateId}
         presentation="page"
-        onCreated={onCreated}
+        onCreated={handleCreated}
         open
         record={isNew ? null : (query.data ?? null)}
         initialDraft={
@@ -94,8 +108,12 @@ export function InterviewQuestionEditPage({
   }
   return (
     <>
-      <EditorPageHeader label="返回沟通题" onBack={onBack} />
-      <div className="mx-auto w-full max-w-4xl min-w-0">{content}</div>
+      <EditorPageHeader actions={headerActions} label="返回沟通题" onBack={onBack} />
+      <SubjectAgentScope subject={agentSubject}>
+        <div data-studio-fit-width className="mx-auto w-full max-w-4xl min-w-0">
+          {content}
+        </div>
+      </SubjectAgentScope>
     </>
   );
 }

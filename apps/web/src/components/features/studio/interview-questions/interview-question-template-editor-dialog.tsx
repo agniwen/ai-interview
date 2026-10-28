@@ -9,7 +9,17 @@ import {
   interviewQuestionTemplateScopeSchema,
   interviewQuestionTemplateSchema,
 } from "@app/db-schema/interview-question-templates";
+import {
+  pickInterviewQuestionAgentPageContext,
+  toInterviewQuestionFormQuestions,
+} from "@app/shared/interview-question-agent";
+import type { InterviewQuestionAgentPageContext } from "@app/shared/interview-question-agent";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
+import {
+  subscribeToFormStore,
+  useRegisterSubjectAgentForm,
+} from "@/components/features/subject-agent/subject-agent-context";
+import type { SubjectAgentFormBridge } from "@/components/features/subject-agent/subject-agent-context";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 
@@ -167,6 +177,35 @@ export function InterviewQuestionTemplateEditorDialog({
       form.reset(resolvedInitialValues);
     }
   }, [open, form, resolvedInitialValues]);
+  // Hireseer Agent 只写入未保存的表单（ADR-0045）；不在 Agent Provider 内时登记为空操作。
+  const agentFormBridge = useMemo<SubjectAgentFormBridge>(
+    () => ({
+      getPageContext: () => pickInterviewQuestionAgentPageContext(form.state.values),
+      getSavedContext: () =>
+        record ? pickInterviewQuestionAgentPageContext(resolvedInitialValues) : null,
+      kind: "interview_question_template",
+      subscribe: (listener) => subscribeToFormStore(form.store, listener),
+      write: (values: Partial<InterviewQuestionAgentPageContext>) => {
+        if (values.title !== undefined) {
+          form.setFieldValue("title", values.title);
+        }
+        if (values.description !== undefined) {
+          form.setFieldValue("description", values.description);
+        }
+        if (values.scope !== undefined) {
+          form.setFieldValue("scope", values.scope);
+        }
+        if (values.jobDescriptionIds !== undefined) {
+          form.setFieldValue("jobDescriptionIds", values.jobDescriptionIds);
+        }
+        if (values.questions !== undefined) {
+          form.setFieldValue("questions", toInterviewQuestionFormQuestions(values.questions));
+        }
+      },
+    }),
+    [form, record, resolvedInitialValues],
+  );
+  useRegisterSubjectAgentForm(agentFormBridge);
 
   return (
     <Surface
