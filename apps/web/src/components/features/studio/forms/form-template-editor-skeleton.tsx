@@ -1,6 +1,7 @@
 import { IconAdjustmentsHorizontal, IconListCheck, IconSettings2 } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EditorWorkspaceSurface } from "../editor-page-surface";
+import { FADING_DIVIDER } from "./form-template-editor-layout";
 
 function FieldSkeleton({ multiline = false }: { multiline?: boolean }) {
   return (
@@ -24,14 +25,14 @@ export function FormTemplateEditorSkeleton() {
       <div
         aria-busy="true"
         aria-label="正在加载表单题编辑器"
-        className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-cols-[320px_minmax(0,1fr)_340px]"
+        className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:-mx-6 md:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-cols-[320px_minmax(0,1fr)_340px]"
       >
-        <div className="flex min-h-0 flex-col border-r">
-          <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 text-sm font-medium">
+        <div className={`flex min-h-0 flex-col ${FADING_DIVIDER} after:right-0`}>
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 text-sm font-medium md:pl-6">
             <IconAdjustmentsHorizontal className="size-4 text-muted-foreground" />
             基础设置
           </div>
-          <div className="space-y-5 overflow-hidden pr-5 pt-4">
+          <div className="space-y-5 overflow-hidden pr-5 pt-4 md:pl-6">
             <FieldSkeleton />
             <FieldSkeleton multiline />
             <FieldSkeleton />
@@ -62,12 +63,12 @@ export function FormTemplateEditorSkeleton() {
             </div>
           </div>
         </div>
-        <div className="hidden min-h-0 flex-col border-l md:flex">
-          <div className="flex h-11 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium">
+        <div className={`hidden min-h-0 flex-col ${FADING_DIVIDER} after:left-0 md:flex`}>
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-6 pl-4 text-sm font-medium">
             <IconSettings2 className="size-4 text-muted-foreground" />
             题目配置
           </div>
-          <div className="space-y-5 overflow-hidden px-4 pt-4">
+          <div className="space-y-5 overflow-hidden pr-6 pl-4 pt-4">
             <Skeleton className="h-8 w-3/4" />
             <FieldSkeleton />
             <FieldSkeleton />

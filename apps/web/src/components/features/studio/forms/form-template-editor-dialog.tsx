@@ -60,6 +60,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { cn } from "@app/shared/utils";
 import {
+  CONFIG_ASIDE_CLASS,
+  CONFIG_BODY_CLASS,
+  CONFIG_HEADER_CLASS,
+  SETTINGS_ASIDE_CLASS,
+} from "./form-template-editor-layout";
+import {
   candidateFormQuestionTypeSchema,
   candidateFormScopeSchema,
   candidateFormTemplateSchema,
@@ -536,26 +542,20 @@ function QuestionBuilderBody({
       <div
         className={
           page
-            ? "hidden min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_300px] overflow-hidden md:grid xl:grid-cols-[320px_minmax(0,1fr)_340px]"
+            ? "hidden min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_300px] overflow-hidden md:-mx-6 md:grid xl:grid-cols-[320px_minmax(0,1fr)_340px]"
             : "hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid"
         }
       >
-        <aside
-          className={
-            page
-              ? "flex min-h-0 flex-col border-r bg-background"
-              : "flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4"
-          }
-        >
+        <aside className={SETTINGS_ASIDE_CLASS[page ? "page" : "dialog"]}>
           {page ? (
-            <h2 className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 text-sm font-medium">
+            <h2 className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 pl-6 text-sm font-medium">
               <IconAdjustmentsHorizontal className="size-4 text-muted-foreground" />
               基础设置
             </h2>
           ) : null}
           <div
             className={
-              page ? "min-h-0 flex-1 space-y-5 overflow-y-auto pr-5 pt-4 pb-20" : "contents"
+              page ? "min-h-0 flex-1 space-y-5 overflow-y-auto pr-5 pl-6 pt-4 pb-20" : "contents"
             }
           >
             {page ? settings : null}
@@ -643,12 +643,12 @@ function QuestionBuilderBody({
           </div>
         </section>
 
-        <aside className="flex min-h-0 flex-col border-l bg-background">
-          <div className="flex h-11 shrink-0 items-center gap-2 border-b px-4">
+        <aside className={CONFIG_ASIDE_CLASS[page ? "page" : "dialog"]}>
+          <div className={CONFIG_HEADER_CLASS[page ? "page" : "dialog"]}>
             <IconSettings2 className="size-4 text-muted-foreground" />
             <h3 className="font-medium text-sm">题目配置</h3>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20">
+          <div className={CONFIG_BODY_CLASS[page ? "page" : "dialog"]}>
             {activeQuestion ? (
               <QuestionConfigPanel
                 form={form}
