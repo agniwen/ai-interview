@@ -55,6 +55,7 @@ import aliyun_stt
 import qwen_realtime
 from agent_config import resolve_agent_name, resolve_self_hosted, resolve_voice_mode
 from answer_reconciliation import extract_answers
+from connection_notifications import ConnectionNotifications
 from debug_trace import trace
 from dispatch_context import (
     DispatchContextError,
@@ -742,6 +743,10 @@ async def my_agent(ctx: JobContext) -> None:
     # ---- 2) 装配 session + 监听 --------------------------------------------
     # ---- 2) Build session + register listeners
     session = _build_session(proc=ctx.proc, selected_voice=selected_voice, state=state)
+    if isinstance(session.llm, qwen_realtime.RealtimeModel):
+        notifications = ConnectionNotifications(ctx.room.local_participant)
+        session.llm.on_connection_state_changed = notifications
+        ctx.add_shutdown_callback(notifications.aclose)
     # Startup itself can emit close(error), before any timer has been created.
     timeout_task: asyncio.Task[None] | None = None
     final_wrap_task: asyncio.Task[None] | None = None

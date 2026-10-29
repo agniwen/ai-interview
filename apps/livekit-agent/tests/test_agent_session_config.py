@@ -369,7 +369,7 @@ async def test_room_close_then_participant_disconnect_does_not_restart_reconnect
     monkeypatch.setattr(agent_module.lkapi_module, "LiveKitAPI", lambda: None)
     callbacks = {}
     room_callbacks = {}
-    session = SimpleNamespace(start=AsyncMock(), interrupt=Mock())
+    session = SimpleNamespace(start=AsyncMock(), interrupt=Mock(), llm=None)
     session.on = lambda event: lambda callback: callbacks.__setitem__(event, callback)
 
     def build_session(**kwargs):

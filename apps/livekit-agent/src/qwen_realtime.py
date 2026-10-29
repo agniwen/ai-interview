@@ -15,8 +15,10 @@ import asyncio
 import base64
 import contextlib
 import json
+import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
@@ -29,6 +31,8 @@ from livekit.agents.types import NOT_GIVEN, NotGivenOr
 from yarl import URL
 
 from debug_trace import trace
+
+logger = logging.getLogger(__name__)
 
 INPUT_SAMPLE_RATE = 16000
 OUTPUT_SAMPLE_RATE = 24000
@@ -198,6 +202,10 @@ class _IdleTimeoutError(Exception):
     """The provider expired an idle connection with no unfinished work."""
 
 
+class _ProviderRecoveryError(llm.RealtimeError):
+    """A provider failure that can be retried from confirmed history."""
+
+
 class RealtimeModel(llm.RealtimeModel):
     def __init__(
         self,
@@ -252,6 +260,7 @@ class RealtimeModel(llm.RealtimeModel):
         self._transcript_wait = transcript_wait
         self._http = http_session
         self._sessions: set[RealtimeSession] = set()
+        self.on_connection_state_changed: Callable[[str], None] | None = None
 
     @classmethod
     def from_env(cls) -> RealtimeModel:
@@ -292,6 +301,7 @@ class RealtimeSession(llm.RealtimeSession):
         self._manual = manual
         self._instructions = ""
         self._restoring = False
+        self._recovery_notified = False
         self._recovery_prompt: str | None = None
         self._chat = llm.ChatContext.empty()
         self._tools = llm.ToolContext.empty()
@@ -417,11 +427,13 @@ class RealtimeSession(llm.RealtimeSession):
                     break
                 except (
                     _IdleTimeoutError,
+                    _ProviderRecoveryError,
                     aiohttp.ClientConnectionError,
                     asyncio.TimeoutError,
-                ):
+                ) as error:
                     if not self._ready.done() or not self._can_restore_connection():
                         raise
+                    restore_failed = self._restoring
                     self._prepare_recovery()
                     if time.monotonic() - connected_at > 60:
                         attempts = 0
@@ -430,7 +442,21 @@ class RealtimeSession(llm.RealtimeSession):
                         raise llm.RealtimeError(
                             "Qwen Realtime reconnect attempts exhausted"
                         ) from None
+                    logger.warning(
+                        "Qwen Realtime reconnecting: attempt=%d reason=%s",
+                        attempts,
+                        type(error).__name__,
+                    )
                     # Restore acknowledged history only; never execute tools again.
+                    # An idle session can rotate silently. Alert only when a turn
+                    # was interrupted, transport failed, or the silent restore failed.
+                    if (
+                        not isinstance(error, _IdleTimeoutError)
+                        or self._recovery_prompt is not None
+                        or restore_failed
+                    ) and not self._recovery_notified:
+                        self._recovery_notified = True
+                        self._notify_connection_state("reconnecting")
                     await asyncio.sleep(0.2 * 2 ** (attempts - 1))
         except asyncio.CancelledError:
             pass
@@ -459,6 +485,8 @@ class RealtimeSession(llm.RealtimeSession):
                 "Qwen Realtime history restore disconnected"
             )
         response = json.loads(message.data)
+        if response.get("type") == "error":
+            self._handle_event(response)
         if response.get("type") != ack or (
             ack == "conversation.item.created"
             and response.get("item", {}).get("id") != event["item"]["id"]
@@ -558,6 +586,9 @@ class RealtimeSession(llm.RealtimeSession):
                 self._idle.clear()
                 self._recovery_prompt = None
             self._restoring = False
+            if restoring and self._recovery_notified:
+                self._notify_connection_state("reconnected")
+            self._recovery_notified = False
             self._report_connection_acquired(time.monotonic() - started)
             self._connection_timeout = asyncio.get_running_loop().create_future()
             tasks = [
@@ -573,6 +604,13 @@ class RealtimeSession(llm.RealtimeSession):
             self._connection_timeout = None
             if socket is not None:
                 await socket.close()
+
+    def _notify_connection_state(self, state: str) -> None:
+        if self._model.on_connection_state_changed is not None:
+            try:
+                self._model.on_connection_state_changed(state)
+            except Exception:
+                logger.exception("Connection status notification failed")
 
     def _can_restore_connection(self) -> bool:
         completed = {
@@ -611,8 +649,16 @@ class RealtimeSession(llm.RealtimeSession):
                 "input_speech_stopped",
                 llm.InputSpeechStoppedEvent(user_transcription_enabled=False),
             )
+        # Empty provider placeholders are not restored to the new socket.
+        # Keeping them locally makes the next context update reference a
+        # previous_item_id that does not exist on the restored connection.
+        self._chat.items[:] = [
+            item for item in self._chat.items if _wire_item(item) is not None
+        ]
         self._speech_started.clear()
         self._transcripts.clear()
+        self._untranscribed.clear()
+        self._transcribed.set()
         self._input_buffer = utils.audio.AudioByteStream(
             sample_rate=INPUT_SAMPLE_RATE, num_channels=1, samples_per_channel=320
         )
@@ -1133,8 +1179,44 @@ class RealtimeSession(llm.RealtimeSession):
                 and self._can_restore_connection()
             ):
                 raise _IdleTimeoutError
-            # Without a reliable request correlation ID, continuing could apply
-            # a tool result or configuration to the wrong request.
+            # Never log free-form provider messages: they may contain candidate
+            # speech. Only recognize protocol values; unknown values stay opaque.
+            param = detail.get("param")
+            operation = (
+                param
+                if param
+                in {
+                    "response.create",
+                    "response.cancel",
+                    "session.update",
+                    "conversation.item.create",
+                    "conversation.item.delete",
+                    "conversation.item.truncate",
+                    "input_audio_buffer.commit",
+                }
+                else "unknown"
+            )
+            retryable = (
+                detail.get("type") == "server_error"
+                or code
+                in {
+                    "server_error",
+                    "internal_error",
+                    "service_unavailable",
+                }
+                or (
+                    code == "invalid_value"
+                    and param in (None, "", "response.create", "response.cancel")
+                )
+            )
+            if retryable:
+                logger.warning(
+                    "Qwen provider error: operation=%s retryable=true", operation
+                )
+                raise _ProviderRecoveryError(
+                    "Qwen Realtime retryable provider error", code=code
+                )
+            # Unconfirmed mutations cannot be replayed safely.
             raise llm.RealtimeError(
                 f"Qwen Realtime rejected request ({code})", code=code
             )

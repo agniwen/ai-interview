@@ -5,7 +5,7 @@ import type { AgentControlBarControls } from "@/components/agents-ui/agent-contr
 import { useAgent, useSessionContext, useSessionMessages } from "@livekit/components-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcript";
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
 import { Shimmer } from "@/components/ai-elements/shimmer";
@@ -13,6 +13,8 @@ import { orderSessionMessages } from "@/lib/client/livekit-transcript";
 import { cn } from "@app/shared/utils";
 import { AgentStateIndicator } from "./agent-state-indicator";
 import { TileLayout } from "./tile-view";
+
+import { useInterviewConnectionNotifications } from "@/lib/client/use-interview-connection-notifications";
 
 const MotionMessage = motion.create(Shimmer);
 
@@ -172,6 +174,8 @@ export interface AgentSessionView_01Props {
    * 是否允许候选人通过文本回复；为 false 时文本输入框处于禁用状态。
    */
   chatInputEnabled?: boolean;
+  /** Show local chat copies; disable when the agent transcribes typed replies. */
+  includeChatMessages?: boolean;
   /**
    * Invoked when the candidate attempts to turn the camera OFF. When provided
    * the camera toggle blocks the off transition and runs this callback
@@ -210,6 +214,7 @@ export function AgentSessionView_01({
   defaultChatOpen = false,
   autoOpenChatOnAgentActive = false,
   chatInputEnabled = true,
+  includeChatMessages = true,
   onCameraDisableAttempt,
   onDisconnect,
   ref,
@@ -218,43 +223,29 @@ export function AgentSessionView_01({
 }: React.ComponentProps<"section"> & AgentSessionView_01Props) {
   const session = useSessionContext();
   const { messages: rawMessages } = useSessionMessages(session);
-  const messages = useMemo(() => orderSessionMessages(rawMessages), [rawMessages]);
-  const [chatOpen, setChatOpen] = useState(defaultChatOpen);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  useInterviewConnectionNotifications(rawMessages);
+  const messages = useMemo(
+    () => orderSessionMessages(rawMessages, { includeChatMessages }),
+    [rawMessages, includeChatMessages],
+  );
+  const chatOpen = true;
   const { state: agentState } = useAgent();
-  const hasAutoOpenedChatRef = useRef(false);
-
-  useEffect(() => {
-    if (!autoOpenChatOnAgentActive || hasAutoOpenedChatRef.current) {
-      return;
-    }
-    if (agentState === "listening" || agentState === "thinking" || agentState === "speaking") {
-      hasAutoOpenedChatRef.current = true;
-      setChatOpen(true);
-    }
-  }, [agentState, autoOpenChatOnAgentActive]);
 
   const controls: AgentControlBarControls = {
     camera: supportsVideoInput,
-    chat: supportsChatInput,
+    chat: false,
     leave: true,
     microphone: true,
     screenShare: supportsScreenShare,
   };
 
-  useEffect(() => {
-    const lastMessage = messages.at(-1);
-    const lastMessageIsLocal = lastMessage?.from?.isLocal === true;
-
-    if (scrollAreaRef.current && lastMessageIsLocal) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   return (
     <section
       ref={ref}
-      className={cn("bg-background relative z-10 h-full w-full overflow-hidden", className)}
+      className={cn(
+        "bg-background relative z-10 h-full w-full overflow-hidden [--interview-controls-space:136px] md:[--interview-controls-space:160px] [--interview-stage-height:calc(100dvh_-_64px_-_var(--interview-controls-space))] [--interview-visual-height:calc(var(--interview-stage-height)*0.4)] [--interview-messages-top:calc(64px_+_var(--interview-visual-height))]",
+        className,
+      )}
       {...props}
     >
       <Fade top className={cn("absolute inset-x-4 top-0 z-10", chatOpen ? "h-0" : "h-40")} />
@@ -262,8 +253,8 @@ export function AgentSessionView_01({
 
       <div
         className={cn(
-          "absolute inset-x-0 bottom-[165px] z-20 flex flex-col md:bottom-[200px]",
-          chatOpen ? "top-[88px]" : "top-0",
+          "absolute inset-x-0 bottom-(--interview-controls-space) z-20 flex flex-col",
+          chatOpen ? "top-(--interview-messages-top)" : "top-0",
         )}
       >
         <AnimatePresence>
@@ -272,7 +263,7 @@ export function AgentSessionView_01({
               <AgentChatTranscript
                 agentState={agentState}
                 messages={messages}
-                className="absolute inset-0 mx-auto w-full max-w-2xl [&_.is-user>div]:rounded-[22px] [&>div>div]:px-4 [&>div>div]:pt-4 md:[&>div>div]:px-6"
+                className="absolute inset-0 mx-auto w-full max-w-2xl"
               />
             </motion.div>
           )}
@@ -284,13 +275,15 @@ export function AgentSessionView_01({
       <div
         className={cn(
           "absolute inset-x-0 z-30",
-          chatOpen ? "top-[62px] flex justify-center" : "bottom-[200px] md:bottom-[240px]",
+          chatOpen
+            ? "top-[calc(var(--interview-messages-top)_-_48px)] flex justify-center"
+            : "bottom-[200px] md:bottom-[240px]",
         )}
       >
         <AgentStateIndicator
           state={agentState}
           className={cn([
-            chatOpen ? "rounded-full px-2 bg-secondary border border-primary/20" : "",
+            chatOpen ? "rounded-lg px-2 bg-control border border-transparent shadow-default" : "",
           ])}
         />
       </div>
@@ -318,13 +311,13 @@ export function AgentSessionView_01({
         <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
           <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
           <AgentControlBar
+            compact
             variant="livekit"
             controls={controls}
             isChatOpen={chatOpen}
             chatInputEnabled={chatInputEnabled}
             isConnected={session.isConnected}
             onDisconnect={onDisconnect ?? session.end}
-            onIsChatOpenChange={setChatOpen}
             onCameraDisableAttempt={onCameraDisableAttempt}
           />
         </div>

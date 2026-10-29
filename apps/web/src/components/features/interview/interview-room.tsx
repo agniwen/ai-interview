@@ -2,7 +2,6 @@
 
 import { useConfirmInterviewConnection } from "./use-confirm-interview-connection";
 
-import { IconAlertTriangle } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import type { CandidateInterviewFeedbackInput } from "@app/db-schema/studio-interviews";
 import { cn } from "@app/shared/utils";
@@ -16,7 +15,6 @@ import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provi
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
@@ -566,6 +564,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       <main className="relative h-dvh w-full select-none overflow-hidden">
         <AgentSessionView_01
           defaultChatOpen={startedMuted}
+          includeChatMessages={false}
           autoOpenChatOnAgentActive={true}
           supportsVideoInput={interviewRecordingEnabled}
           supportsScreenShare={false}
@@ -584,10 +583,6 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         />
       </main>
       <StartAudioButton label="开始通话" />
-      <Toaster
-        position="top-center"
-        icons={{ warning: <IconAlertTriangle className="size-4" /> }}
-      />
     </AgentSessionProvider>
   );
 }

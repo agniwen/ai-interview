@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CardFrame } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import { useInputControls, usePublishPermissions } from "@/hooks/agents-ui/use-agent-control-bar";
 import {
@@ -36,23 +36,19 @@ import {
 } from "@/lib/client/microphone-device";
 import { cn } from "@app/shared/utils";
 
-// 麦克风开关与设备下拉合成一颗胶囊：底色只放在外层，两段按钮透明，避免两侧底色不一致。
-// 静音时整颗胶囊变为浅红。Toggle 用 data-pressed，下拉用 data-track-state 表示开关状态。
-// / One pill for the mic toggle and device select: the fill lives on the wrapper so both halves
-// always match, turning light red while muted.
+// The wrapper owns the shared surface so the toggle and device selector read as one control.
 const LK_MIC_GROUP_VARIANT = [
-  "rounded-full bg-muted transition-colors",
-  "has-[[data-track-state=off]]:bg-destructive/10 has-[[data-track-state=off]]:text-destructive",
-  "[&_button]:bg-transparent! [&_button]:shadow-none [&_button]:hover:bg-foreground/6!",
-  "[&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
-  "[&_button:last-child]:relative [&_button:last-child]:before:absolute [&_button:last-child]:before:inset-y-2 [&_button:last-child]:before:left-0 [&_button:last-child]:before:w-px [&_button:last-child]:before:bg-foreground/10",
+  "rounded-lg bg-component text-foreground transition-colors",
+  "has-[[data-track-state=off]]:bg-danger-subtle has-[[data-track-state=off]]:text-danger-foreground has-[[data-track-state=off]]:inset-ring has-[[data-track-state=off]]:inset-ring-danger-subtle-ring",
+  "[&_button]:h-8 [&_button]:bg-transparent! [&_button]:text-inherit! [&_button]:shadow-none [&_button]:hover:bg-component-hover!",
+  "has-[[data-track-state=off]]:[&_button]:hover:bg-danger-subtle-hover!",
+  "[&_button:first-child]:rounded-l-lg [&_button:last-child]:rounded-r-lg",
+  "[&_button:last-child]:relative [&_button:last-child]:before:absolute [&_button:last-child]:before:inset-y-2 [&_button:last-child]:before:left-0 [&_button:last-child]:before:w-px [&_button:last-child]:before:bg-border",
 ];
 
 const LK_ACTION_TOGGLE_VARIANT = [
-  "bg-transparent text-foreground hover:bg-muted hover:text-foreground",
-  "data-pressed:bg-muted data-pressed:text-foreground",
-  "data-pressed:hover:bg-foreground/8",
-  "focus-visible:border-ring focus-visible:ring-foreground/12",
+  "size-8 rounded-lg bg-transparent text-foreground hover:bg-component hover:text-foreground",
+  "data-pressed:bg-component data-pressed:text-foreground data-pressed:hover:bg-component-hover",
 ];
 
 const MOTION_PROPS: MotionProps = {
@@ -97,7 +93,7 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
       : agentState === "thinking"
         ? "面试官思考中，请稍候..."
         : isAgentReady
-          ? "Type something..."
+          ? "输入你的回答…"
           : "连接中...";
 
   const handleSend = async () => {
@@ -155,6 +151,7 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
         ref={inputRef}
         value={message}
         disabled={!chatOpen || isSending}
+        aria-label="面试回答"
         placeholder={placeholderHint}
         onKeyDown={handleKeyDown}
         onChange={(e) => setMessage(e.target.value)}
@@ -165,7 +162,8 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
         type="button"
         disabled={isDisabled}
         variant={isDisabled ? "secondary" : "default"}
-        title={isSending ? "Sending..." : isAgentReady ? "Send" : placeholderHint}
+        aria-label="发送回答"
+        title={isSending ? "正在发送…" : isAgentReady ? "发送回答" : placeholderHint}
         onClick={handleButtonClick}
         className="self-end disabled:cursor-not-allowed"
       >
@@ -210,6 +208,8 @@ export interface AgentControlBarControls {
 }
 
 export interface AgentControlBarProps extends UseInputControlsProps {
+  /** Voice-only controls with the waveform above and device name below. */
+  compact?: boolean;
   /**
    * The visual style of the control bar.
    *
@@ -296,6 +296,7 @@ export interface AgentControlBarProps extends UseInputControlsProps {
  * @extends ComponentProps<'div'>
  */
 export function AgentControlBar({
+  compact = false,
   variant = "default",
   controls,
   isChatOpen = false,
@@ -366,41 +367,48 @@ export function AgentControlBar({
     return null;
   }
 
+  const Container = compact ? "div" : Card;
+
   return (
-    <CardFrame
-      aria-label="Voice assistant controls"
+    <Container
+      aria-label="面试控制"
       className={cn(
-        "overflow-hidden border-input/50",
-        !visibleControls.microphone && "p-3",
-        variant === "livekit" ? "rounded-[31px]" : "rounded-lg",
+        compact ? "mx-auto flex w-full max-w-72 flex-col gap-3" : "overflow-hidden",
+        !compact && !visibleControls.microphone && "p-3",
         className,
       )}
       {...props}
     >
-      <div
-        className={cn(
-          visibleControls.microphone && "relative z-10 rounded-b-[24px] bg-background p-3",
-        )}
-      >
+      {compact && visibleControls.microphone && (
+        <AgentAudioVisualizerBar
+          aria-label="麦克风实时音量"
+          audioTrack={microphoneToggle.enabled ? microphoneTrack : undefined}
+          barCount={40}
+          className="h-5 w-full gap-1 text-muted-foreground/70 [&>div]:w-auto [&>div]:min-w-0 [&>div]:flex-1"
+          size="icon"
+          state={microphoneToggle.enabled ? "speaking" : "disconnected"}
+        />
+      )}
+      <div className={cn(visibleControls.microphone && (compact ? "relative" : "relative p-3"))}>
         {/* 轮次未开启文本作答时不渲染输入框；聊天按钮仍可打开对话记录。
             / No composer when text answers are off; the chat toggle still opens the transcript. */}
-        {chatInputEnabled ? (
+        {chatInputEnabled && !compact ? (
           <motion.div
             {...MOTION_PROPS}
             inert={!isChatOpenEffective}
             animate={isChatOpenEffective ? "visible" : "hidden"}
-            className="border-input/50 flex w-full items-start overflow-hidden border-b"
+            className="flex w-full items-start overflow-hidden border-b border-border"
           >
-            <AgentChatInput
-              chatOpen={isChatOpenEffective}
-              onSend={handleSendMessage}
-              className={cn(variant === "livekit" && "[&_button]:rounded-full")}
-            />
+            <AgentChatInput chatOpen={isChatOpenEffective} onSend={handleSendMessage} />
           </motion.div>
         ) : null}
 
-        <div className="flex gap-1">
-          <div className="flex grow gap-1">
+        <div
+          className={cn(
+            compact ? "grid grid-cols-2 items-center gap-3" : "flex items-center gap-2",
+          )}
+        >
+          <div className={cn("flex gap-1", compact ? "min-w-0" : "grow")}>
             {/* Toggle Microphone */}
             {visibleControls.microphone && (
               <AgentTrackControl
@@ -410,12 +418,16 @@ export function AgentControlBar({
                 source={Track.Source.Microphone}
                 pressed={microphoneToggle.enabled}
                 disabled={microphoneToggle.pending}
-                audioTrack={microphoneTrack}
+                audioTrack={compact ? undefined : microphoneTrack}
                 activeDeviceId={displayedMicrophoneDeviceId}
                 onPressedChange={microphoneToggle.toggle}
                 onActiveDeviceChange={handleAudioDeviceChange}
                 onMediaDeviceError={handleMicrophoneDeviceSelectError}
-                className={cn(variant === "livekit" && LK_MIC_GROUP_VARIANT)}
+                className={cn(
+                  variant === "livekit" && LK_MIC_GROUP_VARIANT,
+                  compact &&
+                    "w-full [&_button]:h-10! [&_[role=combobox]]:h-10! [&_button]:min-w-0 [&_button]:flex-1 [&_[role=combobox]]:min-w-0 [&_[role=combobox]]:flex-1 [&_[role=combobox]]:justify-center [&_[role=combobox]]:px-0 max-md:[&_button]:h-11! max-md:[&_[role=combobox]]:h-11! max-md:[&_svg]:size-5!",
+                )}
               />
             )}
 
@@ -441,16 +453,7 @@ export function AgentControlBar({
                 }}
                 onMediaDeviceError={handleCameraDeviceSelectError}
                 onActiveDeviceChange={handleVideoDeviceChange}
-                className={cn(
-                  variant === "livekit" && [
-                    "[&_button]:bg-transparent [&_button]:text-foreground [&_button]:hover:bg-accent/60",
-                    "[&_button[data-pressed]]:bg-accent [&_button[data-pressed]]:text-accent-foreground",
-                    "[&_button[data-pressed]]:hover:bg-accent",
-                    "[&_button[data-track-state=on]]:bg-accent [&_button[data-track-state=off]]:bg-transparent",
-                    "[&_button[data-track-state]]:before:bg-border",
-                    "rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
-                  ],
-                )}
+                className={cn(variant === "livekit" && LK_MIC_GROUP_VARIANT)}
               />
             )}
 
@@ -463,7 +466,7 @@ export function AgentControlBar({
                 pressed={screenShareToggle.enabled}
                 disabled={screenShareToggle.pending}
                 onPressedChange={screenShareToggle.toggle}
-                className={cn(variant === "livekit" && [LK_ACTION_TOGGLE_VARIANT, "rounded-full"])}
+                className={cn(variant === "livekit" && LK_ACTION_TOGGLE_VARIANT)}
               />
             )}
 
@@ -481,9 +484,7 @@ export function AgentControlBar({
                   }
                 }}
                 className={agentTrackToggleVariants({
-                  className: cn(
-                    variant === "livekit" && [LK_ACTION_TOGGLE_VARIANT, "rounded-full"],
-                  ),
+                  className: cn(variant === "livekit" && LK_ACTION_TOGGLE_VARIANT),
                   variant: variant === "outline" ? "outline" : "default",
                 })}
               >
@@ -500,9 +501,10 @@ export function AgentControlBar({
                   <AgentDisconnectButton
                     disabled={!isConnected}
                     className={cn(
-                      variant === "livekit" &&
-                        "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
+                      compact &&
+                        "h-10 w-full min-w-0 max-md:h-11 max-md:px-4! max-md:text-sm max-md:[&_svg]:size-5!",
                     )}
+                    variant={compact ? "destructive" : "destructive-subtle"}
                   >
                     <span className="hidden md:inline">结束面试</span>
                     <span className="inline md:hidden">结束</span>
@@ -531,9 +533,21 @@ export function AgentControlBar({
           )}
         </div>
       </div>
-      {visibleControls.microphone ? (
+      {compact && visibleControls.microphone && (
+        <div className="flex w-full min-w-0 items-center justify-center px-1 text-xs leading-4 text-muted-foreground">
+          <span
+            className="min-w-0 truncate"
+            title={activeMicrophoneLabel}
+            aria-label={`当前麦克风：${activeMicrophoneLabel}`}
+          >
+            {activeMicrophoneLabel}
+          </span>
+        </div>
+      )}
+
+      {visibleControls.microphone && !compact ? (
         <div
-          className="relative flex min-w-0 items-center gap-1.5 px-4 py-2 text-[11px] text-muted-foreground"
+          className="relative flex min-w-0 items-center gap-1.5 border-t border-border bg-sunken px-4 py-2 text-xs text-muted-foreground"
           title={activeMicrophoneLabel}
         >
           <IconMicrophone className="size-3 shrink-0 opacity-70" />
@@ -551,6 +565,6 @@ export function AgentControlBar({
           />
         </div>
       ) : null}
-    </CardFrame>
+    </Container>
   );
 }

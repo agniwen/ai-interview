@@ -52,7 +52,7 @@ function InterviewTimer({
     <div
       aria-label="面试时长"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1.5 font-mono text-sm tabular-nums shadow-sm backdrop-blur",
+        "inline-flex h-8 items-center gap-1.5 rounded-lg border border-transparent bg-control px-2.5 text-[13px] font-medium tabular-nums text-foreground shadow-default",
         className,
       )}
     >

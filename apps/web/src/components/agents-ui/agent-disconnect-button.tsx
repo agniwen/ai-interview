@@ -27,7 +27,7 @@ export interface AgentDisconnectButtonProps
    * The variant of the button.
    * @default 'destructive'
    */
-  variant?: "default" | "outline" | "destructive" | "ghost" | "link";
+  variant?: VariantProps<typeof buttonVariants>["variant"];
   /**
    * The children to render.
    */

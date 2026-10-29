@@ -80,8 +80,15 @@ function comparableText(message: ReceivedMessage): string {
 // LiveKit sorts by first receipt. The agent publishes an additional final user
 // transcript carrying the provider's actual speech-start time, so a late STT
 // result can be placed before the reply it prompted without a delay heuristic.
-export function orderSessionMessages(input: ReceivedMessage[]): ReceivedMessage[] {
-  const messages = applyReplaySnapshot(input);
+export function orderSessionMessages(
+  input: ReceivedMessage[],
+  { includeChatMessages = true }: { includeChatMessages?: boolean } = {},
+): ReceivedMessage[] {
+  // Interviews receive a confirmed transcript for typed answers too. Use that
+  // canonical stream instead of displaying its optimistic chat copy as well.
+  const messages = applyReplaySnapshot(
+    includeChatMessages ? input : input.filter((message) => message.type !== "chatMessage"),
+  );
   const duplicatedStockMessages = new Set<ReceivedMessage>();
   for (const ordered of messages) {
     const startedAt = userTurnStart(ordered);

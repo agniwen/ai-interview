@@ -792,3 +792,49 @@ async def test_a_topic_implied_by_stated_numbers_is_not_chased():
         assert "年薪" not in reply, reply
         summary = agent.question_outcomes[0].answer_summary
         assert "21000" in summary or "两万一" in summary, summary
+
+
+async def test_response_conflict_reconnects_real_provider(monkeypatch):
+    async with configured_model() as model:
+        session = model.session()
+        errors, provider_errors, generations = [], [], []
+        session.on("error", errors.append)
+        session.on("generation_created", generations.append)
+        original = session._handle_event
+
+        def observe(event):
+            if event["type"] == "error":
+                detail = event.get("error", {})
+                provider_errors.append((detail.get("code"), detail.get("param")))
+            original(event)
+
+        monkeypatch.setattr(session, "_handle_event", observe)
+        await session.update_instructions(
+            "你是面试官。请详细介绍面试流程，至少说十句话。"
+        )
+        chat = llm.ChatContext.empty()
+        chat.add_message(role="user", content="我是测试候选人，请介绍面试流程。")
+        await session.update_chat_ctx(chat)
+        generation = await session.generate_reply()
+        # A second request while Qwen is generating triggers its real protocol
+        # rejection, rather than injecting a Python exception into the adapter.
+        session._enqueue({"type": "response.create"})
+        await collect(generation)
+        async with asyncio.timeout(30):
+            while len(generations) < 2 and not errors:
+                await asyncio.sleep(0.05)
+        assert provider_errors, "provider did not reject the concurrent response"
+        assert provider_errors[0][0] == "invalid_value"
+        assert not errors
+        text, frames, calls = await collect(generations[-1])
+        assert text and frames
+        assert not calls
+        assert session.chat_ctx.get_by_id(chat.items[0].id) is not None
+        # A new response after recovery proves the restored connection is usable.
+        await session._idle.wait()
+        async with asyncio.timeout(10):
+            while session._recovery_instructions_active:
+                await asyncio.sleep(0.01)
+        resumed = await session.generate_reply()
+        text, frames, calls = await collect(resumed)
+        assert text and frames and not errors

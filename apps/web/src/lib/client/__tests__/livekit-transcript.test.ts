@@ -221,3 +221,22 @@ it("keeps existing history if replay is incomplete", () => {
   const result = applyReplaySnapshot([original, replay(agentTranscript("r1", "你好"), "b1", 0, 2)]);
   expect(result).toContainEqual(original);
 });
+
+it("renders one confirmed interview turn instead of both text chat and its transcript", () => {
+  const sent = chatMessage("c1", "可以开始");
+  const confirmed = userTranscript("u1", "可以开始");
+  expect(orderSessionMessages([sent, confirmed], { includeChatMessages: false })).toEqual([
+    confirmed,
+  ]);
+  expect(orderSessionMessages([sent, confirmed])).toEqual([sent, confirmed]);
+});
+
+it("preserves repeated confirmed answers and voice turns in transcript-only mode", () => {
+  const first = userTranscript("u1", "好的");
+  const question = agentTranscript("a2", "还有补充吗？");
+  const second = userTranscript("u3", "好的");
+  const result = orderSessionMessages([chatMessage("c1", "好的"), first, question, second], {
+    includeChatMessages: false,
+  });
+  expect(result).toEqual([first, question, second]);
+});

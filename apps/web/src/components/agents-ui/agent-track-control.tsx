@@ -20,7 +20,7 @@ import { cn } from "@app/shared/utils";
 
 const selectVariants = cva(
   [
-    "rounded-l-none shadow-none pl-2 ",
+    "rounded-l-none rounded-r-lg shadow-none pl-2 ",
     "text-foreground hover:text-muted-foreground",
     "data-[track-state=on]:bg-muted data-[track-state=on]:hover:bg-foreground/10",
     "data-[track-state=off]:text-destructive data-[track-state=off]:hover:text-destructive",
@@ -190,13 +190,11 @@ function TrackDeviceSelect({
       onValueChange={handleSelectedDeviceChange}
     >
       <SelectTrigger className={cn(selectVariants({ size, variant }), className)} {...props}>
-        {size !== "sm" && (
-          <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
-        )}
+        {size !== "sm" && <SelectValue className="text-sm" placeholder={`Select a ${kind}`} />}
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false} sideOffset={4}>
         {filteredDevices.map((device) => (
-          <SelectItem key={device.deviceId} value={device.deviceId} className="font-mono text-xs">
+          <SelectItem key={device.deviceId} value={device.deviceId} className="text-[13px]">
             {device.label}
           </SelectItem>
         ))}

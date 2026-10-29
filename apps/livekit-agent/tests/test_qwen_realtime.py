@@ -552,7 +552,8 @@ async def test_idle_timeout_reconnects_history_without_replaying_tools_or_greeti
     http = RotatingHttp()
     model = RealtimeModel(api_key="test", http_session=http, request_timeout=0.5)
     session = model.session()
-    errors = []
+    errors, connection_states = [], []
+    model.on_connection_state_changed = connection_states.append
     session.on("error", errors.append)
     try:
         await session.update_instructions("继续原来的面试")
@@ -589,6 +590,12 @@ async def test_idle_timeout_reconnects_history_without_replaying_tools_or_greeti
                 if event["type"] == "conversation.item.create"
             ] == [item.id for item in chat.items]
             assert not any(event["type"] == "response.create" for event in restored)
+            await eventually(lambda: not session._restoring)
+            assert connection_states == (
+                ["reconnecting", "reconnected"] * (index + 1)
+                if failure == "disconnect"
+                else []
+            )
             assert not errors
             assert [item.id for item in session.chat_ctx.items] == [
                 item.id for item in chat.items
@@ -612,9 +619,20 @@ async def test_idle_timeout_with_unresolved_tool_still_fails_closed(connected):
     assert errors[0].recoverable is False
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "disconnect",
+        "server_error",
+        "invalid_value",
+        "user_idle_timeout",
+        "response_idle_timeout",
+    ],
+)
 @pytest.mark.parametrize("phase", ["user", "assistant", "first_user"])
 async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_repeat(
     phase,
+    failure,
 ):
     sockets = [Socket(), Socket()]
 
@@ -629,8 +647,9 @@ async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_rep
     http = RotatingHttp()
     model = RealtimeModel(api_key="test", http_session=http)
     session = model.session()
-    errors = []
+    errors, connection_states = [], []
     session.on("error", errors.append)
+    model.on_connection_state_changed = connection_states.append
     try:
         await session.update_instructions("继续面试")
 
@@ -661,12 +680,18 @@ async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_rep
                 delta="请问你的",
             )
             await eventually(lambda: bool(session._response.items))
-        sockets[0].incoming.put_nowait(SimpleNamespace(type=aiohttp.WSMsgType.CLOSED))
+        if failure == "disconnect":
+            sockets[0].incoming.put_nowait(
+                SimpleNamespace(type=aiohttp.WSMsgType.CLOSED)
+            )
+        else:
+            sockets[0].feed("error", error={"code": failure, "type": failure})
         await eventually(lambda: http.calls == 2)
         await eventually(
             lambda: any(e["type"] == "response.create" for e in sockets[1].sent)
         )
         assert not errors
+        assert connection_states == ["reconnecting", "reconnected"]
         assert session.chat_ctx.get_by_id("unfinished") is None
         restored = [
             e["item"]
@@ -1042,3 +1067,128 @@ async def test_history_is_not_rewritten_while_a_response_is_playing(connected):
     await eventually(
         lambda: any(e["type"] == "conversation.item.delete" for e in socket.sent)
     )
+
+
+async def test_provider_error_retries_are_bounded():
+    sockets = [Socket() for _ in range(4)]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            result = sockets[self.calls]
+            self.calls += 1
+            return result
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    session = model.session()
+    errors = []
+    session.on("error", errors.append)
+    try:
+        await session.update_instructions("继续面试")
+        for index, socket in enumerate(sockets):
+            await eventually(lambda: not session._restoring)
+            socket.feed("error", error={"type": "server_error", "code": "server_error"})
+            if index < 3:
+                await eventually(lambda index=index: http.calls == index + 2)
+        await eventually(lambda: bool(errors))
+        assert http.calls == 4
+        assert len(errors) == 1
+        assert "reconnect attempts exhausted" in str(errors[0].error)
+    finally:
+        await model.aclose()
+
+
+@pytest.mark.parametrize("code", ["server_error", "invalid_value"])
+async def test_provider_error_does_not_reexecute_unresolved_tool(connected, code):
+    session, socket, _ = connected
+    errors = []
+    session.on("error", errors.append)
+    chat = llm.ChatContext.empty()
+    chat.items.append(
+        llm.FunctionCall(id="pending", call_id="pending", name="save", arguments="{}")
+    )
+    await session.update_chat_ctx(chat)
+    socket.feed("error", error={"code": code})
+    await eventually(lambda: bool(errors))
+    assert session._failure is not None
+    assert [item.id for item in session.chat_ctx.items] == ["pending"]
+
+
+async def test_invalid_configuration_is_not_retried(connected):
+    session, socket, _ = connected
+    errors = []
+    session.on("error", errors.append)
+    socket.feed("error", error={"code": "invalid_value", "param": "session.update"})
+    await eventually(lambda: bool(errors))
+    assert "invalid_value" in str(errors[0].error)
+
+
+async def test_recovery_drops_empty_remote_placeholders_before_next_user_turn():
+    sockets = [Socket(), Socket()]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            result = sockets[self.calls]
+            self.calls += 1
+            return result
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    session = model.session()
+    try:
+        await session.update_instructions("继续面试")
+        chat = llm.ChatContext.empty()
+        chat.add_message(role="user", content="我希望有发展空间")
+        await session.update_chat_ctx(chat)
+        sockets[0].feed(
+            "conversation.item.created",
+            item={
+                "id": "unfinished",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+            },
+        )
+        await eventually(lambda: session.chat_ctx.get_by_id("unfinished") is not None)
+        livekit_history = session.chat_ctx.copy()
+        sockets[0].feed("error", error={"type": "server_error", "code": "server_error"})
+        await eventually(lambda: http.calls == 2 and not session._restoring)
+        livekit_history.add_message(role="user", content="我带过五人团队")
+        await session.update_chat_ctx(livekit_history)
+        next_turn = sockets[1].sent[-1]
+        assert next_turn["item"]["content"][0]["text"] == "我带过五人团队"
+        assert next_turn["previous_item_id"] == chat.items[0].id
+        assert session.chat_ctx.get_by_id("unfinished") is None
+    finally:
+        await model.aclose()
+
+
+async def test_failed_silent_idle_restore_escalates_to_visible_recovery():
+    sockets = [Socket(), Socket()]
+
+    class RetryHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 2:
+                raise aiohttp.ServerDisconnectedError("restore failed")
+            return sockets[0 if self.calls == 1 else 1]
+
+    http = RetryHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    states = []
+    model.on_connection_state_changed = states.append
+    session = model.session()
+    try:
+        await session.update_instructions("继续面试")
+        sockets[0].feed("error", error={"code": "user_idle_timeout"})
+        await eventually(lambda: states == ["reconnecting", "reconnected"])
+        assert http.calls == 3
+        assert not any(e["type"] == "response.create" for e in sockets[1].sent)
+    finally:
+        await model.aclose()

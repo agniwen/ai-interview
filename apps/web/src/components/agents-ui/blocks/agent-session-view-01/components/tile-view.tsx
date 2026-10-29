@@ -70,7 +70,7 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
       className={cn(
         "absolute inset-x-0",
         chatOpen
-          ? "top-0 h-18 z-30 pointer-events-none flex items-center justify-center"
+          ? "top-16 h-[calc(var(--interview-visual-height)_-_32px)] z-30 pointer-events-none flex items-center justify-center"
           : "top-8 bottom-32 z-50 md:top-12 md:bottom-40",
       )}
     >
@@ -103,7 +103,11 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                   }}
                 >
                   <AgentAudioVisualizerAura
-                    size={chatOpen ? "sm" : "lg"}
+                    size={chatOpen ? "md" : "lg"}
+                    className={cn(
+                      chatOpen &&
+                        "h-[min(224px,calc(var(--interview-visual-height)_-_32px))] sm:h-[min(288px,calc(var(--interview-visual-height)_-_32px))]",
+                    )}
                     state={agentState}
                     colorShift={0.1}
                     themeMode={resolvedTheme as "light" | "dark"}
