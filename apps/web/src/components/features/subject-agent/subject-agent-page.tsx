@@ -5,15 +5,20 @@ import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { isSubjectDraftId } from "@app/db-schema/chat-subject-threads";
 import type { ChatSubjectKind } from "@app/db-schema/chat-subject-threads";
-import { useStudioSidePane } from "@/components/features/studio/studio-side-pane-context";
+import {
+  useStudioSidePane,
+  useStudioSidePaneController,
+} from "@/components/features/studio/studio-side-pane-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { SUBJECT_AGENT_PANE_ID, SubjectAgentProvider } from "./subject-agent-context";
 import { SubjectAgentPane, SubjectAgentTrigger } from "./subject-agent-pane";
 import { attachSubjectDraft, createSubjectDraftId } from "./subject-thread-api";
 import type { SubjectRef } from "./subject-thread-api";
 
-// 新建页保存后会跳到新记录的编辑页；面板原本打开时在新页面重新打开它。
-let pendingPaneReopenSubjectId: string | null = null;
+// 新建页保存后会跳到新记录的编辑页；编辑页沿用新建页上面板的开关状态。
+// After the first save the create page jumps to the edit page, which keeps the pane's open state.
+let paneStateAfterCreate: { open: boolean; subjectId: string } | null = null;
 
 /**
  * 编辑页的实体会话主体：已保存记录用记录 ID，新建页用仅本人可见的草稿 ID（ADR-0045）。
@@ -43,15 +48,29 @@ export function useSubjectAgentHeaderActions(subject: SubjectRef | null): ReactN
   return useMemo(() => (subject ? <SubjectAgentTrigger /> : null), [subject]);
 }
 
-function ReopenPaneAfterCreate({ subjectId }: { subjectId: string }) {
-  const pane = useStudioSidePane(SUBJECT_AGENT_PANE_ID);
-  const { open } = pane;
+/**
+ * 进入编辑/新建页时桌面端默认打开 Agent 面板；窄屏的抽屉会盖住表单，保持收起。
+ * 每个主体只在进入时打开一次，用户关闭后不再自动打开。
+ * Opens the Agent pane on entry at desktop widths (the narrow-screen drawer would cover the form),
+ * once per subject so a pane the user closed stays closed.
+ */
+export function SubjectAgentPaneAutoOpen({ subjectId }: { subjectId: string }) {
+  const { open } = useStudioSidePaneController();
+  // 与顶栏入口一致：没有对话权限时不打开。 Matches the header trigger's chat permission.
+  const canUseChat = useHasPermission("chat", "read");
   useEffect(() => {
-    if (pendingPaneReopenSubjectId === subjectId) {
-      pendingPaneReopenSubjectId = null;
-      open();
+    if (!canUseChat) {
+      return;
     }
-  }, [open, subjectId]);
+    const carried = paneStateAfterCreate?.subjectId === subjectId ? paneStateAfterCreate : null;
+    paneStateAfterCreate = null;
+    const shouldOpen = carried
+      ? carried.open
+      : (window.matchMedia?.("(min-width: 1024px)").matches ?? false);
+    if (shouldOpen) {
+      open(SUBJECT_AGENT_PANE_ID);
+    }
+  }, [canUseChat, open, subjectId]);
   return null;
 }
 
@@ -70,7 +89,7 @@ export function SubjectAgentScope({
     <SubjectAgentProvider key={subject.subjectId} subject={subject}>
       {children}
       <SubjectAgentPane />
-      <ReopenPaneAfterCreate subjectId={subject.subjectId} />
+      <SubjectAgentPaneAutoOpen subjectId={subject.subjectId} />
     </SubjectAgentProvider>
   );
 }
@@ -96,7 +115,7 @@ export function useAttachSubjectDraftOnCreate(
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "转入草稿对话失败");
       }
-      pendingPaneReopenSubjectId = isOpen ? recordId : null;
+      paneStateAfterCreate = { open: isOpen, subjectId: recordId };
       onCreated(recordId);
     },
     [isOpen, onCreated, subject],
