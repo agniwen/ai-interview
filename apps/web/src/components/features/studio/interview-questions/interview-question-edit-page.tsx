@@ -1,4 +1,3 @@
-import type { InterviewQuestionTemplateInput } from "@app/db-schema/interview-question-templates";
 import type { ComponentProps } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -82,14 +81,6 @@ export function InterviewQuestionEditPage({
         onCreated={handleCreated}
         open
         record={isNew ? null : (query.data ?? null)}
-        initialDraft={
-          isNew
-            ? queryClient.getQueryData<InterviewQuestionTemplateInput | null>([
-                "interview-question-create-draft",
-                slug,
-              ])
-            : undefined
-        }
         jobDescriptions={jobDescriptions}
         slug={slug}
         onOpenChange={(open) => {

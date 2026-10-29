@@ -1,12 +1,11 @@
 import { listTextQuery } from "@app/shared/list-text-filters";
-import { IconListCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
+import { IconListCheck, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
-  InterviewQuestionTemplateInput,
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
@@ -16,7 +15,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import {
   actionsColumn,
   customColumn,
@@ -37,7 +35,6 @@ import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { InterviewQuestionTemplateAiCreateDialog } from "@/components/features/studio/interview-questions/interview-question-template-ai-create-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
 function scopeLabel(scope: InterviewQuestionTemplateScope) {
@@ -214,8 +211,6 @@ export function InterviewQuestionTemplateManagementPage({
     }
   }, [refreshRecord, slug]);
 
-  const [aiCreateOpen, setAiCreateOpen] = useState(false);
-
   const openEditorPage = useCallback(
     (id: string) => {
       void navigate({
@@ -239,26 +234,6 @@ export function InterviewQuestionTemplateManagementPage({
       to: "/w/$slug/studio/question-bank/interview-questions/$templateId",
     });
   }, [activeTemplateId, routeSearch, navigate, slug]);
-
-  function handleAiGenerated({
-    jobDescriptionId,
-    questions,
-  }: {
-    jobDescriptionId: string;
-    questions: InterviewQuestionTemplateInput["questions"];
-  }) {
-    if (!canCreateQuestionTemplate) {
-      return;
-    }
-    queryClient.setQueryData(["interview-question-create-draft", slug], {
-      description: "",
-      jobDescriptionIds: [jobDescriptionId],
-      questions,
-      scope: "job_description",
-      title: "",
-    });
-    openEditorPage("new");
-  }
 
   const columns = useMemo(
     () => [
@@ -423,26 +398,10 @@ export function InterviewQuestionTemplateManagementPage({
               </EmptyHeader>
               {canCreateQuestionTemplate ? (
                 <EmptyContent className="flex items-center justify-center">
-                  <ButtonGroup>
-                    <Button
-                      onClick={() => {
-                        queryClient.setQueryData(["interview-question-create-draft", slug], null);
-                        openEditorPage("new");
-                      }}
-                    >
-                      <IconPlus className="size-4" />
-                      创建沟通题
-                    </Button>
-                    <Button
-                      aria-label="AI 创建沟通题"
-                      onClick={() => setAiCreateOpen(true)}
-                      size="icon"
-                      title="AI 创建沟通题"
-                      type="button"
-                    >
-                      <IconSparkles className="size-4" />
-                    </Button>
-                  </ButtonGroup>
+                  <Button onClick={() => openEditorPage("new")}>
+                    <IconPlus className="size-4" />
+                    创建沟通题
+                  </Button>
                 </EmptyContent>
               ) : null}
             </Empty>
@@ -451,40 +410,14 @@ export function InterviewQuestionTemplateManagementPage({
           getRowId={(r) => r.id}
           toolbarRight={
             canCreateQuestionTemplate ? (
-              <ButtonGroup className="flex-1 sm:flex-none">
-                <Button
-                  className="flex-1 sm:flex-none"
-                  onClick={() => {
-                    queryClient.setQueryData(["interview-question-create-draft", slug], null);
-                    openEditorPage("new");
-                  }}
-                >
-                  <IconPlus className="size-4" />
-                  创建沟通题
-                </Button>
-                <Button
-                  aria-label="AI 创建沟通题"
-                  onClick={() => setAiCreateOpen(true)}
-                  size="icon"
-                  title="AI 创建沟通题"
-                  type="button"
-                >
-                  <IconSparkles className="size-4" />
-                </Button>
-              </ButtonGroup>
+              <Button className="flex-1 sm:flex-none" onClick={() => openEditorPage("new")}>
+                <IconPlus className="size-4" />
+                创建沟通题
+              </Button>
             ) : null
           }
         />
       </div>
-
-      {canCreateQuestionTemplate ? (
-        <InterviewQuestionTemplateAiCreateDialog
-          jobDescriptions={jobDescriptions}
-          onGenerated={handleAiGenerated}
-          onOpenChange={setAiCreateOpen}
-          open={aiCreateOpen}
-        />
-      ) : null}
 
       <EntityDeleteDialog
         cancelLabel="取消"

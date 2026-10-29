@@ -1,4 +1,3 @@
-import type { CandidateFormTemplateInput } from "@app/db-schema/candidate-forms";
 import type { ComponentProps } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -82,14 +81,6 @@ export function CandidateFormEditPage({
         onCreated={handleCreated}
         open
         record={isNew ? null : (query.data ?? null)}
-        initialDraft={
-          isNew
-            ? queryClient.getQueryData<CandidateFormTemplateInput | null>([
-                "candidate-form-create-draft",
-                slug,
-              ])
-            : undefined
-        }
         jobDescriptions={jobDescriptions}
         onOpenChange={(open) => {
           if (!open) {

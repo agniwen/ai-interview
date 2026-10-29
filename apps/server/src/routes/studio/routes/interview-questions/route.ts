@@ -30,24 +30,9 @@ import {
   managedJobDescriptionIdsExist,
 } from "@app/resume-processing/review/support/job-descriptions-dao";
 
-import {
-  resolveAiGenerateContext,
-  resolveInterviewRecordIds,
-} from "../forms/utils/resolve-ai-generate-context";
-import { generateInterviewQuestionTemplateFromPrompt } from "./utils/ai-interview-questions-generate";
 import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "./dao/refresh-eligible";
 import { compileFollowUpContractsWithDefaults } from "./application/default-compile-follow-up-contracts";
 import { questionsRequiringFollowUpContracts } from "@app/recruiting/interview-questions/compile-follow-up-contracts";
-
-const generateTemplateQuestionsBodySchema = z.object({
-  interviewRecordId: z.string().trim().min(1).optional(),
-  interviewRecordIds: z.array(z.string().trim().min(1)).max(10).optional(),
-  jobDescriptionId: z.string().trim().min(1).optional(),
-  jobDescriptionIds: z.array(z.string().trim().min(1)).max(50).optional(),
-  prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(2000),
-  templateDescription: z.string().trim().max(1000).optional(),
-  templateTitle: z.string().trim().max(120).optional(),
-});
 
 function normalizeQuestions(
   questions: {
@@ -149,53 +134,6 @@ function parseArchivedFilter(value: string | undefined): "active" | "archived" |
 
 export const interviewQuestionTemplatesRouter = factory
   .createApp()
-  .post(
-    "/ai-generate-questions",
-    requirePermission("questionTemplate", "update"),
-    zValidator("json", generateTemplateQuestionsBodySchema, jsonValidatorError("请求参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-
-      const body = c.req.valid("json");
-      const { jobDescriptionId, jobDescriptionIds, prompt } = body;
-      const interviewRecordIds = resolveInterviewRecordIds(body);
-      const templateTitle = body.templateTitle?.trim() || "未命名面试题";
-      const templateDescription = body.templateDescription?.trim() || null;
-
-      const resolved = await resolveAiGenerateContext(activeOrg.id, {
-        interviewRecordIds,
-        jobDescriptionId,
-        jobDescriptionIds,
-      });
-      if ("error" in resolved) {
-        return c.json({ error: resolved.error }, 400);
-      }
-
-      try {
-        const questions = await generateInterviewQuestionTemplateFromPrompt({
-          candidates: resolved.candidates,
-          hrPrompt: prompt,
-          jobDescription: resolved.jobDescription,
-          templateDescription,
-          templateTitle,
-        });
-        return c.json({ questions }, 200);
-      } catch (error) {
-        return c.json(
-          createInternalErrorResponse({
-            context: { organizationId: activeOrg.id },
-            error,
-            operation: "interview-question-template-ai-generate",
-            publicMessage: "AI 生成失败。",
-          }),
-          500,
-        );
-      }
-    },
-  )
   .get(
     "/",
     requirePermission("questionTemplate", "read"),

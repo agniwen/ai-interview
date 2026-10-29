@@ -25,7 +25,6 @@ import {
 
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { refreshEligibleCandidatesForFormTemplate } from "./dao/refresh-eligible";
-import { candidateFormAiRouter } from "./routes/form-ai/route";
 
 function normalizeQuestions(
   questions: {
@@ -79,7 +78,6 @@ function parseArchivedFilter(value: string | undefined): "active" | "archived" |
 
 export const candidateFormsRouter = factory
   .createApp()
-  .route("/", candidateFormAiRouter)
   .get(
     "/",
     requirePermission("candidateForm", "read"),
