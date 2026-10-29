@@ -30,6 +30,8 @@ import { ToolChipsGroup } from "@/components/assistant-ui/tool-chips";
 import { useRecruitingComposerShellLayout } from "@/components/assistant-ui/use-recruiting-composer-shell-layout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useScrollFadeSync } from "@/components/ui/scroll-area";
+import { ScrollToBottomButton } from "@/components/ui/scroll-to-bottom-button";
 import { authClient } from "@/lib/client/auth-client";
 import { useSubjectAgent } from "./subject-agent-context";
 import {
@@ -245,19 +247,27 @@ export function SubjectAgentThread({
   /** 不能发送时的说明（无编辑权限或其他成员正在对话）；为空表示可以发送。 */
   blockedReason: string | null;
 }) {
+  const scrollFadeRef = useScrollFadeSync<HTMLDivElement>();
   return (
     <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
       <JobDescriptionPatchToolUI />
       <InterviewQuestionPatchToolUI />
       <CandidateFormPatchToolUI />
-      <ThreadPrimitive.Viewport className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pt-2 pb-4">
+      <ThreadPrimitive.Viewport
+        className="scroll-fade flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pt-2 pb-4 [--scroll-fade-size:2rem]"
+        ref={scrollFadeRef}
+      >
         <LoadOlderMessages />
         <ThreadPrimitive.Empty>
           <EmptyThread canSend={blockedReason === null} />
         </ThreadPrimitive.Empty>
         <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
       </ThreadPrimitive.Viewport>
-      <div className="shrink-0 px-3 pt-1 pb-3">
+      <div className="relative shrink-0 px-3 pt-1 pb-3">
+        {/* 离开底部时在输入框上方居中显示，回到底部后隐藏。 Centered above the composer, hidden at the bottom. */}
+        <ThreadPrimitive.ScrollToBottom asChild>
+          <ScrollToBottomButton className="absolute -top-10 left-1/2 z-20 -translate-x-1/2 disabled:invisible" />
+        </ThreadPrimitive.ScrollToBottom>
         {blockedReason ? (
           <p className="rounded-[14px] bg-control px-3 py-2.5 text-muted-foreground text-sm shadow-default">
             {blockedReason}

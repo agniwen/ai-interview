@@ -2,6 +2,7 @@
 
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import type { EventListeners } from "overlayscrollbars";
+import { useCallback, useRef } from "react";
 import type { ComponentProps, Ref } from "react";
 
 import { cn } from "@app/shared/utils";
@@ -33,6 +34,35 @@ function syncScrollFade(viewport: HTMLElement) {
   const showBottom = viewport.scrollTop < maxScrollTop - SCROLL_FADE_EDGE_TOLERANCE;
   viewport.style.setProperty("--scroll-fade-t", showTop ? "var(--_scroll-fade-size-t)" : "0px");
   viewport.style.setProperty("--scroll-fade-b", showBottom ? "var(--_scroll-fade-size-b)" : "0px");
+}
+
+/**
+ * 给原生滚动容器（如 assistant-ui 的 Thread Viewport）接入同一套 scroll-fade 兜底：
+ * 滚动、尺寸变化及内容增长（含流式输出）时同步渐隐。容器自身仍需加 `scroll-fade` 类。
+ * Brings the same scroll-fade fallback to a native scroll container (e.g. assistant-ui's thread
+ * viewport), syncing on scroll, resize and content growth; the element still needs `scroll-fade`.
+ */
+export function useScrollFadeSync<TElement extends HTMLElement>() {
+  const cleanupRef = useRef<(() => void) | null>(null);
+  return useCallback((element: TElement | null) => {
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+    if (!element) {
+      return;
+    }
+    const sync = () => syncScrollFade(element);
+    const resizeObserver = new ResizeObserver(sync);
+    resizeObserver.observe(element);
+    const mutationObserver = new MutationObserver(sync);
+    mutationObserver.observe(element, { characterData: true, childList: true, subtree: true });
+    element.addEventListener("scroll", sync, { passive: true });
+    sync();
+    cleanupRef.current = () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      element.removeEventListener("scroll", sync);
+    };
+  }, []);
 }
 
 function ScrollArea({

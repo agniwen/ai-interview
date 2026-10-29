@@ -33,6 +33,7 @@ import {
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { Button } from "@/components/ui/button";
+import { ScrollToBottomButton } from "@/components/ui/scroll-to-bottom-button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -647,15 +648,7 @@ export function RecruitingThread({
             <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
               <div className="relative mx-auto w-full max-w-(--thread-max-width)">
                 <ThreadPrimitive.ScrollToBottom asChild>
-                  <Button
-                    aria-label="回到底部"
-                    className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
-                    size="icon"
-                    type="button"
-                    variant="outline"
-                  >
-                    <IconArrowDown className="size-4" />
-                  </Button>
+                  <ScrollToBottomButton className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 -translate-x-1/2 disabled:invisible" />
                 </ThreadPrimitive.ScrollToBottom>
                 <Composer autoFocus={!historyLoading} />
                 <p className="mt-2 text-center text-muted-foreground text-xs">

@@ -103,7 +103,7 @@ export function AgentChatTranscript({
           {agentState === "thinking" && <AgentChatIndicator size="sm" />}
         </AnimatePresence>
       </TranscriptScrollArea>
-      <ConversationScrollButton className="rounded-lg border-transparent bg-control shadow-default hover:bg-component" />
+      <ConversationScrollButton />
     </Conversation>
   );
 }
