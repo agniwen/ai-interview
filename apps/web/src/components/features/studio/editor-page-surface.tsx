@@ -42,7 +42,11 @@ export function EditorWorkspaceSurface({
   footer,
 }: Pick<ModalProps, "children" | "footer">) {
   return (
-    <section className="relative -mt-2 -mb-4 flex h-[calc(100dvh-var(--header-height)-2.5rem)] min-h-[32rem] w-full flex-col md:-mt-4 md:-mb-6 md:h-[calc(100dvh-var(--header-height)-1.5rem)]">
+    // 全屏编辑器按可视宽度排版，侧面板打开时不出现横向滚动。 Fits the visible width beside a side pane.
+    <section
+      data-studio-fit-width
+      className="@container/editor-workspace relative -mt-2 -mb-4 flex h-[calc(100dvh-var(--header-height)-2.5rem)] min-h-[32rem] w-full flex-col md:-mt-4 md:-mb-6 md:h-[calc(100dvh-var(--header-height)-1.5rem)]"
+    >
       {children}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center">
         <FloatingBar className="flex items-center gap-(--floating-bar-inset) p-1">

@@ -25,7 +25,7 @@ export function FormTemplateEditorSkeleton() {
       <div
         aria-busy="true"
         aria-label="正在加载表单题编辑器"
-        className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:-mx-6 md:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-cols-[320px_minmax(0,1fr)_340px]"
+        className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:-mx-6 md:grid-cols-[320px_minmax(0,1fr)] @[61rem]/editor-workspace:md:grid-cols-[280px_minmax(0,1fr)_300px] @[77rem]/editor-workspace:md:grid-cols-[320px_minmax(0,1fr)_340px]"
       >
         <div className={`flex min-h-0 flex-col ${FADING_DIVIDER} after:right-0`}>
           <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 text-sm font-medium md:pl-6">
@@ -63,7 +63,10 @@ export function FormTemplateEditorSkeleton() {
             </div>
           </div>
         </div>
-        <div className={`hidden min-h-0 flex-col ${FADING_DIVIDER} after:left-0 md:flex`}>
+        {/* 与编辑器一致：容器不足 61rem（网格 1024px）时题目配置并入左栏。 Matches the editor's compact layout. */}
+        <div
+          className={`hidden min-h-0 flex-col ${FADING_DIVIDER} after:left-0 @[61rem]/editor-workspace:md:flex`}
+        >
           <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-6 pl-5 text-sm font-medium">
             <IconSettings2 className="size-4 text-muted-foreground" />
             题目配置

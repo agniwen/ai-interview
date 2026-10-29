@@ -63,8 +63,15 @@ import {
   CONFIG_ASIDE_CLASS,
   CONFIG_BODY_CLASS,
   CONFIG_HEADER_CLASS,
+  getFormEditorWorkspaceLayout,
   SETTINGS_ASIDE_CLASS,
+  SETTINGS_BODY_CLASS,
+  SETTINGS_HEADER_CLASS,
+  WORKSPACE_COLUMNS_CLASS,
 } from "./form-template-editor-layout";
+import { useElementWidth } from "@/components/ui/document-viewer-sidebar";
+import { FormEditorSideTabs } from "./form-template-editor-side-tabs";
+import type { FormEditorSideTab } from "./form-template-editor-side-tabs";
 import {
   candidateFormQuestionTypeSchema,
   candidateFormScopeSchema,
@@ -450,11 +457,21 @@ function QuestionBuilderBody({
     },
   );
 
+  const surface = page ? "page" : "dialog";
+  const [workspaceRef, workspaceWidth] = useElementWidth<HTMLDivElement>();
+  const compact = page && getFormEditorWorkspaceLayout(workspaceWidth) === "compact";
+  const [sideTab, setSideTab] = useState<FormEditorSideTab>("settings");
+  // 紧凑布局下选中或新增题目时切到「题目配置」页签。 Selecting a question shows its config tab.
+  function selectQuestion(id: string) {
+    setSelectedQuestionId(id);
+    setSideTab("question");
+  }
+
   function addQuestion(type: CandidateFormQuestionType) {
     const next = makeDefaultQuestion(items.length, type);
     const nextId = next.id ?? crypto.randomUUID();
     field.pushValue({ ...next, id: nextId });
-    setSelectedQuestionId(nextId);
+    selectQuestion(nextId);
   }
 
   function removeQuestion(index: number) {
@@ -465,6 +482,66 @@ function QuestionBuilderBody({
     field.removeValue(index);
     setSelectedQuestionId(nextSelected?.id ?? null);
   }
+
+  const settingsBody = (
+    <>
+      {page ? settings : null}
+      <div className="flex items-center gap-2">
+        <IconPlus className="size-4 text-muted-foreground" />
+        <h3 className="font-medium text-sm">题目类型</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        {candidateFormQuestionTypeSchema.options.map((type) => {
+          const Icon = QUESTION_TYPE_META[type].icon;
+          return (
+            <Button
+              className="group relative h-auto justify-start overflow-hidden px-3 py-2.5 text-left"
+              key={type}
+              onClick={() => addQuestion(type)}
+              type="button"
+              variant="outline"
+            >
+              <span className="flex min-w-0 items-center gap-3 transition-opacity group-focus-visible:opacity-35 group-hover:opacity-35">
+                <Icon className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium text-sm">{QUESTION_TYPE_LABELS[type]}</span>
+                  <span className="block text-muted-foreground text-xs leading-normal">
+                    {QUESTION_TYPE_META[type].description}
+                  </span>
+                </span>
+              </span>
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-[1px] transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs shadow-xs">
+                  <IconPlus className="size-3.5" />
+                  点击添加
+                </span>
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+    </>
+  );
+  const configBody = activeQuestion ? (
+    <QuestionConfigPanel
+      form={form}
+      index={activeIndex}
+      onRemove={
+        items.length > 1 && activeQuestion
+          ? () => setPendingDeleteQuestionId(activeQuestion.id)
+          : undefined
+      }
+    />
+  ) : (
+    <Card className="h-full min-h-40 gap-0 rounded-lg border-dashed bg-muted/20 py-0">
+      <CardContent className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
+        <p className="font-medium text-sm">还没有题目</p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          {compact ? "在「基础设置」中选择题目类型开始创建。" : "从左侧选择题目类型开始创建。"}
+        </p>
+      </CardContent>
+    </Card>
+  );
 
   function confirmRemoveQuestion() {
     if (pendingDeleteIndex === -1) {
@@ -494,60 +571,33 @@ function QuestionBuilderBody({
       <div
         className={
           page
-            ? "hidden min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_300px] overflow-hidden md:-mx-6 md:grid xl:grid-cols-[320px_minmax(0,1fr)_340px]"
+            ? cn(
+                "hidden min-h-0 flex-1 overflow-hidden md:-mx-6 md:grid",
+                WORKSPACE_COLUMNS_CLASS[getFormEditorWorkspaceLayout(workspaceWidth)],
+              )
             : "hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid"
         }
+        ref={workspaceRef}
       >
-        <aside className={SETTINGS_ASIDE_CLASS[page ? "page" : "dialog"]}>
-          {page ? (
-            <h2 className="flex h-11 shrink-0 items-center gap-2 border-b pr-5 pl-6 text-sm font-medium">
-              <IconAdjustmentsHorizontal className="size-4 text-muted-foreground" />
-              基础设置
-            </h2>
-          ) : null}
-          <div
-            className={
-              page ? "min-h-0 flex-1 space-y-5 overflow-y-auto pr-5 pl-6 pt-4 pb-20" : "contents"
-            }
-          >
-            {page ? settings : null}
-            <div className="flex items-center gap-2">
-              <IconPlus className="size-4 text-muted-foreground" />
-              <h3 className="font-medium text-sm">题目类型</h3>
-            </div>
-            <div className="flex flex-col gap-2">
-              {candidateFormQuestionTypeSchema.options.map((type) => {
-                const Icon = QUESTION_TYPE_META[type].icon;
-                return (
-                  <Button
-                    className="group relative h-auto justify-start overflow-hidden px-3 py-2.5 text-left"
-                    key={type}
-                    onClick={() => addQuestion(type)}
-                    type="button"
-                    variant="outline"
-                  >
-                    <span className="flex min-w-0 items-center gap-3 transition-opacity group-focus-visible:opacity-35 group-hover:opacity-35">
-                      <Icon className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-sm">
-                          {QUESTION_TYPE_LABELS[type]}
-                        </span>
-                        <span className="block text-muted-foreground text-xs leading-normal">
-                          {QUESTION_TYPE_META[type].description}
-                        </span>
-                      </span>
-                    </span>
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-[1px] transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs shadow-xs">
-                        <IconPlus className="size-3.5" />
-                        点击添加
-                      </span>
-                    </span>
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
+        <aside className={SETTINGS_ASIDE_CLASS[surface]}>
+          {compact ? (
+            <FormEditorSideTabs
+              onValueChange={setSideTab}
+              question={configBody}
+              settings={settingsBody}
+              value={sideTab}
+            />
+          ) : (
+            <>
+              {page ? (
+                <h2 className={cn(SETTINGS_HEADER_CLASS, "text-sm font-medium")}>
+                  <IconAdjustmentsHorizontal className="size-4 text-muted-foreground" />
+                  基础设置
+                </h2>
+              ) : null}
+              <div className={page ? SETTINGS_BODY_CLASS : "contents"}>{settingsBody}</div>
+            </>
+          )}
         </aside>
 
         <section className="flex min-h-0 flex-col bg-background">
@@ -582,7 +632,7 @@ function QuestionBuilderBody({
                         onRemove={
                           items.length > 1 ? () => setPendingDeleteQuestionId(item.id) : undefined
                         }
-                        onSelect={() => setSelectedQuestionId(item.id)}
+                        onSelect={() => selectQuestion(item.id)}
                         question={item}
                       />
                     )}
@@ -593,32 +643,15 @@ function QuestionBuilderBody({
           </div>
         </section>
 
-        <aside className={CONFIG_ASIDE_CLASS[page ? "page" : "dialog"]}>
-          <div className={CONFIG_HEADER_CLASS[page ? "page" : "dialog"]}>
-            <IconSettings2 className="size-4 text-muted-foreground" />
-            <h3 className="font-medium text-sm">题目配置</h3>
-          </div>
-          <div className={CONFIG_BODY_CLASS[page ? "page" : "dialog"]}>
-            {activeQuestion ? (
-              <QuestionConfigPanel
-                form={form}
-                index={activeIndex}
-                onRemove={
-                  items.length > 1 && activeQuestion
-                    ? () => setPendingDeleteQuestionId(activeQuestion.id)
-                    : undefined
-                }
-              />
-            ) : (
-              <Card className="h-full min-h-40 gap-0 rounded-lg border-dashed bg-muted/20 py-0">
-                <CardContent className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
-                  <p className="font-medium text-sm">还没有题目</p>
-                  <p className="mt-1 text-muted-foreground text-xs">从左侧选择题目类型开始创建。</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </aside>
+        {compact ? null : (
+          <aside className={CONFIG_ASIDE_CLASS[surface]}>
+            <div className={CONFIG_HEADER_CLASS[surface]}>
+              <IconSettings2 className="size-4 text-muted-foreground" />
+              <h3 className="font-medium text-sm">题目配置</h3>
+            </div>
+            <div className={CONFIG_BODY_CLASS[surface]}>{configBody}</div>
+          </aside>
+        )}
       </div>
 
       <AlertDialog
