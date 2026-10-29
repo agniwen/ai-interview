@@ -18,12 +18,7 @@ export function InterviewFlowFloatingBar({
         <div className="relative flex w-full items-center gap-(--floating-bar-inset)">
           {onBack ? (
             <div className="min-w-0 flex-1 md:flex-none md:shrink-0">
-              <Button
-                className="w-full md:w-auto"
-                onClick={onBack}
-                type="button"
-                variant="secondary"
-              >
+              <Button className="w-full md:w-auto" onClick={onBack} type="button" variant="outline">
                 <IconArrowLeft data-icon="inline-start" />
                 上一步
               </Button>

@@ -59,7 +59,7 @@ export function ResumeLibraryFloatingActionBar({
               onClick={onClearSelection}
               size="sm"
               type="button"
-              variant="secondary"
+              variant="outline"
             >
               <IconX data-icon="inline-start" />
               取消选择

@@ -65,11 +65,11 @@ export function MembersFloatingActionBar({
               triggerClassName="h-8 w-52"
               value={null}
             />
-            <Button disabled={disabled} onClick={onClearManager} size="sm" variant="secondary">
+            <Button disabled={disabled} onClick={onClearManager} size="sm" variant="outline">
               <IconUserMinus data-icon="inline-start" />
               清除上级
             </Button>
-            <Button onClick={onClearSelection} size="sm" variant="secondary">
+            <Button onClick={onClearSelection} size="sm" variant="outline">
               <IconX data-icon="inline-start" />
               取消选择
             </Button>

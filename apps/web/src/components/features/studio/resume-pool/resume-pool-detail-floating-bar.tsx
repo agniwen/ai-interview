@@ -85,7 +85,7 @@ export function ResumePoolDetailFloatingBar({
               size="sm"
               title={detail.resumeFileName ?? undefined}
               type="button"
-              variant="secondary"
+              variant="outline"
             >
               <ResumeDocumentFileIcon
                 className="size-4"
@@ -103,7 +103,7 @@ export function ResumePoolDetailFloatingBar({
               onClick={() => setEditOpen(true)}
               size="sm"
               type="button"
-              variant="secondary"
+              variant="outline"
             >
               <IconPencil data-icon="inline-start" />
               编辑信息
@@ -115,7 +115,7 @@ export function ResumePoolDetailFloatingBar({
               onClick={() => setImportOpen(true)}
               size="sm"
               type="button"
-              variant="secondary"
+              variant="outline"
             >
               {importLoading ? (
                 <IconLoader2 className="animate-spin" data-icon="inline-start" />
