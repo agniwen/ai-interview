@@ -54,9 +54,9 @@
   }
 }
 
-/* 天空背景（首页首屏、登录页、MCP 页）：渐变兜底 + shader 首帧图，shader 就绪后叠在其上；
+/* 天空背景（首页首屏、MCP 页）：渐变兜底 + shader 首帧图，shader 就绪后叠在其上；
    veil 只用于首页首屏，托住文案并渐隐到页面底色。
-   Sky backdrop: gradient fallback plus the shader's first-frame poster under the live shader;
+   Sky backdrop (hero and MCP pages): gradient fallback plus the shader's first-frame poster under the live shader;
    the veil is hero-only, keeping copy legible and fading into the page surface. */
 /* 首帧图由 sky-shader.tsx 在 t=0 导出（2400×1500，AVIF 4:4:4 q60 / WebP q82 兜底），存放在 COS 的
    public/landing/ 下，文件名带内容哈希并按 immutable 缓存；改动 shader 参数后需重新导出并更新这里。
@@ -72,6 +72,20 @@
       )
       center / cover no-repeat,
     linear-gradient(160deg, #b8d0f7 0%, #e6f0ff 55%, #d6e6fc 100%);
+}
+
+/* 登录页右侧光束卡片的兜底渐变，接近 beam-shader.tsx 的构图；shader 就绪后叠在其上。
+   Fallback gradient for the login side card, approximating beam-shader.tsx until the shader is ready. */
+.beam-backdrop-fallback {
+  background:
+    radial-gradient(circle at 30% 40%, rgb(58 144 224 / 50%) 0%, transparent 45%),
+    radial-gradient(circle at 70% 65%, rgb(127 184 245 / 45%) 0%, transparent 40%), #eef4fc;
+}
+
+.dark .beam-backdrop-fallback {
+  background:
+    radial-gradient(60% 34% at 40% 42%, rgb(59 79 216 / 60%) 0%, transparent 70%),
+    radial-gradient(55% 30% at 55% 68%, rgb(31 154 214 / 45%) 0%, transparent 70%), #14161c;
 }
 
 .sky-backdrop-veil {

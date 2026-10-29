@@ -16,7 +16,7 @@ interface SkyBackdropProps {
 }
 
 /**
- * 天空背景，首页首屏、登录页与 MCP 页共用。三层：CSS 渐变兜底 → shader 首帧图（SSR 即可见）→
+ * 天空背景，首页首屏与 MCP 页共用。三层：CSS 渐变兜底 → shader 首帧图（SSR 即可见）→
  * WebGPU shader（就绪后淡入）。WebGPU 不可用或减弱动效时停在首帧图上。
  * Shared sky backdrop: CSS gradient fallback → first-frame poster (visible from SSR) → WebGPU shader
  * that fades in once ready. Without WebGPU or with reduced motion the poster stays.

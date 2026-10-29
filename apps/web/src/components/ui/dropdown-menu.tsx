@@ -4,11 +4,7 @@ import { IconCheck, IconChevronRight, IconCircle } from "@tabler/icons-react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import * as React from "react";
 
-import {
-  cossAnchoredPopupMotionClass,
-  cossMenuItemClass,
-  cossPopupSurfaceClass,
-} from "@/components/ui/coss-style";
+import { cossAnchoredPopupMotionClass, cossMenuItemClass } from "@/components/ui/coss-style";
 import { cn } from "@app/shared/utils";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -45,9 +41,12 @@ function DropdownMenuContent({
           data-slot="dropdown-menu-content"
           data-vaul-no-drag=""
           className={cn(
-            cossPopupSurfaceClass,
+            // 菜单面板：与按钮同为 rounded-lg，1px 实边框 + 收紧的投影；菜单项用 rounded-md 保持同心。
+            // Menu panel: rounded-lg like buttons, a crisp 1px border and a tight drop shadow;
+            // items use rounded-md so the corners stay concentric.
+            "relative rounded-lg border border-border bg-popover text-popover-foreground outline-none shadow-[0_4px_16px_-6px_rgb(0_0_0/0.12)] dark:shadow-[0_8px_24px_-8px_rgb(0_0_0/0.6)]",
             cossAnchoredPopupMotionClass,
-            "z-50 max-h-(--available-height) min-w-[8rem] touch-pan-y overflow-x-hidden overflow-y-auto bg-background p-1 text-foreground",
+            "z-50 max-h-(--available-height) min-w-[8rem] touch-pan-y overflow-x-hidden overflow-y-auto p-1",
             className,
           )}
           {...props}
@@ -77,7 +76,7 @@ function DropdownMenuItem({
       data-variant={variant}
       className={cn(
         cossMenuItemClass,
-        "px-2 py-1.5 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:data-highlighted:bg-destructive/10 data-[variant=destructive]:data-highlighted:text-destructive dark:data-[variant=destructive]:data-highlighted:bg-destructive/20 data-[variant=destructive]:*:[svg]:text-destructive!",
+        "rounded-md px-2 py-1.5 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:data-highlighted:bg-destructive/10 data-[variant=destructive]:data-highlighted:text-destructive dark:data-[variant=destructive]:data-highlighted:bg-destructive/20 data-[variant=destructive]:*:[svg]:text-destructive!",
         className,
       )}
       {...props}
@@ -99,7 +98,11 @@ function DropdownMenuCheckboxItem({
       checked={checked}
       data-inset={inset}
       data-slot="dropdown-menu-checkbox-item"
-      className={cn(cossMenuItemClass, "py-1.5 pr-2 pl-8 data-highlighted:bg-accent", className)}
+      className={cn(
+        cossMenuItemClass,
+        "rounded-md py-1.5 pr-2 pl-8 data-highlighted:bg-accent",
+        className,
+      )}
       {...props}
     >
       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
@@ -128,7 +131,11 @@ function DropdownMenuRadioItem({
     <MenuPrimitive.RadioItem
       data-inset={inset}
       data-slot="dropdown-menu-radio-item"
-      className={cn(cossMenuItemClass, "py-1.5 pr-2 pl-8 data-highlighted:bg-accent", className)}
+      className={cn(
+        cossMenuItemClass,
+        "rounded-md py-1.5 pr-2 pl-8 data-highlighted:bg-accent",
+        className,
+      )}
       {...props}
     >
       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
@@ -196,7 +203,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
         cossMenuItemClass,
-        "px-2 py-1.5 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-popup-open:bg-accent data-popup-open:text-accent-foreground data-[inset]:pl-8",
+        "rounded-md px-2 py-1.5 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-popup-open:bg-accent data-popup-open:text-accent-foreground data-[inset]:pl-8",
         className,
       )}
       {...props}

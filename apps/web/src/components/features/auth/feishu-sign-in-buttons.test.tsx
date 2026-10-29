@@ -14,7 +14,6 @@ describe("Feishu login policy", () => {
   it("renders only the Jiguang HR entry for the default server policy", () => {
     const options = buildFeishuLoginButtonOptions(["feishu-jiguang-hr"]);
     expect(options.map((item) => item.providerId)).toEqual(["feishu-jiguang-hr"]);
-    expect(options[0]?.variant).toBe("default");
   });
 
   it("renders the legacy entry when the server explicitly includes it", () => {

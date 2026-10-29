@@ -7,12 +7,8 @@ import { FeishuSignInButton } from "./feishu-sign-in-button";
 export function buildFeishuLoginButtonOptions(providerIds: FeishuLoginProviderId[]) {
   return providerIds.map((providerId) =>
     providerId === "feishu-jiguang-hr"
-      ? {
-          label: messages.login_jiguang_hr_feishu(),
-          providerId,
-          variant: "default" as const,
-        }
-      : { providerId, variant: "outline" as const },
+      ? { label: messages.login_jiguang_hr_feishu(), providerId }
+      : { providerId },
   );
 }
 
@@ -28,7 +24,12 @@ function FeishuSignInButtonsView({
   providerIds: FeishuLoginProviderId[];
 }) {
   return buildFeishuLoginButtonOptions(providerIds).map((options) => (
-    <FeishuSignInButton callbackURL={callbackURL} key={options.providerId} {...options} />
+    <FeishuSignInButton
+      callbackURL={callbackURL}
+      key={options.providerId}
+      variant="secondary"
+      {...options}
+    />
   ));
 }
 
