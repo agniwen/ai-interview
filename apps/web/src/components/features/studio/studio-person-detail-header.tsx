@@ -460,7 +460,7 @@ export function buildStudioPersonDetailHeader({
           <div className="flex items-center gap-2">
             {mode === "resume" && resumeRecord?.feishuDocumentUrl ? (
               <Button
-                className="h-8 flex-1 gap-1.5 sm:flex-none"
+                className="flex-1 sm:flex-none"
                 nativeButton={false}
                 render={
                   <a
@@ -468,12 +468,12 @@ export function buildStudioPersonDetailHeader({
                     rel="noopener noreferrer"
                     target="_blank"
                   >
-                    <IconFileText className="size-3.5" data-icon="inline-start" />
+                    <IconFileText data-icon="inline-start" />
                     查看评价表
                   </a>
                 }
                 size="sm"
-                variant="outline"
+                variant="ghost"
               />
             ) : null}
             <ResumeDocumentPreviewButton
@@ -481,19 +481,19 @@ export function buildStudioPersonDetailHeader({
               disabled={!record.hasResumeFile}
               filename={record.resumeFileName ?? undefined}
               label="预览简历"
-              variant="outline"
+              variant="ghost"
               url={resumePreviewUrl}
             />
             {mode === "resume" && (
               <Button
-                className="h-8 flex-1 gap-1.5 sm:flex-none"
+                className="flex-1 sm:flex-none"
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 isLoading={isRefreshing}
                 onClick={onRefresh}
               >
                 <IconRefresh
-                  className={cn("size-3.5", isRefreshing && "animate-spin")}
+                  className={cn(isRefreshing && "animate-spin")}
                   data-icon="inline-start"
                 />
                 {isRefreshing ? "刷新中…" : "刷新信息"}

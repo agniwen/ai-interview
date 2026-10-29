@@ -77,7 +77,7 @@ function ResumePoolDetailHeaderOverride({ onBack }: { onBack: () => void }) {
   const header = useMemo(
     () => (
       <Button
-        className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
+        className="-ml-1 shrink-0 px-2 text-muted-foreground hover:text-foreground"
         onClick={onBack}
         size="sm"
         type="button"

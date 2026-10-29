@@ -320,7 +320,7 @@ export function HumanInterviewMeetingDetailPage(input: {
       <div className="flex min-w-0 items-center gap-2">
         <Button
           aria-label="返回真人面试"
-          className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
+          className="-ml-1 shrink-0 px-2 text-muted-foreground hover:text-foreground"
           variant="ghost"
           size="sm"
           nativeButton={false}

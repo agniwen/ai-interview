@@ -89,14 +89,14 @@ export function ResumeDocumentPreviewButton({
   return (
     <>
       <Button
-        className={cn("h-8 shrink-0 gap-1.5", className)}
+        className={cn("shrink-0", className)}
         disabled={disabled}
         onClick={() => setOpen(true)}
         size="sm"
         type="button"
         variant={variant}
       >
-        <IconEye className="size-3.5" />
+        <IconEye />
         {label}
       </Button>
       {open && !disabled ? (
