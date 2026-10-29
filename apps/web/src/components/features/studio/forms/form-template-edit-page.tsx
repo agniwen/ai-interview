@@ -1,3 +1,4 @@
+import type { CandidateFormTemplateInput } from "@app/db-schema/candidate-forms";
 import type { ComponentProps } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -10,6 +11,7 @@ import { EditorPageHeader } from "../editor-page-header";
 import { FormTemplateEditorSkeleton } from "./form-template-editor-skeleton";
 import {
   SubjectAgentScope,
+  useAttachSubjectDraftOnCreate,
   useSubjectAgentHeaderActions,
   useSubjectAgentSubject,
 } from "@/components/features/subject-agent/subject-agent-page";
@@ -22,14 +24,16 @@ type ReferenceProps = Pick<
 export function CandidateFormEditPage({
   templateId,
   onBack,
+  onCreated,
   jobDescriptions,
-}: ReferenceProps & { templateId: string; onBack: () => void }) {
+}: ReferenceProps & { templateId: string; onBack: () => void; onCreated: (id: string) => void }) {
   const slug = useWorkspaceSlug();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const canEdit = useHasPermission("candidateForm", "update");
+  const isNew = templateId === "new";
+  const canEdit = useHasPermission("candidateForm", isNew ? "create" : "update");
   const query = useQuery({
-    enabled: canEdit,
+    enabled: canEdit && !isNew,
     queryFn: () =>
       rpcFetch(
         rpc.api.w[":slug"].studio.forms[":id"].$get({
@@ -44,19 +48,20 @@ export function CandidateFormEditPage({
     refetchOnWindowFocus: false,
     staleTime: 0,
   });
-  // 表单题只有编辑页（新建走弹窗），使用记录会话（ADR-0045）。
+  // 已保存的表单题使用记录会话，新建页使用仅本人可见的草稿会话（ADR-0045）。
   const agentSubject = useSubjectAgentSubject({
-    enabled: canEdit && Boolean(query.data),
+    enabled: canEdit && (isNew || Boolean(query.data)),
     kind: "candidate_form_template",
-    recordId: templateId,
+    recordId: isNew ? null : templateId,
   });
   const headerActions = useSubjectAgentHeaderActions(agentSubject);
+  const handleCreated = useAttachSubjectDraftOnCreate(agentSubject, onCreated);
   let content;
   if (!canEdit) {
     content = <p className="py-8 text-muted-foreground">没有编辑表单题的权限</p>;
-  } else if (query.isPending) {
+  } else if (!isNew && query.isPending) {
     content = <FormTemplateEditorSkeleton />;
-  } else if (query.isError) {
+  } else if (!isNew && query.isError) {
     content = (
       <div role="alert" className="space-y-3">
         <p>加载表单题失败</p>
@@ -69,12 +74,22 @@ export function CandidateFormEditPage({
         </Button>
       </div>
     );
-  } else if (query.data) {
+  } else if (isNew || query.data) {
     content = (
       <CandidateFormTemplateEditorDialog
+        key={templateId}
         presentation="page"
+        onCreated={handleCreated}
         open
-        record={query.data}
+        record={isNew ? null : (query.data ?? null)}
+        initialDraft={
+          isNew
+            ? queryClient.getQueryData<CandidateFormTemplateInput | null>([
+                "candidate-form-create-draft",
+                slug,
+              ])
+            : undefined
+        }
         jobDescriptions={jobDescriptions}
         onOpenChange={(open) => {
           if (!open) {

@@ -1,3 +1,4 @@
+import { IconCircleCheck, IconCircleX, IconX } from "@tabler/icons-react";
 import {
   useCandidateActionDock,
   useActionFlowCompletion,
@@ -288,6 +289,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
             setOpen(true);
           }}
         >
+          <IconCircleCheck className="size-4" />
           {recruitingNodeActionLabels[record.pipelineStage]}
         </Button>
       )}
@@ -304,13 +306,14 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
         footer={
           <>
             <Button
-              variant="ghost"
+              variant="outline"
               disabled={mutation.isPending}
               onClick={() => {
                 setOpen(false);
                 mutation.reset();
               }}
             >
+              <IconX className="size-4" />
               放弃填写
             </Button>
             <Button
@@ -318,6 +321,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
               disabled={mutation.isPending}
               onClick={() => mutation.mutate("fail")}
             >
+              <IconCircleX className="size-4" />
               {failLabel(record.pipelineStage)}
             </Button>
             {record.pipelineStage !== "offer" && (
@@ -339,6 +343,7 @@ export function RecruitingNodeActions({ record }: { record: ResumeLibraryDetail 
                 }
                 onClick={() => mutation.mutate("pass")}
               >
+                <IconCircleCheck className="size-4" />
                 {passLabel(record.pipelineStage)}
               </Button>
             )}

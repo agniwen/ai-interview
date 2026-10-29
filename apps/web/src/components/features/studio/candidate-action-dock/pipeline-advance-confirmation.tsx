@@ -1,3 +1,4 @@
+import { IconArrowRight, IconX } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { pipelineStageMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
@@ -62,10 +63,12 @@ export function usePipelineAdvanceConfirmation(stage: PipelineStage) {
         description={description}
         footer={
           <>
-            <Button variant="ghost" disabled={busy} onClick={() => flow.setOpen(false)}>
+            <Button variant="outline" disabled={busy} onClick={() => flow.setOpen(false)}>
+              <IconX className="size-4" />
               取消
             </Button>
             <Button disabled={busy} onClick={confirm}>
+              <IconArrowRight className="size-4" />
               {busy ? "推进中…" : "确认推进"}
             </Button>
           </>

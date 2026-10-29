@@ -32,7 +32,7 @@ export function ResumeLibraryFloatingActionBar({
           initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
         >
-          <FloatingBar className="flex items-center gap-2 p-1">
+          <FloatingBar className="flex items-center gap-(--floating-bar-inset) p-1">
             <span className="select-none whitespace-nowrap px-2.5 text-sm text-muted-foreground">
               已选择 {selectedCount} 条
             </span>
@@ -59,7 +59,7 @@ export function ResumeLibraryFloatingActionBar({
               onClick={onClearSelection}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="secondary"
             >
               <IconX data-icon="inline-start" />
               取消选择

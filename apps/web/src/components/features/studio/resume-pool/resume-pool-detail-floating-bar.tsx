@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBriefcase, IconLoader2, IconPencil } from "@tabler/icons-react";
+import { IconArrowRight, IconLoader2, IconPencil } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ResumePoolDetail } from "@app/shared/resume-pool";
 import { useState } from "react";
@@ -75,7 +75,7 @@ export function ResumePoolDetailFloatingBar({
       {createPortal(
         <div className="pointer-events-none fixed inset-x-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] z-40 flex justify-center">
           <FloatingBar
-            className="flex w-full items-center gap-1 p-1 md:w-auto"
+            className="flex w-full items-center gap-(--floating-bar-inset) p-1 md:w-auto"
             data-slot="resume-pool-detail-floating-bar"
           >
             <Button
@@ -120,7 +120,7 @@ export function ResumePoolDetailFloatingBar({
               {importLoading ? (
                 <IconLoader2 className="animate-spin" data-icon="inline-start" />
               ) : (
-                <IconBriefcase data-icon="inline-start" />
+                <IconArrowRight data-icon="inline-start" />
               )}
               进入招聘流程
             </Button>

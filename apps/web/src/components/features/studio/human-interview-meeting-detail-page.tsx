@@ -358,14 +358,13 @@ export function HumanInterviewMeetingDetailPage(input: {
   useStudioHeaderOverride(header);
   const refreshAction = (
     <Button
-      size="sm"
       variant="outline"
       disabled={query.isFetching}
       onClick={() => {
         query.refetch();
       }}
     >
-      <IconRefresh className="size-4" />
+      <IconRefresh data-icon="inline-start" />
       刷新
     </Button>
   );

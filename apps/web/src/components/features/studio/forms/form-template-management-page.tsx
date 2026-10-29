@@ -36,9 +36,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
-import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
 import { FormTemplateAiCreateDialog } from "@/components/features/studio/forms/form-template-ai-create-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "@/components/features/studio/forms/form-template-submissions-drawer";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -138,24 +136,6 @@ export function CandidateFormTemplateManagementPage({
   );
   const navigate = useNavigate({ from: "/w/$slug/studio/question-bank/forms" });
   const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
-  const setActiveTemplateId = useCallback(
-    (value: string | null) => {
-      void navigate({
-        replace: true,
-        resetScroll: false,
-        search: (prev: SearchParamsRecord) => {
-          const next = { ...prev };
-          if (value) {
-            next.templateId = value;
-          } else {
-            delete next.templateId;
-          }
-          return next;
-        },
-      });
-    },
-    [navigate],
-  );
 
   const crud = useEntityCrud<CandidateFormTemplateListRecord, CandidateFormTemplateRecord>({
     deleteEntity: (record) =>
@@ -232,7 +212,6 @@ export function CandidateFormTemplateManagementPage({
 
   const [submissionsRecord, setSubmissionsRecord] =
     useState<CandidateFormTemplateListRecord | null>(null);
-  const [createDraft, setCreateDraft] = useState<CandidateFormTemplateInput | null>(null);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
   const openEditorPage = useCallback(
@@ -258,14 +237,6 @@ export function CandidateFormTemplateManagementPage({
       to: "/w/$slug/studio/question-bank/forms/$templateId",
     });
   }, [activeTemplateId, routeSearch, navigate, slug]);
-
-  function onEditorOpenChange(next: boolean) {
-    crud.onFormOpenChange(next);
-    if (!next) {
-      setCreateDraft(null);
-      void setActiveTemplateId(null);
-    }
-  }
 
   const columns = useMemo(
     () => [
@@ -435,15 +406,16 @@ export function CandidateFormTemplateManagementPage({
     if (!canCreateCandidateForm) {
       return;
     }
-    setCreateDraft({
+    // AI 草稿经查询缓存交给新建页，新建页读取后作为初始值。
+    // The AI draft reaches the create page through the query cache.
+    queryClient.setQueryData(["candidate-form-create-draft", slug], {
       description: "",
       jobDescriptionIds: [jobDescriptionId],
       questions,
       scope: "job_description",
       title: "",
-    });
-    crud.setEditingRecord(null);
-    crud.setFormDialogOpen(true);
+    } satisfies CandidateFormTemplateInput);
+    openEditorPage("new");
   }
 
   return (
@@ -468,8 +440,8 @@ export function CandidateFormTemplateManagementPage({
                   <ButtonGroup>
                     <Button
                       onClick={() => {
-                        setCreateDraft(null);
-                        crud.openCreate();
+                        queryClient.setQueryData(["candidate-form-create-draft", slug], null);
+                        openEditorPage("new");
                       }}
                     >
                       <IconPlus className="size-4" />
@@ -497,8 +469,8 @@ export function CandidateFormTemplateManagementPage({
                 <Button
                   className="flex-1 sm:flex-none"
                   onClick={() => {
-                    setCreateDraft(null);
-                    crud.openCreate();
+                    queryClient.setQueryData(["candidate-form-create-draft", slug], null);
+                    openEditorPage("new");
                   }}
                 >
                   <IconPlus className="size-4" />
@@ -525,20 +497,6 @@ export function CandidateFormTemplateManagementPage({
           onGenerated={handleAiGenerated}
           onOpenChange={setAiCreateOpen}
           open={aiCreateOpen}
-        />
-      ) : null}
-
-      {(crud.editingRecord ? canUpdateCandidateForm : canCreateCandidateForm) ? (
-        <CandidateFormTemplateEditorDialog
-          initialDraft={createDraft}
-          jobDescriptions={jobDescriptions}
-          onOpenChange={onEditorOpenChange}
-          onSaved={() => {
-            grid.invalidate();
-            void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
-          }}
-          open={crud.formDialogOpen}
-          record={crud.editingRecord}
         />
       ) : null}
 

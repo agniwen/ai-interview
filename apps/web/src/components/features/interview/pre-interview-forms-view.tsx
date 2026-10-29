@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconArrowRight, IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -214,7 +214,11 @@ export function PreInterviewFormsView({
               handleSubmitAll();
             }}
           >
-            {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+            {submitting ? (
+              <IconLoader2 className="animate-spin" data-icon="inline-start" />
+            ) : (
+              <IconArrowRight data-icon="inline-start" />
+            )}
             保存并继续
           </Button>
         }

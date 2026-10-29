@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--filter", "@app/web", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "worker",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--filter", "@app/worker", "dev"],
+      "port": 3999
+    }
+  ]
+}

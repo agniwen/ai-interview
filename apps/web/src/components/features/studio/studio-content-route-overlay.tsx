@@ -39,7 +39,7 @@ export function StudioPageActions({ children }: PropsWithChildren) {
     <div
       className={`${target ? "absolute" : "fixed"} pointer-events-none inset-x-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex justify-center`}
     >
-      <FloatingBar className="flex max-w-full flex-wrap items-center justify-center gap-2 p-1">
+      <FloatingBar className="flex max-w-full flex-wrap items-center justify-center gap-(--floating-bar-inset) p-1">
         {children}
       </FloatingBar>
     </div>

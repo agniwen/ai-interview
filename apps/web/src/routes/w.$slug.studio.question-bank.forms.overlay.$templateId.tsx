@@ -31,6 +31,14 @@ function EditorRoute() {
     <CandidateFormEditPage
       templateId={templateId}
       onBack={onBack}
+      onCreated={(id) => {
+        void navigate({
+          to: "/w/$slug/studio/question-bank/forms/overlay/$templateId",
+          params: { slug, templateId: id },
+          search,
+          replace: true,
+        });
+      }}
       jobDescriptions={state.jobDescriptions}
     />
   );
@@ -38,6 +46,10 @@ function EditorRoute() {
 }
 export const Route = createFileRoute("/w/$slug/studio/question-bank/forms/overlay/$templateId")({
   validateSearch: coerceSearchParams,
-  head: () => ({ meta: [{ title: formatDocumentTitle("编辑表单题") }] }),
+  head: ({ params }) => ({
+    meta: [
+      { title: formatDocumentTitle(params.templateId === "new" ? "新建表单题" : "编辑表单题") },
+    ],
+  }),
   component: EditorRoute,
 });

@@ -1,7 +1,7 @@
 "use client";
 import { useActionFlowCompletion } from "../candidate-action-dock/candidate-action-dock";
 
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconArrowRight, IconLoader2, IconRobot, IconX } from "@tabler/icons-react";
 // 真人面试准备弹窗：确认候选人的异步生成题目并落库，供真人面试官参考。
 // 开弹窗时优先读取简历解析 Worker 已生成的题目；历史空数据才调用
 // 工作区范围的 generate-questions 兜底。用户可继续增删改，
@@ -369,6 +369,7 @@ export function HumanInterviewQuestionDialog({
                 type="button"
                 variant="outline"
               >
+                <IconX className="size-4" />
                 取消
               </Button>
               <Button
@@ -378,7 +379,11 @@ export function HumanInterviewQuestionDialog({
                 }}
                 type="button"
               >
-                {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+                {submitting ? (
+                  <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                  <IconArrowRight className="size-4" />
+                )}
                 {targetStage === "final_interview" ? "进入终试" : "进入复试"}
               </Button>
             </div>
@@ -563,13 +568,18 @@ export function LaunchInterviewDialog({
       footer={
         <>
           <Button variant="outline" disabled={submitting} onClick={() => onOpenChange(false)}>
+            <IconX className="size-4" />
             取消
           </Button>
           <Button
             disabled={isLoading || submitting || detail?.resumeEvaluationStatus !== "pass"}
             onClick={handleConfirm}
           >
-            {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+            {submitting ? (
+              <IconLoader2 className="size-4 animate-spin" />
+            ) : (
+              <IconRobot className="size-4" />
+            )}
             {confirmLabel}
           </Button>
         </>

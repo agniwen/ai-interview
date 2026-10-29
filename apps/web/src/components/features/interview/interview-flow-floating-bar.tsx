@@ -1,5 +1,6 @@
 "use client";
 
+import { IconArrowLeft } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FloatingBar } from "@/components/ui/floating-bar";
@@ -14,15 +15,21 @@ export function InterviewFlowFloatingBar({
   return (
     <div className="pointer-events-none fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center sm:bottom-[calc(2.5rem+env(safe-area-inset-bottom))]">
       <FloatingBar className="w-full max-w-[calc(100vw-2rem)] p-1 md:w-fit">
-        <div className="relative flex w-full items-center gap-1">
+        <div className="relative flex w-full items-center gap-(--floating-bar-inset)">
           {onBack ? (
             <div className="min-w-0 flex-1 md:flex-none md:shrink-0">
-              <Button className="w-full md:w-auto" onClick={onBack} type="button" variant="ghost">
+              <Button
+                className="w-full md:w-auto"
+                onClick={onBack}
+                type="button"
+                variant="secondary"
+              >
+                <IconArrowLeft data-icon="inline-start" />
                 上一步
               </Button>
             </div>
           ) : null}
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1 [&>*]:min-w-0 [&>*]:flex-1 md:flex-none md:shrink-0 md:[&>*]:flex-none">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-(--floating-bar-inset) [&>*]:min-w-0 [&>*]:flex-1 md:flex-none md:shrink-0 md:[&>*]:flex-none">
             {actions}
           </div>
         </div>

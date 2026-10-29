@@ -1,3 +1,5 @@
+import { IconDeviceFloppy, IconLoader2, IconPlus, IconX } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
 import { FloatingBar } from "@/components/ui/floating-bar";
 import type { ModalProps } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,9 +45,43 @@ export function EditorWorkspaceSurface({
     <section className="relative -mt-2 -mb-4 flex h-[calc(100dvh-var(--header-height)-2.5rem)] min-h-[32rem] w-full flex-col md:-mt-4 md:-mb-6 md:h-[calc(100dvh-var(--header-height)-1.5rem)]">
       {children}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center">
-        <FloatingBar className="flex items-center gap-2 p-1">{footer}</FloatingBar>
+        <FloatingBar className="flex items-center gap-(--floating-bar-inset) p-1">
+          {footer}
+        </FloatingBar>
       </div>
     </section>
+  );
+}
+
+/** 编辑器取消/提交按钮：创建用加号，保存用软盘，提交中替换为加载图标。 */
+export function EditorFormActions({
+  creating,
+  formId,
+  onCancel,
+  submitting,
+}: {
+  creating: boolean;
+  formId: string;
+  onCancel: () => void;
+  submitting: boolean;
+}) {
+  let submitIcon = <IconDeviceFloppy data-icon="inline-start" />;
+  if (submitting) {
+    submitIcon = <IconLoader2 className="animate-spin" data-icon="inline-start" />;
+  } else if (creating) {
+    submitIcon = <IconPlus data-icon="inline-start" />;
+  }
+  return (
+    <>
+      <Button onClick={onCancel} type="button" variant="outline">
+        <IconX data-icon="inline-start" />
+        取消
+      </Button>
+      <Button disabled={submitting} form={formId} type="submit">
+        {submitIcon}
+        {creating ? "创建" : "保存"}
+      </Button>
+    </>
   );
 }
 

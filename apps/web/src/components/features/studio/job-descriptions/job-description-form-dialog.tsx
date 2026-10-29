@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconLoader2, IconX } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
 import {
@@ -288,6 +288,7 @@ export function JobDescriptionFormDialog({
               type="button"
               variant="outline"
             >
+              <IconX data-icon="inline-start" />
               取消
             </Button>
             <Button
@@ -295,7 +296,11 @@ export function JobDescriptionFormDialog({
               form="job-description-form"
               type="submit"
             >
-              {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+              {isSubmitting ? (
+                <IconLoader2 className="animate-spin" data-icon="inline-start" />
+              ) : (
+                <IconDeviceFloppy data-icon="inline-start" />
+              )}
               {isSubmitting ? "保存中" : "保存"}
             </Button>
           </>

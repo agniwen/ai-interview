@@ -17,8 +17,8 @@ export function FormTemplateEditorSkeleton() {
     <EditorWorkspaceSurface
       footer={
         <>
-          <Skeleton className="h-8 w-14" />
-          <Skeleton className="h-8 w-14" />
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-8 w-24" />
         </>
       }
     >
@@ -43,7 +43,7 @@ export function FormTemplateEditorSkeleton() {
             ))}
           </div>
         </div>
-        <div className="hidden min-h-0 flex-col bg-muted/20 md:flex">
+        <div className="hidden min-h-0 flex-col bg-background md:flex">
           <div className="flex h-11 shrink-0 items-center justify-between border-b bg-background px-5 text-sm font-medium">
             <span className="flex items-center gap-2">
               <IconListCheck className="size-4 text-muted-foreground" />
@@ -51,8 +51,8 @@ export function FormTemplateEditorSkeleton() {
             </span>
             <Skeleton className="h-3 w-12" />
           </div>
-          <div className="overflow-hidden px-4 pt-4">
-            <div className="mx-auto w-full max-w-4xl space-y-3 rounded-xl bg-background p-4 shadow-default">
+          <div className="overflow-hidden px-5 pt-4">
+            <div className="mx-auto w-full max-w-4xl space-y-3">
               <Skeleton className="h-6 w-40" />
               {[0, 1, 2, 3].map((item) => (
                 <div key={item} className="space-y-3 py-2">
@@ -64,11 +64,11 @@ export function FormTemplateEditorSkeleton() {
           </div>
         </div>
         <div className={`hidden min-h-0 flex-col ${FADING_DIVIDER} after:left-0 md:flex`}>
-          <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-6 pl-4 text-sm font-medium">
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-6 pl-5 text-sm font-medium">
             <IconSettings2 className="size-4 text-muted-foreground" />
             题目配置
           </div>
-          <div className="space-y-5 overflow-hidden pr-6 pl-4 pt-4">
+          <div className="space-y-5 overflow-hidden pr-6 pl-5 pt-4">
             <Skeleton className="h-8 w-3/4" />
             <FieldSkeleton />
             <FieldSkeleton />

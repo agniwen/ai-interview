@@ -1,6 +1,5 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
@@ -26,8 +25,7 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { EditorPageSurface } from "../editor-page-surface";
+import { EditorFormActions, EditorPageSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -216,15 +214,12 @@ export function InterviewQuestionTemplateEditorDialog({
       size="xl"
       bodyClassName="-mx-1 px-7 py-1.5 space-y-6"
       footer={
-        <>
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            取消
-          </Button>
-          <Button disabled={isSubmitting} form="interview-question-template-form" type="submit">
-            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-            {isEdit || presentation === "page" ? "保存" : "创建"}
-          </Button>
-        </>
+        <EditorFormActions
+          creating={!isEdit && presentation !== "page"}
+          formId="interview-question-template-form"
+          onCancel={() => onOpenChange(false)}
+          submitting={isSubmitting}
+        />
       }
     >
       <form

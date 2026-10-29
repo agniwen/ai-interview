@@ -8,13 +8,16 @@ import type {
   CandidateFormQuestionType,
 } from "@app/db-schema/candidate-forms";
 import {
+  CANDIDATE_FORM_OPTION_DUPLICATE_MESSAGES,
   candidateFormDisplayModeSchema,
   candidateFormQuestionTypeSchema,
   DEFAULT_DISPLAY_MODE,
   DISPLAY_MODES_BY_TYPE,
+  findDuplicateOptionIndexes,
 } from "@app/db-schema/candidate-forms";
 import { useStore } from "@tanstack/react-form";
 import { useMemo } from "react";
+import type { ComponentProps } from "react";
 import { z } from "zod";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
+import { cossFieldSurfaceClass, cossTriggerSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@app/shared/utils";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 
@@ -66,7 +70,9 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
   if (question.type === "text") {
     if (question.displayMode === "textarea") {
       return (
-        <div className="relative min-h-24 rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm">
+        <div
+          className={cn(cossFieldSurfaceClass, "min-h-24 px-3 py-2 text-muted-foreground text-sm")}
+        >
           请输入你的回答…
           <span className="absolute right-3 bottom-2 text-muted-foreground/70 text-xs">0/5000</span>
         </div>
@@ -74,7 +80,12 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
     }
 
     return (
-      <div className="flex h-9 items-center rounded-lg border border-input bg-background px-3 text-muted-foreground text-sm">
+      <div
+        className={cn(
+          cossFieldSurfaceClass,
+          "flex h-9 items-center px-3 text-muted-foreground text-sm",
+        )}
+      >
         请输入你的回答…
       </div>
     );
@@ -97,7 +108,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
         >
           <span
             className={cn(
-              "size-4 shrink-0 border border-primary/40 bg-background",
+              "size-4 shrink-0 border border-primary/40 bg-control",
               question.type === "multi" ? "rounded-[4px]" : "rounded-full",
             )}
           />
@@ -112,7 +123,12 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
 
 function PreviewSelect({ placeholder }: { placeholder: string }) {
   return (
-    <div className="flex h-10 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-muted-foreground text-sm">
+    <div
+      className={cn(
+        cossTriggerSurfaceClass,
+        "flex h-10 w-full items-center justify-between rounded-lg px-3 py-2 text-muted-foreground text-sm",
+      )}
+    >
       <span>{placeholder}</span>
       <IconChevronDown className="size-4 shrink-0 opacity-50" />
     </div>
@@ -409,12 +425,34 @@ function OptionsList({
     push: pushId,
     remove: removeId,
   } = useSortableItemIds(items.length, questionId);
+  // 数组字段不会因子项文字变化而重渲染，查重直接订阅本题选项的最新值。
+  // The array field doesn't re-render on nested edits, so duplicate checks subscribe to live values.
+  const liveOptions = useStore(
+    form.store,
+    // oxlint-disable-next-line no-explicit-any -- TanStack Form's deeply generic store state.
+    (state: any) => state.values.questions?.[index]?.options,
+  );
+  const parsedLiveOptions = optionItemsSchema.safeParse(liveOptions ?? []);
+  const liveItems = parsedLiveOptions.success ? parsedLiveOptions.data : items;
+  const labelDuplicates = findDuplicateOptionIndexes(liveItems, "label");
+  const valueDuplicates = findDuplicateOptionIndexes(liveItems, "value");
 
   return (
     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-      <FieldLabel>选项</FieldLabel>
+      {/* 标题行与选项行共用列宽：首列多出卡片内边距，列名正好对齐输入框。
+          The header shares the option grid; its first column adds the card padding so hints align. */}
+      <div className="grid grid-cols-[2.125rem_minmax(0,1fr)_8rem_2rem] items-center gap-2 pr-1.5">
+        <FieldLabel className="whitespace-nowrap">选项</FieldLabel>
+        <span aria-hidden className="text-muted-foreground text-xs">
+          显示文字
+        </span>
+        <span aria-hidden className="text-muted-foreground text-xs">
+          选项值
+        </span>
+      </div>
       <FieldContent className="gap-2">
         <SortableList
+          className="space-y-2"
           ids={optionIds}
           onReorder={(from, to) => {
             field.moveValue(from, to);
@@ -429,49 +467,21 @@ function OptionsList({
             return (
               <SortableItem id={id} key={id}>
                 {({ handleProps }) => (
-                  <div className="flex items-center gap-2">
-                    <SortableDragHandle {...handleProps} aria-label="拖动以调整选项顺序" />
-                    <form.Field name={`questions[${index}].options[${optionIndex}].label`}>
-                      {/* oxlint-disable-next-line no-explicit-any */}
-                      {(subField: any) => (
-                        <Input
-                          className="flex-1"
-                          maxLength={OPTION_TEXT_MAX_LENGTH}
-                          onBlur={subField.handleBlur}
-                          onChange={(event) => subField.handleChange(event.target.value)}
-                          placeholder="显示文字"
-                          value={subField.state.value}
-                        />
-                      )}
-                    </form.Field>
-                    <form.Field name={`questions[${index}].options[${optionIndex}].value`}>
-                      {/* oxlint-disable-next-line no-explicit-any */}
-                      {(subField: any) => (
-                        <Input
-                          className="w-32 font-mono text-xs"
-                          maxLength={OPTION_TEXT_MAX_LENGTH}
-                          onBlur={subField.handleBlur}
-                          onChange={(event) => subField.handleChange(event.target.value)}
-                          placeholder="value"
-                          value={subField.state.value}
-                        />
-                      )}
-                    </form.Field>
-                    <Button
-                      aria-label="删除选项"
-                      className="size-8 shrink-0"
-                      disabled={items.length <= 2}
-                      onClick={() => {
-                        field.removeValue(optionIndex);
-                        removeId(optionIndex);
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <IconX className="size-4" />
-                    </Button>
-                  </div>
+                  <OptionRow
+                    canRemove={items.length > 2}
+                    duplicateOf={{
+                      label: labelDuplicates.get(optionIndex),
+                      value: valueDuplicates.get(optionIndex),
+                    }}
+                    form={form}
+                    handleProps={handleProps}
+                    name={`questions[${index}].options[${optionIndex}]`}
+                    onRemove={() => {
+                      field.removeValue(optionIndex);
+                      removeId(optionIndex);
+                    }}
+                    optionIndex={optionIndex}
+                  />
                 )}
               </SortableItem>
             );
@@ -480,10 +490,7 @@ function OptionsList({
         <Button
           className="self-start"
           onClick={() => {
-            field.pushValue({
-              label: `选项 ${items.length + 1}`,
-              value: `option_${items.length + 1}`,
-            });
+            field.pushValue(nextDefaultOption(liveItems));
             pushId();
           }}
           size="sm"
@@ -496,5 +503,98 @@ function OptionsList({
         <FieldError errors={errors} />
       </FieldContent>
     </Field>
+  );
+}
+
+/** 新增选项取第一个未被占用的编号，避免删除中间项后再添加时与已有选项重复。 */
+function nextDefaultOption(items: { label: string; value: string }[]) {
+  const labels = new Set(items.map((item) => item.label.trim()));
+  const values = new Set(items.map((item) => item.value.trim()));
+  let number = items.length + 1;
+  while (labels.has(`选项 ${number}`) || values.has(`option_${number}`)) {
+    number += 1;
+  }
+  return { label: `选项 ${number}`, value: `option_${number}` };
+}
+
+const OPTION_FIELD_LABELS = { label: "显示文字", value: "选项值" } as const;
+
+function OptionRow({
+  canRemove,
+  duplicateOf,
+  form,
+  handleProps,
+  name,
+  onRemove,
+  optionIndex,
+}: {
+  canRemove: boolean;
+  duplicateOf: { label: number | undefined; value: number | undefined };
+  form: TemplateFormApi;
+  handleProps: ComponentProps<typeof SortableDragHandle>;
+  name: string;
+  onRemove: () => void;
+  optionIndex: number;
+}) {
+  // 实时提示重复；提交校验里的同类错误由实时提示代替，避免修正后仍残留旧错误。
+  // Live duplicate hints replace the submit-time duplicate issue so a fixed row never keeps a stale error.
+  const liveErrors = (["label", "value"] as const).flatMap((key) => {
+    const firstIndex = duplicateOf[key];
+    return firstIndex === undefined
+      ? []
+      : [{ message: `${OPTION_FIELD_LABELS[key]}与选项 ${firstIndex + 1} 重复` }];
+  });
+  // oxlint-disable-next-line no-explicit-any -- TanStack Form's deeply generic store state.
+  const fieldErrors = useStore(form.store, (state: any) =>
+    (["label", "value"] as const).flatMap((key) =>
+      (toFieldErrors(state.fieldMeta[`${name}.${key}`]?.errors) ?? []).filter(
+        (error) => error.message !== CANDIDATE_FORM_OPTION_DUPLICATE_MESSAGES[key],
+      ),
+    ),
+  );
+  const invalid = {
+    label: duplicateOf.label !== undefined,
+    value: duplicateOf.value !== undefined,
+  };
+  return (
+    <div className="flex flex-col gap-1 rounded-lg bg-card p-1.5 text-card-foreground shadow-default">
+      <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_8rem_2rem] items-center gap-2">
+        <SortableDragHandle
+          {...handleProps}
+          aria-label={`拖动以调整选项 ${optionIndex + 1} 的顺序`}
+        />
+        {(["label", "value"] as const).map((key) => (
+          <form.Field key={key} name={`${name}.${key}`}>
+            {/* oxlint-disable-next-line no-explicit-any */}
+            {(subField: any) => (
+              <Input
+                aria-invalid={
+                  invalid[key] || Boolean(subField.state.meta.errors?.length) || undefined
+                }
+                aria-label={`选项 ${optionIndex + 1} 的${OPTION_FIELD_LABELS[key]}`}
+                className={key === "label" ? undefined : "font-mono text-xs"}
+                maxLength={OPTION_TEXT_MAX_LENGTH}
+                onBlur={subField.handleBlur}
+                onChange={(event) => subField.handleChange(event.target.value)}
+                placeholder={key === "label" ? "显示文字" : "value"}
+                value={subField.state.value}
+              />
+            )}
+          </form.Field>
+        ))}
+        <Button
+          aria-label={`删除选项 ${optionIndex + 1}`}
+          className="size-8 shrink-0"
+          disabled={!canRemove}
+          onClick={onRemove}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <IconX className="size-4" />
+        </Button>
+      </div>
+      <FieldError className="px-1.5 pb-0.5 text-xs" errors={[...liveErrors, ...fieldErrors]} />
+    </div>
   );
 }

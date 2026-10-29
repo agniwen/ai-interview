@@ -1,5 +1,5 @@
 import { usePipelineAdvanceConfirmation } from "./candidate-action-dock/pipeline-advance-confirmation";
-import { IconRobot, IconUsers } from "@tabler/icons-react";
+import { IconCalendarPlus, IconRobot } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ResumeLibraryDetail } from "@app/shared/studio-resumes";
 import { toast } from "sonner";
@@ -77,7 +77,7 @@ export function ScreeningAdvanceActions({
             })
           }
         >
-          <IconUsers className="size-4" />
+          <IconCalendarPlus className="size-4" />
           直接安排复试
         </Button>
       )}

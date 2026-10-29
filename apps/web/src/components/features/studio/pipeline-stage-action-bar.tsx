@@ -11,6 +11,8 @@ import {
   IconCircleOff,
   IconInfoCircle,
   IconLink,
+  IconRotate,
+  IconX,
 } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper defined below the export */
 // 候选人详情顶部「下一步操作」action bar。
@@ -171,7 +173,7 @@ export function PipelineStageActionBar({
     <div
       aria-busy={isBusy}
       aria-label={`当前招聘阶段：${pipelineStageMeta[pipelineStage].label}`}
-      className="flex w-full flex-col items-stretch gap-2 max-md:[&_button]:h-11 max-md:[&_button]:text-sm md:w-auto md:flex-row md:flex-wrap md:items-center md:justify-end"
+      className="flex w-full flex-col items-stretch gap-[var(--floating-bar-inset,0.5rem)] max-md:[&_button]:h-11 max-md:[&_button]:text-sm md:w-auto md:flex-row md:flex-wrap md:items-center md:justify-end"
     >
       {advanceConfirmation.surface}
       <RecruitmentStageHoverCard
@@ -179,7 +181,7 @@ export function PipelineStageActionBar({
         pipelineStage={pipelineStage}
       />
       <RecruitingActionBusyContext.Provider value={busyReason}>
-        <fieldset className="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0 [&>button]:flex-1 md:justify-end md:[&>button]:flex-none">
+        <fieldset className="m-0 flex min-w-0 flex-wrap items-center gap-[var(--floating-bar-inset,0.5rem)] border-0 p-0 [&>button]:flex-1 md:justify-end md:[&>button]:flex-none">
           {hasPrimaryActions ? (
             <ButtonGroup className="w-full min-w-0 [&>button]:min-w-0 [&>button]:flex-1 [&>button]:px-2 md:w-fit md:[&>button]:flex-none md:[&>button]:px-3">
               {groupedPrimaryAction}
@@ -228,7 +230,7 @@ function AiRoundResetAction({
   if (behavior === "direct") {
     return (
       <Button isLoading={isResetting} disabled={isBusy} onClick={onReset} size="sm" type="button">
-        <IconArrowBackUp />
+        <IconRotate className="size-4" />
         {buttonLabel}
       </Button>
     );
@@ -243,7 +245,7 @@ function AiRoundResetAction({
         size="sm"
         type="button"
       >
-        <IconArrowBackUp />
+        <IconRotate className="size-4" />
         重置面试轮次
       </Button>
     );
@@ -261,7 +263,7 @@ function AiRoundResetAction({
           setOpen(true);
         }}
       >
-        <IconArrowBackUp />
+        <IconRotate className="size-4" />
         {buttonLabel}
       </Button>
       <ActionFlowSurface
@@ -279,6 +281,7 @@ function AiRoundResetAction({
               onClick={() => setOpen(false)}
               variant="outline"
             >
+              <IconX className="size-4" />
               取消
             </Button>
             <Button
@@ -306,6 +309,7 @@ function AiRoundResetAction({
                 }
               }}
             >
+              <IconRotate className="size-4" />
               {pending || isResetting ? "重置中…" : "确认重置"}
             </Button>
           </>

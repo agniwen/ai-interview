@@ -1,6 +1,7 @@
 "use client";
 /* oxlint-disable no-void -- Router navigation returns a promise that this click handler intentionally does not await. */
 
+import { IconBell, IconCircleCheck, IconCircleX, IconLoader2 } from "@tabler/icons-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -342,21 +343,28 @@ export function OfferApprovalDetailPage({
       {canDecide || canRemind ? (
         <StudioPageActions>
           {canDecide ? (
-            <div className="flex gap-2">
+            <div className="flex gap-(--floating-bar-inset)">
               <Button
                 disabled={decision.isPending || !comment.trim()}
                 onClick={() => decision.mutate("rejected")}
                 variant="outline"
               >
+                <IconCircleX data-icon="inline-start" />
                 驳回
               </Button>
               <Button disabled={decision.isPending} onClick={() => decision.mutate("approved")}>
+                {decision.isPending ? (
+                  <IconLoader2 className="animate-spin" data-icon="inline-start" />
+                ) : (
+                  <IconCircleCheck data-icon="inline-start" />
+                )}
                 {decision.isPending ? "处理中…" : "通过"}
               </Button>
             </div>
           ) : null}
           {canRemind ? (
             <Button disabled={remind.isPending} onClick={() => remind.mutate()} variant="outline">
+              <IconBell data-icon="inline-start" />
               {remind.isPending ? "催办中…" : "催办当前审批人"}
             </Button>
           ) : null}

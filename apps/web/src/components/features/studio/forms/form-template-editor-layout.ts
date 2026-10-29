@@ -19,10 +19,10 @@ export const CONFIG_ASIDE_CLASS = {
 
 export const CONFIG_HEADER_CLASS = {
   dialog: "flex h-11 shrink-0 items-center gap-2 border-b px-4",
-  page: "flex h-11 shrink-0 items-center gap-2 border-b pr-6 pl-4",
+  page: "flex h-11 shrink-0 items-center gap-2 border-b pr-6 pl-5",
 } as const;
 
 export const CONFIG_BODY_CLASS = {
   dialog: "min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20",
-  page: "min-h-0 flex-1 overflow-y-auto pr-6 pl-4 pt-4 pb-20",
+  page: "min-h-0 flex-1 overflow-y-auto pr-6 pl-5 pt-4 pb-20",
 } as const;

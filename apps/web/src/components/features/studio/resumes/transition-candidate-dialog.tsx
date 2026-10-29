@@ -1,5 +1,6 @@
 "use client";
 
+import { IconArrowBackUp, IconCircleOff, IconX } from "@tabler/icons-react";
 import {
   useActionRecordVersion,
   useActionFlowCompletion,
@@ -262,9 +263,11 @@ function CloseDialog({
       footer={
         <>
           <Button disabled={submitting} onClick={() => onOpenChange(false)} variant="outline">
+            <IconX className="size-4" />
             取消
           </Button>
           <Button disabled={submitting || !candidate || !resume} onClick={handleConfirm}>
+            <IconCircleOff className="size-4" />
             {submitting ? "处理中…" : "确认结束"}
           </Button>
         </>
@@ -534,12 +537,14 @@ function ReactivateDialog({
       footer={
         <>
           <Button disabled={submitting} onClick={() => onOpenChange(false)} variant="outline">
+            <IconX className="size-4" />
             取消
           </Button>
           <Button
             disabled={submitting || reasonTooLong || !candidate || !reactivationReason.trim()}
             onClick={handleConfirm}
           >
+            <IconArrowBackUp className="size-4" />
             {submitting ? "处理中…" : "确认重新激活"}
           </Button>
         </>

@@ -8,7 +8,13 @@ import { ActionFlowSurface } from "./candidate-action-dock/action-flow-surface";
 
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 
-import { IconRefresh, IconUserPlus } from "@tabler/icons-react";
+import {
+  IconArrowRight,
+  IconDeviceFloppy,
+  IconRefresh,
+  IconUserPlus,
+  IconX,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -300,10 +306,12 @@ export function ScheduleRoundDialogView({
             onClick={() => handleOpenChange(false)}
             variant="outline"
           >
+            <IconX className="size-4" />
             取消
           </Button>
           {steps.isFirstStep ? (
             <Button disabled={!scheduledAt} onClick={steps.next}>
+              <IconArrowRight className="size-4" />
               下一步
             </Button>
           ) : (
@@ -311,6 +319,7 @@ export function ScheduleRoundDialogView({
               disabled={mutation.isPending || notesTooLong || interviewerIds.length === 0}
               onClick={() => mutation.mutate()}
             >
+              <IconDeviceFloppy className="size-4" />
               {mutation.isPending ? "保存中…" : "保存"}
             </Button>
           )}

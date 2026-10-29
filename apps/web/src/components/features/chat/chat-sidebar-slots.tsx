@@ -399,12 +399,10 @@ function ChatSidebarBody({
     return <ChatSessionListSkeleton collapsed={isCollapsed} />;
   }
 
+  // 没有聊天记录时不占位，侧栏只保留「创建对话」入口。
+  // An empty history renders nothing; the sidebar keeps only the new-chat entry.
   if (conversations.length === 0) {
-    if (isCollapsed) {
-      return null;
-    }
-
-    return <p className="px-3 py-3 text-muted-foreground text-xs">暂无聊天记录</p>;
+    return null;
   }
 
   return (

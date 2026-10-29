@@ -1,6 +1,7 @@
 import { lazy, Suspense, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconDeviceFloppy, IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { OfferApprovalTemplateNode } from "@app/db-schema/offer-approval";
 import { offerApprovalTemplateInputSchema } from "@app/shared/offer-approval";
@@ -153,7 +154,12 @@ function TemplateEditorForm({
         </Suspense>
       </section>
       <StudioPageActions>
-        <Button size="sm" disabled={!valid || save.isPending} onClick={() => save.mutate(draft)}>
+        <Button disabled={!valid || save.isPending} onClick={() => save.mutate(draft)}>
+          {save.isPending ? (
+            <IconLoader2 className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <IconDeviceFloppy data-icon="inline-start" />
+          )}
           {save.isPending ? "保存中…" : "保存模板"}
         </Button>
       </StudioPageActions>

@@ -35,10 +35,42 @@ export function isDisplayModeAllowed(
 }
 
 export const candidateFormOptionSchema = z.object({
-  label: z.string().trim().min(1, "选项文本不能为空").max(200, "选项文本不能超过 200 字"),
+  label: z.string().trim().min(1, "显示文字不能为空").max(200, "显示文字不能超过 200 字"),
   value: z.string().trim().min(1, "选项值不能为空").max(200, "选项值不能超过 200 字"),
 });
 export type CandidateFormOption = z.infer<typeof candidateFormOptionSchema>;
+
+export const CANDIDATE_FORM_OPTION_DUPLICATE_MESSAGES = {
+  label: "显示文字不能重复",
+  value: "选项值不能重复",
+} as const;
+
+/**
+ * 同一题内与前面选项重复的位置：key 为重复项下标，value 为首次出现的下标。
+ * 去掉首尾空格后比较，空值不参与；提交校验与编辑器实时提示共用。
+ * Indexes of options that repeat an earlier option's field (trimmed, blanks ignored), mapped to
+ * the first occurrence; shared by submit validation and the editor's live hints.
+ */
+export function findDuplicateOptionIndexes(
+  options: readonly { label: string; value: string }[],
+  key: "label" | "value",
+): Map<number, number> {
+  const firstIndexByText = new Map<string, number>();
+  const duplicates = new Map<number, number>();
+  for (const [index, option] of options.entries()) {
+    const text = option[key].trim();
+    if (!text) {
+      continue;
+    }
+    const firstIndex = firstIndexByText.get(text);
+    if (firstIndex === undefined) {
+      firstIndexByText.set(text, index);
+    } else {
+      duplicates.set(index, firstIndex);
+    }
+  }
+  return duplicates;
+}
 
 export const candidateFormQuestionInputSchema = z
   .object({
@@ -77,20 +109,14 @@ export const candidateFormQuestionInputSchema = z
       });
       return;
     }
-    const seenValues = new Set<string>();
-    for (let index = 0; index < value.options.length; index += 1) {
-      const option = value.options[index];
-      if (!option) {
-        continue;
-      }
-      if (seenValues.has(option.value)) {
+    for (const key of ["label", "value"] as const) {
+      for (const index of findDuplicateOptionIndexes(value.options, key).keys()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "选项值不能重复",
-          path: ["options", index, "value"],
+          message: CANDIDATE_FORM_OPTION_DUPLICATE_MESSAGES[key],
+          path: ["options", index, key],
         });
       }
-      seenValues.add(option.value);
     }
   });
 

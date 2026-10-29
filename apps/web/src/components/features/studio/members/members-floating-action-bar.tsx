@@ -40,7 +40,7 @@ export function MembersFloatingActionBar({
           initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
         >
-          <FloatingBar className="flex items-center gap-2 p-1">
+          <FloatingBar className="flex items-center gap-(--floating-bar-inset) p-1">
             <span className="select-none whitespace-nowrap px-2.5 text-muted-foreground text-sm">
               已选择 {selectedCount} 人
             </span>
@@ -65,11 +65,11 @@ export function MembersFloatingActionBar({
               triggerClassName="h-8 w-52"
               value={null}
             />
-            <Button disabled={disabled} onClick={onClearManager} size="sm" variant="ghost">
+            <Button disabled={disabled} onClick={onClearManager} size="sm" variant="secondary">
               <IconUserMinus data-icon="inline-start" />
               清除上级
             </Button>
-            <Button onClick={onClearSelection} size="sm" variant="ghost">
+            <Button onClick={onClearSelection} size="sm" variant="secondary">
               <IconX data-icon="inline-start" />
               取消选择
             </Button>

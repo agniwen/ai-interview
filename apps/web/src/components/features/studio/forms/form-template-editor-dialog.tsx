@@ -4,7 +4,6 @@ import {
   IconAdjustmentsHorizontal,
   IconCircleDot,
   IconListCheck,
-  IconLoader2,
   IconPlus,
   IconSettings2,
   IconSquareCheck,
@@ -21,6 +20,7 @@ import type {
   CandidateFormTemplateInput,
   CandidateFormTemplateRecord,
 } from "@app/db-schema/candidate-forms";
+import { emptyFormTemplateValues, makeDefaultQuestion, toFormValues } from "./form-template-values";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -45,7 +45,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useCandidateFormAgentBridge } from "./use-candidate-form-agent-bridge";
-import { EditorWorkspaceSurface } from "../editor-page-surface";
+import { EditorFormActions, EditorWorkspaceSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
@@ -69,7 +69,6 @@ import {
   candidateFormQuestionTypeSchema,
   candidateFormScopeSchema,
   candidateFormTemplateSchema,
-  DEFAULT_DISPLAY_MODE,
 } from "@app/db-schema/candidate-forms";
 import { z } from "zod";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
@@ -109,57 +108,6 @@ const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable()
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
 
-function makeDefaultQuestion(
-  sortOrder: number,
-  type: CandidateFormQuestionType = "single",
-): CandidateFormQuestionInput {
-  return {
-    displayMode: DEFAULT_DISPLAY_MODE[type],
-    helperText: "",
-    id: crypto.randomUUID(),
-    label: "",
-    options:
-      type === "text"
-        ? []
-        : [
-            { label: "选项 1", value: "option_1" },
-            { label: "选项 2", value: "option_2" },
-          ],
-    required: true,
-    sortOrder,
-    type,
-  };
-}
-
-export function emptyFormTemplateValues(): CandidateFormTemplateInput {
-  return {
-    description: "",
-    jobDescriptionIds: [],
-    questions: [makeDefaultQuestion(0)],
-    scope: "global",
-    title: "",
-  };
-}
-
-function toFormValues(record: CandidateFormTemplateRecord): CandidateFormTemplateInput {
-  return {
-    description: record.description ?? "",
-    jobDescriptionIds: record.jobDescriptionIds,
-    questions: record.questions.map((question, index) => ({
-      displayMode: question.displayMode,
-      helperText: question.helperText ?? "",
-      id: question.id,
-      label: question.label,
-      options: question.options.map((option) => ({ ...option })),
-      required: question.required,
-      sortOrder: index,
-      type: question.type,
-    })),
-    scope: record.scope,
-    title: record.title,
-  };
-}
-
 // oxlint-disable-next-line complexity -- Dialog orchestrates schema, mode, and question array state together.
 export function CandidateFormTemplateEditorDialog({
   presentation = "dialog",
@@ -169,6 +117,7 @@ export function CandidateFormTemplateEditorDialog({
   record,
   jobDescriptions,
   onSaved,
+  onCreated,
 }: {
   presentation?: "dialog" | "page";
   initialDraft?: CandidateFormTemplateInput | null;
@@ -177,6 +126,8 @@ export function CandidateFormTemplateEditorDialog({
   record: CandidateFormTemplateRecord | null;
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
+  /** 新建成功后交给页面跳转到编辑页；未提供时与编辑一样直接关闭。 */
+  onCreated?: (id: string) => void;
 }) {
   const Surface = presentation === "page" ? EditorWorkspaceSurface : Modal;
   const page = presentation === "page";
@@ -231,7 +182,11 @@ export function CandidateFormTemplateEditorDialog({
       }
       toast.success(isEdit ? "表单题已更新" : "已创建表单题");
       onSaved();
-      onOpenChange(false);
+      if (!isEdit && onCreated) {
+        onCreated(z.object({ id: z.string() }).parse(rawPayload).id);
+      } else {
+        onOpenChange(false);
+      }
     },
     validators: { onSubmit: candidateFormTemplateSchema },
   });
@@ -391,15 +346,12 @@ export function CandidateFormTemplateEditorDialog({
       className="h-[90vh]"
       bodyClassName="overflow-y-auto p-0"
       footer={
-        <>
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            取消
-          </Button>
-          <Button disabled={isSubmitting} form="form-template-form" type="submit">
-            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-            {isEdit ? "保存" : "创建"}
-          </Button>
-        </>
+        <EditorFormActions
+          creating={!isEdit}
+          formId="form-template-form"
+          onCancel={() => onOpenChange(false)}
+          submitting={isSubmitting}
+        />
       }
     >
       <form
@@ -568,7 +520,7 @@ function QuestionBuilderBody({
                 const Icon = QUESTION_TYPE_META[type].icon;
                 return (
                   <Button
-                    className="group relative h-auto overflow-hidden px-3 py-2.5 text-left"
+                    className="group relative h-auto justify-start overflow-hidden px-3 py-2.5 text-left"
                     key={type}
                     onClick={() => addQuestion(type)}
                     type="button"
@@ -598,7 +550,7 @@ function QuestionBuilderBody({
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col bg-muted/20">
+        <section className="flex min-h-0 flex-col bg-background">
           <div className="flex h-11 shrink-0 items-center justify-between border-b bg-background px-5">
             <div className="flex items-center gap-2">
               <IconListCheck className="size-4 text-muted-foreground" />
@@ -606,40 +558,38 @@ function QuestionBuilderBody({
             </div>
             <span className="text-muted-foreground text-xs">共 {items.length} 道</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20">
-            <Card className="mx-auto w-full max-w-4xl gap-0 rounded-xl border-0 bg-background py-0 shadow-default">
-              <CardContent className="p-4">
-                <header className="mb-3">
-                  <h2 className="text-lg">{templateTitle}</h2>
-                  {templateDescription ? (
-                    <p className="mt-1 text-muted-foreground text-sm">{templateDescription}</p>
-                  ) : null}
-                </header>
-                <SortableList
-                  className="space-y-3"
-                  ids={ids}
-                  onReorder={(from, to) => field.moveValue(from, to)}
-                >
-                  {items.map((item, index) => (
-                    <SortableItem id={item.id} key={item.id}>
-                      {({ handleProps, isDragging }) => (
-                        <QuestionCanvasCard
-                          handleProps={handleProps}
-                          index={index}
-                          isActive={item.id === activeQuestion?.id}
-                          isDragging={isDragging}
-                          onRemove={
-                            items.length > 1 ? () => setPendingDeleteQuestionId(item.id) : undefined
-                          }
-                          onSelect={() => setSelectedQuestionId(item.id)}
-                          question={item}
-                        />
-                      )}
-                    </SortableItem>
-                  ))}
-                </SortableList>
-              </CardContent>
-            </Card>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-20">
+            <div className="mx-auto w-full max-w-4xl">
+              <header className="mb-3">
+                <h2 className="text-lg">{templateTitle}</h2>
+                {templateDescription ? (
+                  <p className="mt-1 text-muted-foreground text-sm">{templateDescription}</p>
+                ) : null}
+              </header>
+              <SortableList
+                className="space-y-3"
+                ids={ids}
+                onReorder={(from, to) => field.moveValue(from, to)}
+              >
+                {items.map((item, index) => (
+                  <SortableItem id={item.id} key={item.id}>
+                    {({ handleProps, isDragging }) => (
+                      <QuestionCanvasCard
+                        handleProps={handleProps}
+                        index={index}
+                        isActive={item.id === activeQuestion?.id}
+                        isDragging={isDragging}
+                        onRemove={
+                          items.length > 1 ? () => setPendingDeleteQuestionId(item.id) : undefined
+                        }
+                        onSelect={() => setSelectedQuestionId(item.id)}
+                        question={item}
+                      />
+                    )}
+                  </SortableItem>
+                ))}
+              </SortableList>
+            </div>
           </div>
         </section>
 
@@ -737,7 +687,7 @@ function QuestionCanvasCard({
     <div
       aria-label={`配置第 ${index + 1} 题`}
       className={cn(
-        "group relative -mx-2 cursor-pointer rounded-lg p-2 transition-colors",
+        "group relative cursor-pointer rounded-lg p-2 transition-colors",
         isActive ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted/40",
         isDragging ? "opacity-80 shadow-md" : "",
       )}

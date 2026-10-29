@@ -7,7 +7,9 @@ import {
   IconChevronRight,
   IconCircleOff,
   IconInfoCircle,
-  IconSparkles,
+  IconArrowRight,
+  IconRobot,
+  IconVideo,
 } from "@tabler/icons-react";
 import { lazy, Suspense, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -224,7 +226,7 @@ export function DemoCandidateDetail() {
       >
         {/* 对齐真实 CandidateActionDock：FloatingBar + p-1 工具条，阶段入口为 text 按钮，结束为 destructive-subtle。
             Mirrors the real CandidateActionDock: FloatingBar, p-1 toolbar, text stage trigger, subtle close. */}
-        <FloatingBar className="flex items-center gap-2 p-1">
+        <FloatingBar className="flex items-center gap-(--floating-bar-inset) p-1">
           <Button className="h-8 px-3 font-medium" size="sm" type="button" variant="text">
             <IconInfoCircle className="size-4" />
             {stage}
@@ -238,7 +240,7 @@ export function DemoCandidateDetail() {
                 demo.setDialog({ kind: "launch", title: detail.launchAi });
               }}
             >
-              <IconSparkles />
+              <IconRobot className="size-4" />
               {detail.launchAi}
             </Button>
           )}
@@ -252,6 +254,7 @@ export function DemoCandidateDetail() {
                 demo.setDialog({ kind: "schedule", title: detail.scheduleHuman });
               }}
             >
+              <IconArrowRight className="size-4" />
               {detail.enterHuman}
             </Button>
           )}
@@ -261,6 +264,7 @@ export function DemoCandidateDetail() {
               size="sm"
               onClick={() => demo.setPhase("human-live")}
             >
+              <IconVideo className="size-4" />
               {detail.enterMeeting}
             </Button>
           )}
@@ -273,6 +277,7 @@ export function DemoCandidateDetail() {
                 setTab("offer");
               }}
             >
+              <IconArrowRight className="size-4" />
               {detail.enterOffer}
             </Button>
           )}
