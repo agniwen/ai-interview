@@ -33,6 +33,7 @@ const record: StudioHumanInterviewRecordListRecord = {
   jobDescriptionName: null,
   kind: "human",
   lastInterviewAt: null,
+  lastInterviewEndedAt: null,
   meetingStatus: "ended",
   resumeFileName: null,
   roundLabel: "业务二面",

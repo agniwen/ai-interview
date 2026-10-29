@@ -7,12 +7,18 @@ import type {
   StudioInterviewRecordListRecord,
   StudioInterviewRecordStatus,
 } from "@app/shared/studio-interview-rounds";
+import {
+  interviewRecordResultLabels,
+  interviewRecordResultValues,
+  resolveInterviewRecordResult,
+} from "@app/shared/interview-record-result";
+import type {
+  InterviewRecordResult,
+  InterviewRecordResultSource,
+} from "@app/shared/interview-record-result";
 import { Blobatar } from "@blobatar/react";
 import { IconSparkles, IconUser } from "@tabler/icons-react";
-import {
-  EvaluationConclusionBadge,
-  PersonAvatar,
-} from "@/components/features/studio/calendar/interview-evaluation-hover-card";
+import { PersonAvatar } from "@/components/features/studio/calendar/interview-evaluation-hover-card";
 import { uniqueText } from "@/components/features/studio/calendar/studio-calendar-people";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@app/shared/utils";
@@ -123,17 +129,48 @@ export function InterviewRecordInterviewersCell({
   );
 }
 
-/** 两类面试均展示本轮评价结论。 */
+export const interviewRecordResultFilterOptions = interviewRecordResultValues.map((value) => ({
+  label: interviewRecordResultLabels[value],
+  value,
+}));
+
+// 不通过红色、待定橙色，与日历评价结论一致。/ Same tones as calendar evaluation conclusions.
+const RESULT_TONE = {
+  fail: "danger",
+  pass: "success",
+  pending: "orange",
+} as const satisfies Record<InterviewRecordResult, "danger" | "orange" | "success">;
+
+// 结果来源图标与“类型”列一致：AI 建议用星星，人工结论用人像。
+// Source icons match the kind column: sparkles for AI recommendations, a person for humans.
+const RESULT_SOURCE_META = {
+  ai: { className: "text-purple-ink", icon: IconSparkles, label: "AI 建议" },
+  human: { className: "text-sky-ink", icon: IconUser, label: "人工结论" },
+} as const satisfies Record<
+  InterviewRecordResultSource,
+  { className: string; icon: typeof IconUser; label: string }
+>;
+
+/** 统一面试结果：真人结论或 AI 建议，旁边标出来源。/ Unified result with its source icon. */
 export function InterviewRecordResultCell({ record }: { record: StudioInterviewRecordListRecord }) {
-  const conclusion = record.kind === "ai" ? (record.reviewOutcome ?? "none") : record.conclusion;
-  if (conclusion === "none") {
+  const { result, source } = resolveInterviewRecordResult(record);
+  if (!result) {
     return (
       <Badge className="w-16 justify-center" variant="outline">
         未评价
       </Badge>
     );
   }
-  return <EvaluationConclusionBadge className="w-16 justify-center" conclusion={conclusion} />;
+  const { className, icon: Icon, label } = RESULT_SOURCE_META[source];
+  return (
+    <span className="flex items-center gap-1.5" title={label}>
+      <Badge className="w-16 justify-center" variant={RESULT_TONE[result]}>
+        {interviewRecordResultLabels[result]}
+      </Badge>
+      <Icon aria-hidden="true" className={cn("size-4 shrink-0", className)} />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
 }
 
 /** 招聘记录上的候选人评价表链接；尚未生成时显示占位。/ Record-level evaluation document link. */

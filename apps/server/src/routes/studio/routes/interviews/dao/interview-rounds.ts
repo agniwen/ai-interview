@@ -21,6 +21,11 @@ import {
   user,
 } from "@app/db-schema/schema";
 import { buildInterviewLink } from "@app/shared/interview/interview-record";
+import {
+  aiInterviewRecommendationValues,
+  isAiInterviewRecommendation,
+} from "@app/shared/interview-record-result";
+import type { AiInterviewRecommendation } from "@app/shared/interview-record-result";
 import { deriveJdRequiredSkills } from "@app/shared/resume-screening";
 import { buildCandidateInterviewFeedback } from "@app/db-schema/studio-interviews";
 import type {
@@ -44,7 +49,21 @@ function serializeRoundDerivedTimestamp(value: Date | string | null): string | n
 interface RoundDerivedFields {
   hasReport: boolean;
   lastInterviewAt: string | null;
+  lastInterviewEndedAt: string | null;
+  aiRecommendation: AiInterviewRecommendation | null;
 }
+
+const EMPTY_ROUND_DERIVED: RoundDerivedFields = {
+  aiRecommendation: null,
+  hasReport: false,
+  lastInterviewAt: null,
+  lastInterviewEndedAt: null,
+};
+
+/** 会话评估结果里的 AI 建议。/ AI recommendation stored in the conversation evaluation. */
+export const aiConversationRecommendation = sql<
+  string | null
+>`${aiInterviewConversation.evaluationCriteriaResults} ->> 'recommendation'`;
 
 async function loadRoundDerivedFields(
   roundIds: string[],
@@ -52,33 +71,76 @@ async function loadRoundDerivedFields(
   const ids = uniq(roundIds.filter(Boolean));
   const result = new Map<string, RoundDerivedFields>();
   for (const id of ids) {
-    result.set(id, { hasReport: false, lastInterviewAt: null });
+    result.set(id, EMPTY_ROUND_DERIVED);
   }
   if (ids.length === 0) {
     return result;
   }
 
-  const rows = await db
-    .select({
-      lastInterviewAt: sql<
-        Date | string | null
-      >`MAX(COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}))`.as(
-        "last_interview_at",
+  const latestConversationStartedAt = sql`COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt})`;
+  // 结束时间取与“最近面试时间”同一场会话，避免最近一场未结束时显示旧会话的结束时间。
+  // The end time belongs to the same latest conversation, never an older one.
+  const [rows, latestRows, recommendationRows] = await Promise.all([
+    db
+      .select({
+        lastInterviewAt: sql<Date | string | null>`MAX(${latestConversationStartedAt})`.as(
+          "last_interview_at",
+        ),
+        reportCount: count(),
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
+      })
+      .from(aiInterviewConversation)
+      .where(inArray(aiInterviewConversation.aiRoundId, ids))
+      .groupBy(aiInterviewConversation.aiRoundId),
+    db
+      .selectDistinctOn([aiInterviewConversation.aiRoundId], {
+        endedAt: aiInterviewConversation.endedAt,
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
+      })
+      .from(aiInterviewConversation)
+      .where(inArray(aiInterviewConversation.aiRoundId, ids))
+      .orderBy(
+        aiInterviewConversation.aiRoundId,
+        desc(latestConversationStartedAt),
+        desc(aiInterviewConversation.conversationId),
       ),
-      reportCount: count(),
-      scheduleEntryId: aiInterviewConversation.aiRoundId,
-    })
-    .from(aiInterviewConversation)
-    .where(inArray(aiInterviewConversation.aiRoundId, ids))
-    .groupBy(aiInterviewConversation.aiRoundId);
+    // 建议取最近一份有建议的报告；新会话尚未出报告时沿用上一份。
+    // Recommendation comes from the latest conversation that has one.
+    db
+      .selectDistinctOn([aiInterviewConversation.aiRoundId], {
+        recommendation: aiConversationRecommendation,
+        scheduleEntryId: aiInterviewConversation.aiRoundId,
+      })
+      .from(aiInterviewConversation)
+      .where(
+        and(
+          inArray(aiInterviewConversation.aiRoundId, ids),
+          inArray(aiConversationRecommendation, [...aiInterviewRecommendationValues]),
+        ),
+      )
+      .orderBy(
+        aiInterviewConversation.aiRoundId,
+        desc(latestConversationStartedAt),
+        desc(aiInterviewConversation.conversationId),
+      ),
+  ]);
+  const endedAtByRound = new Map(latestRows.map((row) => [row.scheduleEntryId, row.endedAt]));
+  const recommendationByRound = new Map(
+    recommendationRows.map((row) => [row.scheduleEntryId, row.recommendation]),
+  );
 
   for (const row of rows) {
     if (!row.scheduleEntryId) {
       continue;
     }
+    const recommendation = recommendationByRound.get(row.scheduleEntryId);
     result.set(row.scheduleEntryId, {
+      aiRecommendation: isAiInterviewRecommendation(recommendation) ? recommendation : null,
       hasReport: row.reportCount > 0,
       lastInterviewAt: serializeRoundDerivedTimestamp(row.lastInterviewAt),
+      lastInterviewEndedAt: serializeRoundDerivedTimestamp(
+        endedAtByRound.get(row.scheduleEntryId) ?? null,
+      ),
     });
   }
 
@@ -165,7 +227,9 @@ async function loadAiRoundListRows(
     ]);
   return rows.map((row) => {
     const candidateId = row.candidateId ?? row.recruitingRecordId;
+    const derived = roundDerived.get(row.id) ?? EMPTY_ROUND_DERIVED;
     return {
+      aiRecommendation: derived.aiRecommendation,
       allowTextInput: row.allowTextInput,
       candidateAvatarVersion: avatarVersions.get(row.resumeContentHash ?? "") ?? null,
       candidateEmail: row.candidateEmail,
@@ -182,14 +246,15 @@ async function loadAiRoundListRows(
       feishuDocumentUrl: evaluationDocumentsByRoundId.get(row.id)?.url ?? null,
       feishuEvaluationDocumentStatus:
         evaluationDocumentsByRoundId.get(row.id)?.status ?? "unavailable",
-      hasReport: roundDerived.get(row.id)?.hasReport ?? false,
+      hasReport: derived.hasReport,
       hasResumeFile: Boolean(row.resumeStorageKey),
       id: row.id,
       interviewLink: buildInterviewLink(candidateId, row.id),
       jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
       jobDescriptionId: row.jobDescriptionId,
       jobDescriptionName: row.jobDescriptionName,
-      lastInterviewAt: roundDerived.get(row.id)?.lastInterviewAt ?? null,
+      lastInterviewAt: derived.lastInterviewAt,
+      lastInterviewEndedAt: derived.lastInterviewEndedAt,
       outcome: row.outcome ?? "in_pipeline",
       pipelineStage: row.pipelineStage ?? "screening",
       resumeFileName: row.resumeFileName,

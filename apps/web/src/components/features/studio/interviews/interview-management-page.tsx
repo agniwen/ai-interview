@@ -75,6 +75,7 @@ import {
   InterviewRecordInterviewersCell,
   InterviewRecordKindCell,
   InterviewRecordResultCell,
+  interviewRecordResultFilterOptions,
   InterviewRecordRoundCell,
   InterviewRecordStatusCell,
   interviewRecordStatusFilterOptions,
@@ -406,6 +407,11 @@ export function InterviewManagementPage({ embedded = false }: { embedded?: boole
         sortable: true,
         title: "最近面试时间",
       }),
+      dateColumn<StudioInterviewRecordListRecord>({
+        emptyText: "—",
+        key: "lastInterviewEndedAt",
+        title: "面试结束时间",
+      }),
       actionsColumn<StudioInterviewRecordListRecord>({
         inline: [
           { label: "查看", onClick: openRecordDetail },
@@ -523,6 +529,14 @@ export function InterviewManagementPage({ embedded = false }: { embedded?: boole
         options: [...interviewRecordStatusFilterOptions],
         placeholder: "全部状态",
         selectedFormat: (count: number) => `已选 ${count} 个状态`,
+        selectedPreviewLimit: 2,
+        type: "multi-select" as const,
+      },
+      {
+        key: "result" as const,
+        options: interviewRecordResultFilterOptions,
+        placeholder: "全部面试结果",
+        selectedFormat: (count: number) => `已选 ${count} 个结果`,
         selectedPreviewLimit: 2,
         type: "multi-select" as const,
       },

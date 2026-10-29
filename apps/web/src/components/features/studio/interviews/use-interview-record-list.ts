@@ -20,7 +20,7 @@ const INTERVIEW_RECORD_TABLE_MAX_HEIGHT = "max(12rem, calc(100svh - 25rem))";
 
 export const INTERVIEW_RECORD_SORTABLE_COLUMN_IDS = ["createdAt", "lastInterviewAt"] as const;
 
-type InterviewRecordFilters = Record<"creatorIds" | "status" | "kind", string>;
+type InterviewRecordFilters = Record<"creatorIds" | "status" | "kind" | "result", string>;
 
 function fetchInterviewRecordPage(
   slug: string,
@@ -42,6 +42,9 @@ function fetchInterviewRecordPage(
   // 多选过滤：CSV 形式传递给后端。/ Multi-select: CSV-serialised for the backend.
   if (params.filters.status) {
     query.status = params.filters.status;
+  }
+  if (params.filters.result) {
+    query.result = params.filters.result;
   }
   if (params.filters.creatorIds) {
     query.creatorIds = params.filters.creatorIds;
@@ -67,7 +70,7 @@ export function useInterviewRecordList(slug: string) {
     allowedSortIds: INTERVIEW_RECORD_SORTABLE_COLUMN_IDS,
     defaultSorting: [{ desc: true, id: "createdAt" }],
     enabled: false,
-    initialFilters: { creatorIds: "", kind: "all", status: "" },
+    initialFilters: { creatorIds: "", kind: "all", result: "", status: "" },
     queryFn: fetchPage,
     queryKeyBase: ["studio-interviews", slug],
   });

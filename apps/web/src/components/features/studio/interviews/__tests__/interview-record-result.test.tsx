@@ -5,9 +5,11 @@ import { InterviewRecordResultCell } from "../interview-record-cells";
 
 function aiRecord(
   reviewOutcome: StudioAiInterviewRecordListRecord["reviewOutcome"],
-  hasReport: boolean,
+  aiRecommendation: StudioAiInterviewRecordListRecord["aiRecommendation"],
+  hasReport = true,
 ): StudioAiInterviewRecordListRecord {
   return {
+    aiRecommendation,
     allowTextInput: false,
     candidateAvatarVersion: null,
     candidateEmail: null,
@@ -33,6 +35,7 @@ function aiRecord(
     jobDescriptionName: null,
     kind: "ai",
     lastInterviewAt: null,
+    lastInterviewEndedAt: null,
     outcome: "in_pipeline",
     pipelineStage: "screening",
     resumeFileName: null,
@@ -48,21 +51,30 @@ function aiRecord(
 }
 
 describe("AI interview result attribution", () => {
-  it.each([true, false])(
-    "shows the round review independently of report existence (%s)",
-    (hasReport) => {
-      expect(
-        renderToStaticMarkup(<InterviewRecordResultCell record={aiRecord("pass", hasReport)} />),
-      ).toContain(">通过<");
-      expect(
-        renderToStaticMarkup(<InterviewRecordResultCell record={aiRecord("fail", hasReport)} />),
-      ).toContain(">未通过<");
-    },
-  );
+  it.each([
+    ["建议进入下一轮", ">通过<"],
+    ["待定", ">待定<"],
+    ["不建议进入下一轮", ">不通过<"],
+  ] as const)("shows AI recommendation %s as an AI-sourced result", (recommendation, label) => {
+    const markup = renderToStaticMarkup(
+      <InterviewRecordResultCell record={aiRecord(null, recommendation)} />,
+    );
+    expect(markup).toContain(label);
+    expect(markup).toContain("AI 建议");
+  });
 
-  it.each([true, false])("does not infer a review from report existence (%s)", (hasReport) => {
+  it("prefers the manual review over the AI recommendation and attributes it to a person", () => {
+    const markup = renderToStaticMarkup(
+      <InterviewRecordResultCell record={aiRecord("pass", "不建议进入下一轮")} />,
+    );
+    expect(markup).toContain(">通过<");
+    expect(markup).toContain("人工结论");
+    expect(markup).not.toContain("AI 建议");
+  });
+
+  it.each([true, false])("does not infer a result from report existence (%s)", (hasReport) => {
     expect(
-      renderToStaticMarkup(<InterviewRecordResultCell record={aiRecord(null, hasReport)} />),
+      renderToStaticMarkup(<InterviewRecordResultCell record={aiRecord(null, null, hasReport)} />),
     ).toContain(">未评价<");
   });
 });

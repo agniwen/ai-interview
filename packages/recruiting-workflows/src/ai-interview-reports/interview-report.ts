@@ -5,6 +5,7 @@ import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import { hasExistingInterviewAnswers } from "@app/shared/interview/question-outcomes";
 import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 import { formatCandidateFormAnswer } from "@app/shared/candidate-form-answer";
+import { aiInterviewRecommendationValues } from "@app/shared/interview-record-result";
 import {
   generateStructuredWithMastraAgent,
   generateTextWithMastraAgent,
@@ -128,7 +129,7 @@ export const interviewEvaluationSchema = z.object({
       score: z.number().int().min(0).max(10).nullable(),
     }),
   ),
-  recommendation: z.enum(["建议进入下一轮", "不建议进入下一轮", "待定"]),
+  recommendation: z.enum(aiInterviewRecommendationValues),
 });
 
 export type InterviewEvaluation = z.infer<typeof interviewEvaluationSchema>;

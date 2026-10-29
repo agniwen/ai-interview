@@ -7,7 +7,7 @@
 // current page's ids are then enriched, so the heavy recruiting read model is
 // never joined across the whole result set.
 
-import { and, asc, count, desc, eq, ilike, inArray, isNotNull, max, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { alias, unionAll } from "drizzle-orm/pg-core";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { z } from "zod";
@@ -23,6 +23,7 @@ import {
   department,
   humanInterviewMeeting,
   humanInterviewMeetingRound,
+  humanInterviewReviewerEvaluation,
   humanInterviewRound,
   interviewer,
   jobDescription,
@@ -50,12 +51,19 @@ import type {
   StudioInterviewRecordSummary,
 } from "@app/shared/studio-interview-rounds";
 import { studioInterviewRecordStatusValues } from "@app/shared/studio-interview-rounds";
+import {
+  aiInterviewRecommendationValues,
+  aiRecommendationsForResult,
+  humanConclusionsForResult,
+  isInterviewRecordResult,
+} from "@app/shared/interview-record-result";
+import type { InterviewRecordResult } from "@app/shared/interview-record-result";
 import { selectInterviewDispatchInterviewer } from "@app/shared/interview/dispatch-contract";
 import { db } from "../../../../../infrastructure/db/index";
 import { listHumanRoundInterviewers, listSubmittedOutcomesByRound } from "../../calendar/dao";
 import { resolveHumanRoundConclusion } from "../../calendar/events";
 import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
-import { loadAiInterviewRoundListRecords } from "./interview-rounds";
+import { aiConversationRecommendation, loadAiInterviewRoundListRecords } from "./interview-rounds";
 
 const SORT_COLUMNS = ["createdAt", "lastInterviewAt"] as const;
 
@@ -71,6 +79,8 @@ type InterviewRecordsPaginationInput = z.input<typeof paginationInputSchema>;
 export interface InterviewRecordFilters {
   kind?: StudioInterviewRecordKind;
   creatorIds?: string[] | null;
+  /** 统一面试结果（通过/待定/不通过），CSV。/ Unified interview results, CSV. */
+  result?: string | null;
   search?: string | null;
   status?: string | null;
   textFilters?: string;
@@ -97,6 +107,72 @@ function parseStatusFilter(value?: string | null): string[] | undefined {
     .map((item) => item.trim())
     .filter((item) => RECORD_STATUSES.has(item));
   return items && items.length > 0 ? items : undefined;
+}
+
+function parseResultFilter(value?: string | null): InterviewRecordResult[] | undefined {
+  const items = value
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(isInterviewRecordResult);
+  return items && items.length > 0 ? items : undefined;
+}
+
+function sqlTextList(values: readonly string[]) {
+  return sql.join(
+    values.map((value) => sql`${value}`),
+    sql`, `,
+  );
+}
+
+// 统一面试结果筛选与列表展示共用 @app/shared/interview-record-result 的映射。
+// AI 轮次：有人工复核按复核结论，否则按最近一份带建议的报告。
+// Result filtering reuses the shared display mapping. AI rounds: manual review first,
+// else the latest conversation that carries a recommendation.
+const aiLatestRecommendation = sql<string | null>`(
+  SELECT ${aiConversationRecommendation}
+  FROM ${aiInterviewConversation}
+  WHERE ${aiInterviewConversation.aiRoundId} = ${aiInterviewRound.id}
+    AND ${aiConversationRecommendation} IN (${sqlTextList(aiInterviewRecommendationValues)})
+  ORDER BY COALESCE(${aiInterviewConversation.startedAt}, ${aiInterviewConversation.createdAt}) DESC,
+    ${aiInterviewConversation.conversationId} DESC
+  LIMIT 1
+)`;
+
+function aiResultWhere(results: InterviewRecordResult[]) {
+  const reviewOutcomes = results.flatMap((result) =>
+    humanConclusionsForResult(result).filter((item) => item === "pass" || item === "fail"),
+  );
+  const recommendations = results.flatMap(aiRecommendationsForResult);
+  return or(
+    reviewOutcomes.length > 0 ? inArray(aiInterviewRound.reviewOutcome, reviewOutcomes) : undefined,
+    recommendations.length > 0
+      ? sql`(${aiInterviewRound.reviewOutcome} IS NULL AND ${aiLatestRecommendation} IN (${sqlTextList(recommendations)}))`
+      : undefined,
+  );
+}
+
+// 与 resolveHumanRoundConclusion 同一规则的 SQL 版本。/ SQL twin of resolveHumanRoundConclusion.
+const submittedReviewerEvaluation = sql`
+  FROM ${humanInterviewReviewerEvaluation}
+  WHERE ${humanInterviewReviewerEvaluation.roundId} = ${humanInterviewRound.id}
+    AND ${humanInterviewReviewerEvaluation.organizationId} = ${humanInterviewRound.organizationId}
+    AND ${humanInterviewReviewerEvaluation.submittedAt} IS NOT NULL`;
+const humanConclusion = sql<string>`(CASE
+  WHEN ${humanInterviewRound.evaluationStatus} = 'submitted'
+    AND ${humanInterviewRound.outcome} IN ('pass', 'fail') THEN ${humanInterviewRound.outcome}
+  WHEN EXISTS (SELECT 1 ${submittedReviewerEvaluation}) THEN COALESCE((
+    SELECT ${humanInterviewReviewerEvaluation.outcome} ${submittedReviewerEvaluation}
+      AND ${humanInterviewReviewerEvaluation.outcome} IN ('pass', 'fail')
+    ORDER BY ${humanInterviewReviewerEvaluation.submittedAt} ASC, ${humanInterviewReviewerEvaluation.id} ASC
+    LIMIT 1
+  ), 'inconclusive')
+  WHEN ${humanInterviewRound.evaluationStatus} = 'submitted'
+    AND ${humanInterviewRound.outcome} IS NOT NULL THEN ${humanInterviewRound.outcome}
+  ELSE 'none'
+END)`;
+
+function humanResultWhere(results: InterviewRecordResult[]) {
+  return sql`${humanConclusion} IN (${sqlTextList(results.flatMap(humanConclusionsForResult))})`;
 }
 
 function hasTextSearch(filters?: InterviewRecordFilters): boolean {
@@ -136,6 +212,7 @@ interface BranchScope {
   creatorIds: string[] | null;
   filters?: InterviewRecordFilters;
   organizationId: string;
+  results?: InterviewRecordResult[];
   statuses?: string[];
   /** 只有按最近面试时间排序时才计算该列，其余排序不付出子查询成本。/ Computed only when sorting by it. */
   withLastInterviewAt: boolean;
@@ -162,6 +239,7 @@ function aiBranch({
   creatorIds,
   filters,
   organizationId,
+  results,
   statuses,
   withLastInterviewAt,
 }: BranchScope) {
@@ -169,6 +247,7 @@ function aiBranch({
   const where = and(
     eq(aiInterviewRound.organizationId, organizationId),
     aiStatuses ? inArray(aiInterviewRound.status, aiStatuses) : undefined,
+    results ? aiResultWhere(results) : undefined,
     creatorIds ? inArray(aiInterviewRound.createdBy, creatorIds) : undefined,
     hasTextSearch(filters) ? buildSearchWhere(filters, aiInterviewRound.roundLabel) : undefined,
   );
@@ -208,6 +287,7 @@ function humanBranch({
   creatorIds,
   filters,
   organizationId,
+  results,
   statuses,
   withLastInterviewAt,
 }: BranchScope) {
@@ -217,6 +297,7 @@ function humanBranch({
   const where = and(
     eq(humanInterviewRound.organizationId, organizationId),
     humanStatuses ? inArray(humanInterviewRound.status, humanStatuses) : undefined,
+    results ? humanResultWhere(results) : undefined,
     creatorIds ? inArray(searchRecord.createdBy, creatorIds) : undefined,
     hasTextSearch(filters) ? buildSearchWhere(filters, humanInterviewRound.label) : undefined,
   );
@@ -335,9 +416,12 @@ async function loadHumanInterviewRecordListRecords(
           inArray(humanInterviewRound.id, roundIds),
         ),
       ),
+    // 结束时间取开始最晚的那场会议，与“最近面试时间”同口径。
+    // End time comes from the latest-started meeting, matching lastInterviewAt.
     db
-      .select({
-        lastInterviewAt: max(humanInterviewMeeting.startedAt),
+      .selectDistinctOn([humanInterviewMeetingRound.roundId], {
+        lastInterviewAt: humanInterviewMeeting.startedAt,
+        lastInterviewEndedAt: humanInterviewMeeting.endedAt,
         roundId: humanInterviewMeetingRound.roundId,
       })
       .from(humanInterviewMeetingRound)
@@ -355,7 +439,11 @@ async function loadHumanInterviewRecordListRecords(
           isNotNull(humanInterviewMeeting.startedAt),
         ),
       )
-      .groupBy(humanInterviewMeetingRound.roundId),
+      .orderBy(
+        humanInterviewMeetingRound.roundId,
+        desc(humanInterviewMeeting.startedAt),
+        desc(humanInterviewMeeting.id),
+      ),
     listHumanRoundInterviewers(roundIds),
     listSubmittedOutcomesByRound(roundIds, organizationId),
   ]);
@@ -370,9 +458,7 @@ async function loadHumanInterviewRecordListRecords(
       organizationId,
     }),
   ]);
-  const lastInterviewAtByRound = new Map(
-    lastMeetingRows.map((row) => [row.roundId, row.lastInterviewAt]),
-  );
+  const lastMeetingByRound = new Map(lastMeetingRows.map((row) => [row.roundId, row]));
   const interviewersByRound = new Map<
     string,
     StudioHumanInterviewRecordListRecord["interviewers"]
@@ -406,7 +492,10 @@ async function loadHumanInterviewRecordListRecords(
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
     kind: "human",
-    lastInterviewAt: serializeDate(lastInterviewAtByRound.get(row.id) ?? null),
+    lastInterviewAt: serializeDate(lastMeetingByRound.get(row.id)?.lastInterviewAt ?? null),
+    lastInterviewEndedAt: serializeDate(
+      lastMeetingByRound.get(row.id)?.lastInterviewEndedAt ?? null,
+    ),
     meetingStatus: row.meetingStatus,
     resumeFileName: row.resumeFileName,
     roundLabel: row.label,
@@ -520,6 +609,7 @@ export async function queryPaginatedInterviewRecords(
     creatorIds,
     filters,
     organizationId,
+    results: parseResultFilter(filters?.result),
     statuses: parseStatusFilter(filters?.status),
     withLastInterviewAt: sortBy === "lastInterviewAt",
   };

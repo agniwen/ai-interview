@@ -14,6 +14,7 @@ import type {
   ScheduleEntryStatus,
 } from "@app/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
+import type { AiInterviewRecommendation } from "@app/shared/interview-record-result";
 
 export type FeishuEvaluationDocumentStatus = "generated" | "answers_available" | "unavailable";
 
@@ -38,6 +39,8 @@ export interface StudioInterviewRoundListRecord {
   scheduledAt: string | null;
   scheduledEndAt: string | null;
   lastInterviewAt: string | null;
+  /** 最近一场面试（会话/会议）的结束时间；尚未结束为 null。/ End of the latest session; null until it ends. */
+  lastInterviewEndedAt: string | null;
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
   conversationId: string | null;
@@ -45,6 +48,8 @@ export interface StudioInterviewRoundListRecord {
   hasReport: boolean;
   /** 本轮人工评价结论；独立于报告生成状态。 */
   reviewOutcome: "pass" | "fail" | null;
+  /** 最近一份 AI 面试报告的建议；尚无报告为 null。/ Latest AI report recommendation. */
+  aiRecommendation: AiInterviewRecommendation | null;
   feishuDocumentUrl: string | null;
   feishuEvaluationDocumentStatus: FeishuEvaluationDocumentStatus;
   /** 完整面试链接相对路径 / Relative interview link path. */
@@ -145,6 +150,8 @@ export interface StudioHumanInterviewRecordListRecord {
   format: HumanInterviewFormat;
   scheduledAt: string | null;
   lastInterviewAt: string | null;
+  /** 最近一场面试（会话/会议）的结束时间；尚未结束为 null。/ End of the latest session; null until it ends. */
+  lastInterviewEndedAt: string | null;
   status: HumanInterviewRoundStatus;
   /** 当前关联会议状态，用于安排编辑守卫。 */
   meetingStatus: string | null;
