@@ -366,21 +366,19 @@ function MeetingLinkRow({
   }
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">{label}</span>
-            <span className="text-muted-foreground text-xs wrap-anywhere">{description}</span>
-          </div>
-          <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
+    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-sm">{label}</span>
+          <span className="text-muted-foreground text-xs wrap-anywhere">{description}</span>
         </div>
-        <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
-          <IconCopy className="size-4" />
-          复制消息
-        </Button>
-      </CardContent>
-    </Card>
+        <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
+      </div>
+      <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
+        <IconCopy className="size-4" />
+        复制消息
+      </Button>
+    </div>
   );
 }
 

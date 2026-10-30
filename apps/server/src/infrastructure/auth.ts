@@ -15,7 +15,8 @@ import { createMcpAuthPlugins } from "./mcp-auth";
 import { isMcpEnabled } from "../routes/mcp/config";
 import { getRequiredEnv } from "./env";
 import { getFeishuTenantAccessToken } from "@app/feishu/access-token";
-import { feishuAccountLinking, validateFeishuAccountLinking } from "./feishu-account-linking";
+import { feishuAccountLinking } from "./feishu-account-linking";
+import { createFeishuTenantProfileHooks } from "./feishu-tenant-profile";
 import { resolveSessionAuthProviderId } from "./session-auth-provider";
 import { enforcePasswordPolicy } from "./password-policy-hook";
 import {
@@ -285,6 +286,8 @@ const advanced =
       }
     : undefined;
 
+const feishuTenantProfileHooks = createFeishuTenantProfileHooks();
+
 export const auth = betterAuth({
   account: { accountLinking: feishuAccountLinking },
   advanced,
@@ -294,10 +297,13 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  // 登录时只更新时间偏好；工作区权限上下文永远由具体请求 URL 决定。
-  // Login only updates durable activity metadata. Workspace authorization is
-  // always derived from the current request URL.
+  // 登录时同步飞书租户资料与活跃时间；工作区权限仍由具体请求 URL 决定。
+  // Tenant profile metadata never determines workspace authorization.
   databaseHooks: {
+    account: {
+      create: { after: feishuTenantProfileHooks.afterAccountSave },
+      update: { after: feishuTenantProfileHooks.afterAccountSave },
+    },
     session: {
       create: {
         // oxlint-disable-next-line require-await -- hook contract requires async
@@ -322,6 +328,7 @@ export const auth = betterAuth({
       },
     },
     user: {
+      create: { before: feishuTenantProfileHooks.beforeUserCreate },
       delete: {
         async before(deletingUser) {
           if (await hasRecruitingReferences(db, "user", deletingUser.id)) {
@@ -598,6 +605,6 @@ export const auth = betterAuth({
         type: "string",
       },
     },
-    validateUserInfo: validateFeishuAccountLinking,
+    validateUserInfo: feishuTenantProfileHooks.validateUserInfo,
   },
 });

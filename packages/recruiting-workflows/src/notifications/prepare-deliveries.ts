@@ -38,12 +38,6 @@ import {
   selectPreferredFeishuProviderId,
 } from "@app/feishu/provider";
 
-export function resolvePreferredInternalNotificationChannel(
-  hasFeishuAccount: boolean,
-): "email" | "feishu" {
-  return hasFeishuAccount ? "feishu" : "email";
-}
-
 export function shouldResolveSelectedHrAudience(event: { humanMeetingId: string | null }): boolean {
   return event.humanMeetingId === null;
 }
@@ -100,6 +94,21 @@ function selectPreferredInterviewNotificationTemplates(rows: ActiveTemplate[]): 
 function normalizeEmail(value: string | null): string | null {
   const normalized = value?.trim().toLowerCase();
   return normalized || null;
+}
+
+function normalizeInternalEmail(value: string | null): string | null {
+  const email = normalizeEmail(value);
+  return email?.endsWith("@feishu.local") ? null : email;
+}
+
+export function resolvePreferredInternalNotificationChannel(
+  hasFeishuAccount: boolean,
+  email: string | null,
+): "email" | "feishu" | null {
+  if (hasFeishuAccount) {
+    return "feishu";
+  }
+  return normalizeInternalEmail(email) ? "email" : null;
 }
 
 function normalizePhone(value: string | null): string | null {
@@ -316,7 +325,10 @@ async function loadUserTargets(
   }
   const preferredUserIds = userIds.filter(
     (userId) =>
-      resolvePreferredInternalNotificationChannel(accountByUserId.has(userId)) === channel,
+      resolvePreferredInternalNotificationChannel(
+        accountByUserId.has(userId),
+        usersById.get(userId)?.email ?? null,
+      ) === channel,
   );
 
   if (channel === "feishu") {
@@ -338,18 +350,23 @@ async function loadUserTargets(
     });
   }
 
-  return preferredUserIds.map((userId) => {
+  return preferredUserIds.flatMap((userId) => {
     const person = usersById.get(userId);
-    const email = normalizeEmail(person?.email ?? null);
-    return {
-      address: email ?? `missing-email:${userId}`,
-      displayName: person?.name ?? null,
-      errorCode: email ? null : "recipient-email-missing",
-      errorMessage: email ? null : "通知人员没有可用邮箱。",
-      providerId: "resend",
-      record: records[0],
-      userId,
-    };
+    const email = normalizeInternalEmail(person?.email ?? null);
+    if (!email) {
+      return [];
+    }
+    return [
+      {
+        address: email,
+        displayName: person?.name ?? null,
+        errorCode: null,
+        errorMessage: null,
+        providerId: "resend",
+        record: records[0],
+        userId,
+      },
+    ];
   });
 }
 

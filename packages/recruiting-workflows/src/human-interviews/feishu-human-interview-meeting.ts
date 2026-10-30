@@ -3,11 +3,7 @@ import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@app/database/context";
-import {
-  FEISHU_PROVIDER_IDS,
-  getPreferredFeishuProviderId,
-  selectPreferredFeishuProviderId,
-} from "@app/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "@app/feishu/provider";
 import type { FeishuProviderId } from "@app/feishu/provider";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
@@ -30,6 +26,11 @@ import {
 } from "./human-interview-meetings";
 import { buildInterviewerInviteToken, buildInviteExpiry } from "./human-interview-meeting-access";
 import { requireAbsolutePublicAppUrl } from "../runtime/public-app-url";
+
+import {
+  resolveFeishuMeetingRecipients,
+  selectMeetingFeishuProvider,
+} from "./feishu-meeting-recipients";
 
 const FEISHU_OPEN_API_BASE_URL = "https://open.feishu.cn/open-apis";
 const FEISHU_SYNC_LEASE_DURATION_MS = 10 * 60 * 1000;
@@ -193,7 +194,7 @@ export async function resolveHumanInterviewFeishuProviderId({
   interviewerIds: string[];
   organizationId: string;
   preferredProviderId?: FeishuProviderId | null;
-}): Promise<FeishuProviderId> {
+}): Promise<FeishuProviderId | null> {
   const uniqueInterviewerIds = [...new Set(interviewerIds)];
   const rows = await db
     .select({ providerId: account.providerId, userId: member.userId })
@@ -217,25 +218,10 @@ export async function resolveHumanInterviewFeishuProviderId({
     throw new HumanInterviewMeetingError("存在不属于当前工作区的真人面试官。", 404);
   }
 
-  let commonProviderIds = new Set<FeishuProviderId>(FEISHU_PROVIDER_IDS);
-  for (const interviewerId of uniqueInterviewerIds) {
-    const linkedProviderIds = providerIdsByInterviewer.get(interviewerId);
-    const availableProviderIds =
-      linkedProviderIds && linkedProviderIds.size > 0
-        ? linkedProviderIds
-        : new Set<FeishuProviderId>([getPreferredFeishuProviderId()]);
-    commonProviderIds = new Set(
-      [...commonProviderIds].filter((providerId) => availableProviderIds.has(providerId)),
-    );
-  }
-  if (preferredProviderId && commonProviderIds.has(preferredProviderId)) {
-    return preferredProviderId;
-  }
-  const selectedProviderId = selectPreferredFeishuProviderId(commonProviderIds);
-  if (selectedProviderId) {
-    return selectedProviderId;
-  }
-  throw new HumanInterviewMeetingError("所选面试官不属于同一个飞书应用来源。", 400);
+  return selectMeetingFeishuProvider(
+    [...providerIdsByInterviewer.values()].map((providers) => [...providers]),
+    preferredProviderId,
+  );
 }
 
 export function createFeishuHumanInterviewClient({
@@ -547,7 +533,6 @@ export async function syncHumanInterviewMeetingToFeishu({
 
   const interviewerRows = await db
     .select({
-      feishuOpenId: humanInterviewMeetingInterviewer.feishuOpenId,
       name: user.name,
       role: humanInterviewMeetingInterviewer.role,
       userId: humanInterviewMeetingInterviewer.userId,
@@ -559,88 +544,60 @@ export async function syncHumanInterviewMeetingToFeishu({
   const participantIds: string[] = [
     ...new Set([...(meeting.createdBy ? [meeting.createdBy] : []), ...interviewerIds]),
   ];
-  const interviewerOpenIds = new Map(
-    interviewerRows.flatMap((interviewer) =>
-      interviewer.feishuOpenId ? ([[interviewer.userId, interviewer.feishuOpenId]] as const) : [],
-    ),
+  const participants = await db
+    .select({ id: user.id, openId: account.accountId })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .leftJoin(account, and(eq(account.userId, user.id), eq(account.providerId, providerId)))
+    .where(and(eq(member.organizationId, organizationId), inArray(member.userId, participantIds)));
+  const { ownerOpenId, interviewerOpenIds } = resolveFeishuMeetingRecipients(
+    participants,
+    interviewerIds,
+    meeting.createdBy,
   );
-  let ownerOpenId = meeting.feishuOwnerOpenId;
-  if (
-    (meeting.createdBy !== null && !ownerOpenId) ||
-    interviewerOpenIds.size !== interviewerIds.length
-  ) {
-    const participants = await db
-      .select({
-        email: user.email,
-        id: user.id,
-        name: user.name,
-        openId: account.accountId,
-      })
-      .from(member)
-      .innerJoin(user, eq(member.userId, user.id))
-      .leftJoin(account, and(eq(account.userId, user.id), eq(account.providerId, providerId)))
-      .where(
-        and(eq(member.organizationId, organizationId), inArray(member.userId, participantIds)),
-      );
-    const participantsById = new Map(
-      participants.map((participant) => [participant.id, participant]),
-    );
-    const missingMembers = participantIds.filter((id) => !participantsById.has(id));
-    if (missingMembers.length > 0) {
-      throw new Error("面试官不属于当前工作区。");
-    }
-
-    const participantsMissingOpenId = participants.filter((participant) => !participant.openId);
-    const openIdsByEmail =
-      participantsMissingOpenId.length > 0
-        ? await client.resolveOpenIdsByEmail(
-            participantsMissingOpenId.map((participant) => participant.email),
-          )
-        : new Map<string, string>();
-    const resolvedParticipantOpenIds = new Map(
-      participants.map((participant) => [
-        participant.id,
-        participant.openId ?? openIdsByEmail.get(participant.email),
-      ]),
-    );
-    const unresolvedNames = participants
-      .filter((participant) => !resolvedParticipantOpenIds.get(participant.id))
-      .map((participant) => participant.name);
-    if (unresolvedNames.length > 0) {
-      throw new Error(`以下人员未找到飞书账号：${unresolvedNames.join("、")}`);
-    }
-
-    if (meeting.createdBy) {
-      ownerOpenId = resolvedParticipantOpenIds.get(meeting.createdBy) ?? null;
-      if (!ownerOpenId) {
-        throw new Error("会议创建人未找到飞书账号。");
-      }
-    }
-    for (const interviewerId of interviewerIds) {
-      const interviewerOpenId = resolvedParticipantOpenIds.get(interviewerId);
-      if (!interviewerOpenId) {
-        throw new Error("部分面试官未找到飞书账号。");
-      }
-      interviewerOpenIds.set(interviewerId, interviewerOpenId);
-      await db
-        .update(humanInterviewMeetingInterviewer)
-        .set({ feishuOpenId: interviewerOpenId })
-        .where(
-          and(
-            eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
-            eq(humanInterviewMeetingInterviewer.userId, interviewerId),
-          ),
-        );
-    }
+  for (const interviewerId of interviewerIds) {
     await db
-      .update(humanInterviewMeeting)
-      .set({ feishuOwnerOpenId: ownerOpenId, updatedAt: new Date() })
-      .where(eq(humanInterviewMeeting.id, meetingId));
+      .update(humanInterviewMeetingInterviewer)
+      .set({ feishuOpenId: interviewerOpenIds.get(interviewerId) ?? null })
+      .where(
+        and(
+          eq(humanInterviewMeetingInterviewer.meetingId, meetingId),
+          eq(humanInterviewMeetingInterviewer.userId, interviewerId),
+        ),
+      );
   }
+  await db
+    .update(humanInterviewMeeting)
+    .set({ feishuOwnerOpenId: ownerOpenId, updatedAt: new Date() })
+    .where(eq(humanInterviewMeeting.id, meetingId));
   const desiredAttendeeOpenIds = [
     ownerOpenId,
     ...interviewerIds.map((interviewerId) => interviewerOpenIds.get(interviewerId)),
   ].filter((openId): openId is string => typeof openId === "string");
+
+  // No bound recipients means this channel is not applicable. Clean up an old
+  // calendar event after participant changes, without inventing a delivery error.
+  if (desiredAttendeeOpenIds.length === 0) {
+    if (meeting.feishuCalendarId && meeting.feishuCalendarEventId) {
+      await client.deleteCalendarEvent({
+        calendarId: meeting.feishuCalendarId,
+        eventId: meeting.feishuCalendarEventId,
+      });
+    }
+    await db
+      .update(humanInterviewMeeting)
+      .set({
+        feishuAttendeeOpenIds: [],
+        feishuCalendarEventId: null,
+        feishuCalendarEventUrl: null,
+        feishuLastError: null,
+        feishuSyncStatus: "ready",
+        feishuSyncedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(humanInterviewMeeting.id, meetingId));
+    return loadSyncedMeeting(meetingId, organizationId);
+  }
 
   const candidateRows = await db
     .select({

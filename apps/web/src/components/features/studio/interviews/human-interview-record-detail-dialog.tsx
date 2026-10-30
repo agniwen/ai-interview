@@ -3,7 +3,7 @@
 import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { IconMapPin, IconBriefcase } from "@tabler/icons-react";
+import { IconMapPin, IconBriefcase, IconCopy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { findHumanInterviewRoundMeeting } from "@app/shared/human-interview-meeting-detail";
 import type { StudioHumanInterviewRecordListRecord } from "@app/shared/studio-interview-rounds";
@@ -19,6 +19,8 @@ import { listHumanInterviewMeetings, listHumanInterviewRounds } from "@/lib/clie
 import { fetchHumanInterviewMeetingDetail } from "@/lib/client/api/endpoints/human-interview-meeting-detail";
 import { humanInterviewKeys } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { MeetingLinksDialog } from "../human-interview-stage-meetings";
+import { canOpenMeetingLinks } from "../human-interview-stage-utils";
 import { RoundEvaluation } from "../human-interview-evaluation-summary";
 import { HumanInterviewMeetingTranscript } from "../human-interview-meeting-detail-page";
 import {
@@ -93,6 +95,52 @@ function InterviewInformation({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function InterviewLinkActions({
+  record,
+  active,
+}: {
+  record: StudioHumanInterviewRecordListRecord;
+  active: boolean;
+}) {
+  const slug = useWorkspaceSlug();
+  const [open, setOpen] = useState(false);
+  const query = useQuery({
+    enabled: active,
+    queryFn: () => listHumanInterviewMeetings(slug, { interviewRecordId: record.candidateId }),
+    queryKey: humanInterviewKeys.meetings(slug, record.candidateId),
+  });
+  if (query.isError) {
+    return (
+      <DetailError
+        error={query.error}
+        retry={() => {
+          void query.refetch();
+        }}
+      />
+    );
+  }
+  if (query.isPending) {
+    return (
+      <div aria-busy="true" aria-label="正在加载面试链接">
+        <Skeleton aria-hidden className="h-8 w-32" />
+      </div>
+    );
+  }
+  const meeting = findHumanInterviewRoundMeeting(query.data, record.id);
+  if (!meeting || !canOpenMeetingLinks(meeting)) {
+    return null;
+  }
+  return (
+    <div>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <IconCopy aria-hidden className="size-4" />
+        复制面试链接
+      </Button>
+      <MeetingLinksDialog meeting={open ? meeting : null} onOpenChange={setOpen} />
+    </div>
   );
 }
 
@@ -248,6 +296,9 @@ export function HumanInterviewRecordDetailContent({
   const header = (
     <div className="flex flex-col gap-4">
       <InterviewInformation record={record} round={round} />
+      {["scheduled", "in_progress"].includes(record.meetingStatus ?? "") ? (
+        <InterviewLinkActions key={record.id} record={record} active={active} />
+      ) : null}
       <TabsList variant="underline" aria-label="真人面试详情内容">
         <TabsTrigger value="evaluation">面试详情</TabsTrigger>
         <TabsTrigger value="transcript">聊天转录</TabsTrigger>
