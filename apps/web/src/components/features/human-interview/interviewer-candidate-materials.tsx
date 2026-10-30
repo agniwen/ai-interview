@@ -222,10 +222,9 @@ function CandidateEvaluations({
     <CandidateInterviewHistory
       compact={compact}
       showTimeline={showTimeline}
-      status={aiStatus}
       resumePreview={resumePreview}
-      aiEvaluation={aiEvaluation}
-      aiEvaluationGeneratedAt={aiQuery.data?.generatedAt}
+      aiEvaluation={aiEvaluation ?? (aiQuery.isPending || aiQuery.isError ? aiStatus : null)}
+      aiEvaluationGeneratedAt={aiEvaluation ? aiQuery.data?.generatedAt : null}
       data={query.data}
     />
   );

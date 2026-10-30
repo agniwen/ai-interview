@@ -112,26 +112,18 @@ export function CandidateInterviewHistory({
 }) {
   const { hrInitialInformation: information, previousEvaluations } = data;
   const entries: EvaluationTimelineEntry[] = [
-    ...(aiEvaluation
-      ? [
-          {
-            id: "ai-evaluation",
-            reference: true,
-            timestamp: aiEvaluationGeneratedAt,
-            title: "AI 评价",
-          },
-        ]
-      : []),
-    ...(information
-      ? [
-          {
-            id: "hr-initial",
-            reference: true,
-            timestamp: information.generatedAt,
-            title: "HR 初面",
-          },
-        ]
-      : []),
+    {
+      id: "ai-evaluation",
+      reference: true,
+      timestamp: aiEvaluationGeneratedAt,
+      title: "AI 评价",
+    },
+    {
+      id: "hr-initial",
+      reference: true,
+      timestamp: information?.generatedAt,
+      title: "HR 初面",
+    },
     ...previousEvaluations.map((round) => ({
       author: round.submittedBy,
       id: round.roundId,
@@ -160,46 +152,40 @@ export function CandidateInterviewHistory({
             }
             multiple
           >
-            {aiEvaluation ? (
-              <AccordionItem
-                className={
-                  isMobile
-                    ? "rounded-2xl border-b-0 bg-muted/70 p-1"
-                    : "border-b border-border/60 py-3"
-                }
-                value="ai-evaluation"
-                data-evaluation-id="ai-evaluation"
-              >
-                <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
-                  <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
-                    <EvaluationTitle title="AI 评价" timestamp={aiEvaluationGeneratedAt} />
-                  </AccordionTrigger>
-                </div>
-                <AccordionContent
-                  className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}
-                >
-                  {aiEvaluation}
-                </AccordionContent>
-              </AccordionItem>
-            ) : null}
-            {information ? (
-              <AccordionItem
-                className={
-                  isMobile
-                    ? "rounded-2xl border-b-0 bg-muted/70 p-1"
-                    : "border-b border-border/60 py-3"
-                }
-                value="hr-initial"
-                data-evaluation-id="hr-initial"
-              >
-                <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
-                  <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
-                    <EvaluationTitle title="HR 初面" timestamp={information.generatedAt} />
-                  </AccordionTrigger>
-                </div>
-                <AccordionContent
-                  className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}
-                >
+            <AccordionItem
+              className={
+                isMobile
+                  ? "rounded-2xl border-b-0 bg-muted/70 p-1"
+                  : "border-b border-border/60 py-3"
+              }
+              value="ai-evaluation"
+              data-evaluation-id="ai-evaluation"
+            >
+              <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
+                <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
+                  <EvaluationTitle title="AI 评价" timestamp={aiEvaluationGeneratedAt} />
+                </AccordionTrigger>
+              </div>
+              <AccordionContent className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}>
+                {aiEvaluation ?? <p className="py-3 text-sm text-muted-foreground">暂无信息</p>}
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem
+              className={
+                isMobile
+                  ? "rounded-2xl border-b-0 bg-muted/70 p-1"
+                  : "border-b border-border/60 py-3"
+              }
+              value="hr-initial"
+              data-evaluation-id="hr-initial"
+            >
+              <div className={isMobile ? "contents" : "sticky top-0 z-10 bg-background"}>
+                <AccordionTrigger className="items-center rounded-lg px-4 py-3 font-semibold text-xl leading-7 hover:bg-muted md:text-lg md:hover:bg-muted/50 hover:no-underline [&>svg]:size-5 [&>svg]:translate-y-0">
+                  <EvaluationTitle title="HR 初面" timestamp={information?.generatedAt} />
+                </AccordionTrigger>
+              </div>
+              <AccordionContent className={isMobile ? "rounded-xl bg-card px-4 pt-4" : "px-4 pt-2"}>
+                {information ? (
                   <div className="flex flex-col">
                     <p className="pb-3 text-muted-foreground text-sm leading-6">
                       {information.roundLabel ?? "AI 初面"}
@@ -220,9 +206,11 @@ export function CandidateInterviewHistory({
                       </section>
                     ))}
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            ) : null}
+                ) : (
+                  <p className="py-3 text-sm text-muted-foreground">暂无信息</p>
+                )}
+              </AccordionContent>
+            </AccordionItem>
             {previousEvaluations.map((round) => (
               <AccordionItem
                 className={
