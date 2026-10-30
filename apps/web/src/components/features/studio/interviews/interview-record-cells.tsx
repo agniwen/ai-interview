@@ -141,35 +141,30 @@ const RESULT_TONE = {
   pending: "orange",
 } as const satisfies Record<InterviewRecordResult, "danger" | "orange" | "success">;
 
-// 结果来源图标与“类型”列一致：AI 建议用星星，人工结论用人像。
-// Source icons match the kind column: sparkles for AI recommendations, a person for humans.
+// 结果来源图标与“类型”列一致：AI 建议用星星，人工结论用人像；放在徽标内，跟随结果色调。
+// Source icons match the kind column and sit inside the badge in the result's tone.
 const RESULT_SOURCE_META = {
-  ai: { className: "text-purple-ink", icon: IconSparkles, label: "AI 建议" },
-  human: { className: "text-sky-ink", icon: IconUser, label: "人工结论" },
-} as const satisfies Record<
-  InterviewRecordResultSource,
-  { className: string; icon: typeof IconUser; label: string }
->;
+  ai: { icon: IconSparkles, label: "AI 建议" },
+  human: { icon: IconUser, label: "人工结论" },
+} as const satisfies Record<InterviewRecordResultSource, { icon: typeof IconUser; label: string }>;
 
-/** 统一面试结果：真人结论或 AI 建议，旁边标出来源。/ Unified result with its source icon. */
+/** 统一面试结果：真人结论或 AI 建议，徽标内标出来源。/ Unified result with its source icon. */
 export function InterviewRecordResultCell({ record }: { record: StudioInterviewRecordListRecord }) {
   const { result, source } = resolveInterviewRecordResult(record);
   if (!result) {
     return (
-      <Badge className="w-16 justify-center" variant="outline">
+      <Badge className="w-18 justify-center" variant="outline">
         未评价
       </Badge>
     );
   }
-  const { className, icon: Icon, label } = RESULT_SOURCE_META[source];
+  const { icon: Icon, label } = RESULT_SOURCE_META[source];
   return (
-    <span className="flex items-center gap-1.5" title={label}>
-      <Badge className="w-16 justify-center" variant={RESULT_TONE[result]}>
-        {interviewRecordResultLabels[result]}
-      </Badge>
-      <Icon aria-hidden="true" className={cn("size-4 shrink-0", className)} />
-      <span className="sr-only">{label}</span>
-    </span>
+    <Badge className="w-18 justify-center" title={label} variant={RESULT_TONE[result]}>
+      <Icon aria-hidden="true" />
+      {interviewRecordResultLabels[result]}
+      <span className="sr-only">（{label}）</span>
+    </Badge>
   );
 }
 
