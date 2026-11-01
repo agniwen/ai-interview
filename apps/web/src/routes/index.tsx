@@ -2,7 +2,8 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { z } from "zod";
 import { HomeAuthRedirect } from "@/components/features/home/home-auth-redirect";
 import HomeShell from "@/components/features/home/home-shell";
-import { formatDocumentTitle } from "@/lib/start/document-title";
+import { skyPosterPreconnectLink } from "@/components/features/sky/sky-assets";
+import { ROOT_DOCUMENT_TITLE } from "@/lib/start/document-title";
 import * as m from "@/paraglide/messages";
 
 const homeSearchSchema = z.object({
@@ -23,8 +24,9 @@ function HomeRoute() {
 export const Route = createFileRoute("/")({
   validateSearch: homeSearchSchema,
   head: () => ({
+    links: [skyPosterPreconnectLink],
     meta: [
-      { title: formatDocumentTitle(m.home_document_title()) },
+      { title: ROOT_DOCUMENT_TITLE },
       { content: m.home_document_description(), name: "description" },
     ],
   }),

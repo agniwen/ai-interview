@@ -1,4 +1,6 @@
 "use client";
+
+import { ServerHumanMeetingTranscript } from "./server-human-meeting-transcript";
 /* oxlint-disable react-doctor/no-fetch-in-effect -- The invite-scoped draft is restored only after browser hydration and cannot be loaded server-side. */
 
 import { useTracks } from "@livekit/components-react";
@@ -43,6 +45,7 @@ import { createHumanMeetingAudioMix } from "./human-meeting-audio-mix";
 import type { HumanMeetingAudioMix } from "./human-meeting-audio-mix";
 
 interface HumanMeetingLiveTranscriptProps {
+  renderPanel?: (panel: ReactNode) => ReactNode;
   inviteToken: string;
   candidateName?: string;
   ref?: Ref<HumanMeetingLiveTranscriptHandle>;
@@ -181,12 +184,14 @@ function TranscriptScrollArea({ children }: { children: ReactNode }) {
 }
 
 // oxlint-disable-next-line complexity -- Automatic capture, draft recovery, and persistence share one panel lifecycle.
-export function HumanMeetingLiveTranscript({
+function LegacyHumanMeetingLiveTranscript({
   inviteToken,
   candidateName = "候选人",
   ref,
+  renderPanel,
 }: HumanMeetingLiveTranscriptProps) {
-  const isMobile = useIsMobile();
+  const isMobileViewport = useIsMobile();
+  const isMobile = isMobileViewport && !renderPanel;
   const draft = useMemo(() => createDraft(inviteToken), [inviteToken]);
   const snapshot = useSyncExternalStore(draft.observe, draft.getSnapshot, () => fallbackSnapshot);
   const audioTracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: false }], {
@@ -432,14 +437,19 @@ export function HumanMeetingLiveTranscript({
     mobilePlaceholder = localTrack ? "等待对方开启麦克风…" : "请开启麦克风…";
   }
 
-  return (
+  const panel = (
     <aside
       aria-label="实时转录"
-      className="flex h-[61px] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-t bg-background md:h-auto lg:border-t-0 lg:border-l"
+      className={cn(
+        "flex min-h-0 min-w-0 flex-col overflow-hidden bg-background",
+        renderPanel
+          ? "h-full flex-1"
+          : "h-[61px] shrink-0 border-t md:h-auto lg:border-t-0 lg:border-l",
+      )}
     >
       {isMobile ? null : (
         <>
-          <div className="flex shrink-0 items-center gap-2 border-border border-b px-3 py-1 text-[10px] md:px-4 md:py-2.5 md:text-xs">
+          <div className="flex shrink-0 items-center gap-2 border-border border-b px-4 py-2.5 text-xs">
             <span
               className={cn(
                 "size-2 rounded-full bg-muted-foreground/30",
@@ -509,10 +519,7 @@ export function HumanMeetingLiveTranscript({
         <MessageScrollerProvider autoScroll key={inviteToken}>
           <MessageScroller className="min-h-0 flex-1">
             <TranscriptScrollArea>
-              <MessageScrollerContent
-                className="gap-2 px-3 py-2 md:gap-4 md:px-4 md:py-3"
-                aria-live="off"
-              >
+              <MessageScrollerContent className="gap-4 px-4 py-3" aria-live="off">
                 {snapshot.turns.length === 0 ? (
                   <MessageScrollerItem messageId="empty">
                     <div className="grid min-h-48 place-items-center text-center text-muted-foreground text-xs">
@@ -523,12 +530,12 @@ export function HumanMeetingLiveTranscript({
                   snapshot.turns.map((turn) => (
                     <MessageScrollerItem key={turn.id} messageId={turn.id}>
                       <Message align={turn.track === "microphone" ? "end" : "start"}>
-                        <MessageContent className="gap-1 md:gap-2.5">
-                          <MessageHeader className="text-[10px] md:text-xs">
+                        <MessageContent>
+                          <MessageHeader>
                             {turn.track === "microphone" ? "我" : "远端"}
                           </MessageHeader>
                           <Bubble variant={turn.track === "microphone" ? "secondary" : "outline"}>
-                            <BubbleContent className="whitespace-pre-wrap px-2 py-1 text-xs leading-5 md:px-3 md:py-2 md:text-sm md:leading-relaxed">
+                            <BubbleContent className="whitespace-pre-wrap">
                               {turn.text}
                             </BubbleContent>
                           </Bubble>
@@ -544,5 +551,48 @@ export function HumanMeetingLiveTranscript({
         </MessageScrollerProvider>
       )}
     </aside>
+  );
+  return renderPanel ? renderPanel(panel) : panel;
+}
+
+export function HumanMeetingLiveTranscript(props: HumanMeetingLiveTranscriptProps) {
+  const [mode, setMode] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    const abort = new AbortController();
+    async function loadMode() {
+      try {
+        const response = await fetch(
+          `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(props.inviteToken)}/server-transcript`,
+          { signal: abort.signal },
+        );
+        if (!response.ok) {
+          throw new Error("字幕状态不可用");
+        }
+        const data = await response.json();
+        if (!abort.signal.aborted) {
+          setMode(data.mode);
+        }
+      } catch {
+        if (!abort.signal.aborted) {
+          setError(true);
+        }
+      }
+    }
+    void loadMode();
+    return () => abort.abort();
+  }, [props.inviteToken]);
+  if (!mode) {
+    const panel = (
+      <p className="p-4 text-muted-foreground">
+        {error ? "字幕状态暂不可用，请重新进入会议。" : "正在准备统一字幕…"}
+      </p>
+    );
+    return props.renderPanel ? props.renderPanel(panel) : panel;
+  }
+  return mode === "server_realtime" ? (
+    <ServerHumanMeetingTranscript {...props} />
+  ) : (
+    <LegacyHumanMeetingLiveTranscript {...props} />
   );
 }

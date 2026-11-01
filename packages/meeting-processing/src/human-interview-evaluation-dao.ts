@@ -1,12 +1,17 @@
-import { syncHumanInterviewRoundNodeTx } from "@app/database/recruiting-pipeline";
+import type { HumanInterviewEvaluationReviewFinding } from "@app/db-schema/human-interview-evaluation-review";
+import { humanInterviewEvaluationReviewFindingSchema } from "@app/db-schema/human-interview-evaluation-review";
+import {
+  loadReviewerEvaluationFields,
+  saveReviewerEvaluationTx,
+  loadReviewerEvaluationAggregate,
+} from "./human-interview-reviewer-dao";
+import { syncHumanInterviewRoundNodeTx } from "@app/recruiting/pipeline";
 import {
   recruitingRecord,
   jobDescription,
   humanInterviewEvaluationDocumentSync,
   recruitingMeetingContext,
   meetingSession,
-  meetingTranscriptRevision,
-  meetingTranscriptTurn,
   humanInterviewMeeting,
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
@@ -14,27 +19,32 @@ import {
   humanInterviewRound,
   user,
 } from "@app/db-schema/schema";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 /* oxlint-disable max-lines -- evaluation read, publish, and submission transactions share one injected DAO boundary. */
-import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type {
   HumanInterviewEvaluation,
+  HumanInterviewGeneratedEvaluation,
   HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import {
   humanInterviewEvaluationDraftSchema,
   humanInterviewEvaluationSubmissionSchema,
-  humanInterviewEvaluationSchema,
+  humanInterviewGeneratedEvaluationSchema,
 } from "@app/db-schema/studio-interviews";
-import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
+import type { HumanInterviewEvaluationJobData } from "@app/job-queues/human-interview-evaluation";
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { z } from "zod";
 import {
   isHumanInterviewEvaluationPublishCurrent,
   isHumanInterviewEvaluationSubmissionCurrent,
 } from "./human-interview-evaluation-state";
+import {
+  liveTranscriptManifestSha256,
+  publishLiveTranscriptRevisionTx,
+  selectLiveTranscriptSource,
+} from "./human-interview-live-transcript-promotion";
 
 import type { Database } from "@app/database";
 import type { TranscriptAttribution } from "@app/db-schema/human-interview-recording";
@@ -112,14 +122,15 @@ export function createHumanInterviewEvaluationDao(
     | { status: "no-live-transcript" }
     | { status: "not-found" };
 
+  /** 会议结束后把面试官实时字幕发布为正式转录；已有正式转录时幂等返回。 */
   async function recoverHumanInterviewReviewFromLiveTranscript(input: {
     actorId: string;
     meetingId: string;
     organizationId: string;
-    roundId: string;
+    roundId?: string;
   }): Promise<HumanInterviewLiveTranscriptRecoveryResult> {
     return await db.transaction(
-      // eslint-disable-next-line complexity -- one transaction owns the idempotent fallback session and transcript creation.
+      // eslint-disable-next-line complexity -- one transaction owns the idempotent session and transcript creation.
       async (tx) => {
         const [meeting] = await tx
           .select({
@@ -131,6 +142,7 @@ export function createHumanInterviewEvaluationDao(
             interviewRecordId: humanInterviewRound.recruitingRecordId,
             processingMeetingSessionId: humanInterviewMeeting.processingMeetingSessionId,
             recordingStatus: humanInterviewMeeting.recordingStatus,
+            roundId: humanInterviewRound.id,
             scheduledAt: humanInterviewMeeting.scheduledAt,
             startedAt: humanInterviewMeeting.startedAt,
             status: humanInterviewMeeting.status,
@@ -153,7 +165,7 @@ export function createHumanInterviewEvaluationDao(
             and(
               eq(humanInterviewMeeting.id, input.meetingId),
               eq(humanInterviewMeeting.organizationId, input.organizationId),
-              eq(humanInterviewRound.id, input.roundId),
+              input.roundId ? eq(humanInterviewRound.id, input.roundId) : undefined,
             ),
           )
           .for("update", { of: humanInterviewMeeting })
@@ -164,11 +176,16 @@ export function createHumanInterviewEvaluationDao(
         if (meeting.status !== "ended") {
           return { status: "meeting-not-ended" };
         }
+        let existingSessionId: string | null = null;
         if (meeting.processingMeetingSessionId) {
           const [existing] = await tx
-            .select({ activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId })
+            .select({
+              activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+              transcriptionStatus: meetingSession.transcriptionStatus,
+            })
             .from(meetingSession)
             .where(eq(meetingSession.id, meeting.processingMeetingSessionId))
+            .for("update")
             .limit(1);
           if (existing?.activeTranscriptRevisionId) {
             return {
@@ -177,7 +194,11 @@ export function createHumanInterviewEvaluationDao(
               transcriptRevisionId: existing.activeTranscriptRevisionId,
             };
           }
-          return { status: "no-live-transcript" };
+          // 录音转写仍在进行时不抢写，只有失败后才用字幕补位。
+          if (existing?.transcriptionStatus !== "failed") {
+            return { status: "no-live-transcript" };
+          }
+          existingSessionId = meeting.processingMeetingSessionId;
         }
 
         const interviewers = await tx
@@ -190,121 +211,75 @@ export function createHumanInterviewEvaluationDao(
           .from(humanInterviewMeetingInterviewer)
           .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
           .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId));
-        const transcriptOwner =
-          interviewers.find(
-            (interviewer) =>
-              interviewer.userId === input.actorId && interviewer.liveTranscriptDraft?.turns.length,
-          ) ??
-          interviewers.find(
-            (interviewer) =>
-              interviewer.role === "host" && interviewer.liveTranscriptDraft?.turns.length,
-          ) ??
-          interviewers.find((interviewer) => interviewer.liveTranscriptDraft?.turns.length);
-        const liveTranscriptDraft = transcriptOwner?.liveTranscriptDraft;
-        const draftTurns = liveTranscriptDraft?.turns.filter((turn) => turn.final) ?? [];
-        if (!(transcriptOwner && liveTranscriptDraft && draftTurns.length > 0)) {
+        const source = selectLiveTranscriptSource(interviewers, input.actorId);
+        if (!source) {
           return { status: "no-live-transcript" };
         }
 
-        const manifestSha256 = createHash("sha256")
-          .update(JSON.stringify(liveTranscriptDraft))
-          .digest("hex");
-        const meetingSessionId = crypto.randomUUID();
-        const transcriptRevisionId = crypto.randomUUID();
         const now = new Date();
-        const ownerId = meeting.createdBy ?? transcriptOwner.userId;
-        await tx.insert(meetingSession).values({
-          custodianId: ownerId,
-          id: meetingSessionId,
-          intelligenceStatus: "pending",
-          liveTranscriptDraft,
-          manifestSha256,
+        const meetingSessionId = existingSessionId ?? crypto.randomUUID();
+        if (!existingSessionId) {
+          const ownerId = meeting.createdBy ?? source.owner.userId;
+          await tx.insert(meetingSession).values({
+            custodianId: ownerId,
+            id: meetingSessionId,
+            intelligenceStatus: "pending",
+            liveTranscriptDraft: source.draft,
+            manifestSha256: liveTranscriptManifestSha256(source.draft),
+            organizationId: input.organizationId,
+            ownerId,
+            savedAt: meeting.endedAt ?? now,
+            startedAt: meeting.startedAt ?? meeting.scheduledAt ?? meeting.createdAt,
+            status: "ready",
+            title: meeting.title,
+            transcriptionStatus: "pending",
+            verifiedAt: now,
+            visibility: "restricted",
+          });
+          await tx.insert(recruitingMeetingContext).values({
+            linkedAt: now,
+            linkedBy: input.actorId,
+            meetingId: meetingSessionId,
+            organizationId: input.organizationId,
+            recruitingRecordId: meeting.interviewRecordId,
+          });
+        }
+        const transcriptRevisionId = await publishLiveTranscriptRevisionTx(tx, {
+          actorId: input.actorId,
+          candidateName: meeting.candidateName,
+          meetingSessionId,
           organizationId: input.organizationId,
-          ownerId,
-          savedAt: meeting.endedAt ?? now,
-          startedAt: meeting.startedAt ?? meeting.scheduledAt ?? meeting.createdAt,
-          status: "ready",
-          title: meeting.title,
-          transcriptionStatus: "pending",
-          verifiedAt: now,
-          visibility: "restricted",
+          roundId: meeting.roundId,
+          source,
         });
-        await tx.insert(recruitingMeetingContext).values({
-          linkedAt: now,
-          linkedBy: input.actorId,
-          meetingId: meetingSessionId,
-          organizationId: input.organizationId,
-          recruitingRecordId: meeting.interviewRecordId,
-        });
-        await tx.insert(meetingTranscriptRevision).values({
-          basedOnRevisionId: null,
-          createdBy: input.actorId,
-          id: transcriptRevisionId,
-          kind: "human",
-          language: "zh-CN",
-          meetingId: meetingSessionId,
-          model: "qwen-realtime-reviewed",
-          organizationId: input.organizationId,
-          pipelineVersion: "human-live-transcript-recovery-v1",
-          processingRunId: null,
-          provider: "qwen",
-          region: "cn-beijing",
-          revision: 1,
-          sourceManifestSha256: manifestSha256,
-        });
-        await tx.insert(meetingTranscriptTurn).values(
-          draftTurns.map((turn, sequence) => {
-            const startMs = turn.startMs ?? sequence * 1000;
-            const endMs = Math.max(startMs + 1, turn.endMs ?? startMs + 1000);
-            const candidate = turn.track === "system";
-            return {
-              confidence: null,
-              endMs,
-              id: crypto.randomUUID(),
-              revisionId: transcriptRevisionId,
-              sequence,
-              speakerDisplayName: candidate ? meeting.candidateName : transcriptOwner.name,
-              speakerKey: candidate
-                ? `candidate:${input.roundId}`
-                : `interviewer:${transcriptOwner.userId}`,
-              startMs,
-              text: turn.text,
-              track: candidate ? "remote" : "local",
-            };
-          }),
-        );
-        await tx
-          .update(meetingSession)
-          .set({
-            activeTranscriptRevisionId: transcriptRevisionId,
-            transcriptionError: null,
-            transcriptionStatus: "ready",
-          })
-          .where(eq(meetingSession.id, meetingSessionId));
-        await tx
-          .update(humanInterviewMeeting)
-          .set({
-            candidateRecordingError:
-              meeting.candidateRecordingStatus === "pending"
-                ? "完整录音未生成，已使用实时字幕恢复评价流程"
-                : undefined,
-            candidateRecordingStatus:
-              meeting.candidateRecordingStatus === "pending" ? "failed" : undefined,
-            processingMeetingSessionId: meetingSessionId,
-            recordingError:
-              meeting.recordingStatus === "pending"
-                ? "完整录音未生成，已使用实时字幕恢复评价流程"
-                : undefined,
-            recordingStatus: meeting.recordingStatus === "pending" ? "failed" : undefined,
-            updatedAt: now,
-          })
-          .where(eq(humanInterviewMeeting.id, input.meetingId));
+        if (!existingSessionId) {
+          // 录音仍在生成时保留其状态，入库后只作为归档挂到这场会议。
+          await tx
+            .update(humanInterviewMeeting)
+            .set({
+              candidateRecordingError:
+                meeting.candidateRecordingStatus === "pending"
+                  ? "完整录音未生成，已使用实时字幕作为正式转录"
+                  : undefined,
+              candidateRecordingStatus:
+                meeting.candidateRecordingStatus === "pending" ? "failed" : undefined,
+              processingMeetingSessionId: meetingSessionId,
+              recordingError:
+                meeting.recordingStatus === "pending"
+                  ? "完整录音未生成，已使用实时字幕作为正式转录"
+                  : undefined,
+              recordingStatus: meeting.recordingStatus === "pending" ? "failed" : undefined,
+              updatedAt: now,
+            })
+            .where(eq(humanInterviewMeeting.id, input.meetingId));
+        }
         return { meetingSessionId, status: "ready", transcriptRevisionId };
       },
     );
   }
 
   async function loadHumanInterviewReview(input: {
+    reviewerId?: string;
     meetingId: string;
     organizationId: string;
     roundId: string;
@@ -321,6 +296,7 @@ export function createHumanInterviewEvaluationDao(
         outcome: humanInterviewRound.outcome,
         recordingError: humanInterviewMeeting.recordingError,
         recordingTracks: humanInterviewMeeting.recordingTracks,
+        reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
         roundId: humanInterviewRound.id,
         roundStatus: humanInterviewRound.status,
         transcriptionError: meetingSession.transcriptionError,
@@ -350,14 +326,37 @@ export function createHumanInterviewEvaluationDao(
     if (!row) {
       return null;
     }
+    const personalFields = await loadReviewerEvaluationFields(db, input);
+    const transcriptInterviewers = await db
+      .select({
+        image: user.image,
+        name: user.name,
+        userId: humanInterviewMeetingInterviewer.userId,
+      })
+      .from(humanInterviewMeetingInterviewer)
+      .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+      .where(
+        and(
+          eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId),
+          eq(humanInterviewMeetingInterviewer.organizationId, input.organizationId),
+        ),
+      );
+    const revisionId = row.activeTranscriptRevisionId ?? row.reviewTranscriptRevisionId;
     const transcript =
-      (row.meetingSessionId && row.activeTranscriptRevisionId
+      (row.meetingSessionId && revisionId
         ? await dependencies.loadMeetingTranscriptRevision?.({
             meetingId: row.meetingSessionId,
             organizationId: input.organizationId,
-            revisionId: row.activeTranscriptRevisionId,
+            revisionId,
           })
         : null) ?? null;
+    const recordingNotice =
+      row.transcriptionStatus === "ready" && !row.transcriptionError
+        ? null
+        : (row.recordingError ??
+          (row.recordingTracks?.some((track) => track.status === "failed")
+            ? "部分录音缺失，已保留可用内容，可手动提交评价。"
+            : null));
     return {
       evaluation: row.evaluation,
       evaluationError: row.evaluationError,
@@ -366,19 +365,21 @@ export function createHumanInterviewEvaluationDao(
       evaluationUpdatedBy: row.evaluationUpdatedBy,
       meetingSessionId: row.meetingSessionId,
       outcome: row.outcome,
-      recordingNotice:
-        row.recordingError ??
-        (row.recordingTracks?.some((track) => track.status === "failed")
-          ? "部分录音缺失，已保留可用内容，可手动提交评价。"
-          : null),
+      recordingNotice,
       roundId: row.roundId,
+      roundOutcome: row.outcome,
       roundStatus: row.roundStatus,
       transcript,
-      transcriptionError: row.transcriptionError ?? row.recordingError,
+      transcriptInterviewers,
+      transcriptionError:
+        row.transcriptionStatus === "ready"
+          ? row.transcriptionError
+          : (row.transcriptionError ?? row.recordingError),
       transcriptionState: humanInterviewTranscriptionStateSchema.parse(
         row.transcriptionStatus ??
           (row.recordingError?.startsWith("录音处理失败：") ? "failed" : "pending"),
       ),
+      ...personalFields,
     };
   }
 
@@ -422,7 +423,8 @@ export function createHumanInterviewEvaluationDao(
         context.roundStatus !== "pending" ||
         context.evaluationStatus === "submitted" ||
         context.transcriptionStatus !== "ready" ||
-        (!input.force && ["draft", "submitted", "generating"].includes(context.evaluationStatus))
+        (!input.force &&
+          ["draft", "submitted", "generating", "failed"].includes(context.evaluationStatus))
       ) {
         return null;
       }
@@ -599,13 +601,17 @@ export function createHumanInterviewEvaluationDao(
   }
 
   async function publishHumanInterviewEvaluation(input: {
-    evaluation: HumanInterviewEvaluation;
+    evaluation: HumanInterviewGeneratedEvaluation;
     meetingSessionId: string;
     organizationId: string;
+    reviewFindings?: HumanInterviewEvaluationReviewFinding[];
     roundId: string;
     transcriptRevisionId: string;
   }): Promise<boolean> {
-    const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
+    const evaluation = humanInterviewGeneratedEvaluationSchema.parse(input.evaluation);
+    const reviewFindings = humanInterviewEvaluationReviewFindingSchema
+      .array()
+      .parse(input.reviewFindings ?? []);
     return await db.transaction(async (tx) => {
       const [state] = await tx
         .select({
@@ -671,6 +677,7 @@ export function createHumanInterviewEvaluationDao(
           id: crypto.randomUUID(),
           meetingSessionId: input.meetingSessionId,
           organizationId: input.organizationId,
+          reviewFindings: reviewFindings.length > 0 ? reviewFindings : null,
           roundId: input.roundId,
           source: "ai_generated",
           transcriptRevisionId: input.transcriptRevisionId,
@@ -703,6 +710,7 @@ export function createHumanInterviewEvaluationDao(
 
   async function saveHumanInterviewEvaluationDraft(input: {
     actorId: string;
+    expectedVersion?: number;
     evaluation: HumanInterviewEvaluationDraft;
     meetingSessionId: string | null;
     organizationId: string;
@@ -717,6 +725,7 @@ export function createHumanInterviewEvaluationDao(
           evaluationStatus: humanInterviewRound.evaluationStatus,
           id: humanInterviewRound.id,
           meetingSessionId: meetingSession.id,
+          reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
           roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
@@ -744,30 +753,18 @@ export function createHumanInterviewEvaluationDao(
         .limit(1);
       if (
         !context ||
-        context.roundStatus !== "pending" ||
-        context.evaluationStatus === "submitted" ||
+        !["pending", "completed"].includes(context.roundStatus) ||
         !isHumanInterviewEvaluationSubmissionCurrent(context, input.transcriptRevisionId)
       ) {
         return false;
       }
-      const [updated] = await tx
-        .update(humanInterviewRound)
-        .set({
-          evaluation,
-          evaluationError: null,
-          evaluationStatus: "draft",
-          evaluationTranscriptRevisionId: input.transcriptRevisionId,
-          evaluationUpdatedAt: new Date(),
-          evaluationUpdatedBy: input.actorId,
-        })
-        .where(eq(humanInterviewRound.id, input.roundId))
-        .returning({ id: humanInterviewRound.id });
-      return Boolean(updated);
+      return await saveReviewerEvaluationTx(tx, { ...input, evaluation });
     });
   }
 
   async function submitHumanInterviewEvaluation(input: {
     actorId: string;
+    expectedVersion?: number;
     evaluation: HumanInterviewEvaluation;
     meetingSessionId: string | null;
     organizationId: string;
@@ -775,7 +772,7 @@ export function createHumanInterviewEvaluationDao(
     roundId: string;
     transcriptRevisionId: string | null;
   }): Promise<boolean> {
-    if (input.outcome !== "pass" && input.outcome !== "fail") {
+    if (input.outcome !== "pass" && input.outcome !== "fail" && input.outcome !== "inconclusive") {
       return false;
     }
     const evaluation = humanInterviewEvaluationSubmissionSchema.parse(input.evaluation);
@@ -805,6 +802,7 @@ export function createHumanInterviewEvaluationDao(
         const [transcript] = await tx
           .select({
             activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+            reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
             transcriptionStatus: meetingSession.transcriptionStatus,
           })
           .from(meetingSession)
@@ -826,8 +824,10 @@ export function createHumanInterviewEvaluationDao(
       const [round] = await tx
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+          completedAt: humanInterviewRound.completedAt,
           evaluationStatus: humanInterviewRound.evaluationStatus,
           organizationId: humanInterviewRound.organizationId,
+          reviewTranscriptRevisionId: meetingSession.reviewTranscriptRevisionId,
           roundStatus: humanInterviewRound.status,
           transcriptionStatus: meetingSession.transcriptionStatus,
         })
@@ -857,60 +857,83 @@ export function createHumanInterviewEvaluationDao(
         .limit(1);
       if (
         !round ||
-        round.roundStatus !== "pending" ||
-        round.evaluationStatus === "submitted" ||
+        !["pending", "completed"].includes(round.roundStatus) ||
         !isHumanInterviewEvaluationSubmissionCurrent(round, input.transcriptRevisionId)
       ) {
         return false;
       }
+      if (!(await saveReviewerEvaluationTx(tx, { ...input, evaluation, submittedAt: now }))) {
+        return false;
+      }
+      const { combinedEvaluation, combinedOutcome, complete } =
+        await loadReviewerEvaluationAggregate(tx, { ...input, roundStatus: round.roundStatus });
+
       await tx
         .update(humanInterviewRound)
         .set({
-          completedAt: now,
-          evaluation,
+          completedAt: complete ? (round.completedAt ?? now) : null,
+          evaluation: combinedEvaluation,
           evaluationError: null,
           evaluationStatus: "submitted",
           evaluationSubmittedAt: now,
           evaluationTranscriptRevisionId: input.transcriptRevisionId,
           evaluationUpdatedAt: now,
           evaluationUpdatedBy: input.actorId,
-          feedback: evaluation.overallEvaluation,
-          outcome: input.outcome,
-          status: "completed",
+          feedback: combinedEvaluation.overallEvaluation,
+          outcome: combinedOutcome,
+          status: complete ? "completed" : "pending",
           updatedAt: now,
         })
         .where(eq(humanInterviewRound.id, input.roundId));
-      await syncHumanInterviewRoundNodeTx(tx, {
-        now,
-        operatorId: input.actorId,
-        organizationId: input.organizationId,
-        outcome: input.outcome,
-        recordId: owner.recordId,
-        roundId: input.roundId,
-      });
+      if (complete) {
+        await syncHumanInterviewRoundNodeTx(tx, {
+          now,
+          operatorId: input.actorId,
+          organizationId: input.organizationId,
+          outcome: combinedOutcome,
+          recordId: owner.recordId,
+          roundId: input.roundId,
+        });
+      }
       const snapshotId = crypto.randomUUID();
       await tx.insert(humanInterviewEvaluationSnapshot).values({
         createdBy: input.actorId,
-        evaluation,
+        evaluation: combinedEvaluation,
         id: snapshotId,
         meetingSessionId: input.meetingSessionId,
         organizationId: input.organizationId,
-        outcome: input.outcome,
+        outcome: combinedOutcome,
         roundId: input.roundId,
         source: "human_submitted",
         transcriptRevisionId: input.transcriptRevisionId,
       });
-      await tx.insert(humanInterviewEvaluationDocumentSync).values({
-        organizationId: input.organizationId,
-        roundId: input.roundId,
-        snapshotId,
-      });
-      await dependencies.enqueueHumanInterviewRoundCompletion(tx, {
-        actorUserId: input.actorId,
-        now,
-        organizationId: round.organizationId,
-        roundId: input.roundId,
-      });
+      await tx
+        .insert(humanInterviewEvaluationDocumentSync)
+        .values({
+          organizationId: input.organizationId,
+          roundId: input.roundId,
+          snapshotId,
+        })
+        .onConflictDoUpdate({
+          set: {
+            attemptCount: 0,
+            error: null,
+            leaseOwner: null,
+            nextAttemptAt: now,
+            snapshotId,
+            status: "pending",
+            syncedAt: null,
+          },
+          target: humanInterviewEvaluationDocumentSync.roundId,
+        });
+      if (complete && round.roundStatus !== "completed") {
+        await dependencies.enqueueHumanInterviewRoundCompletion(tx, {
+          actorUserId: input.actorId,
+          now,
+          organizationId: round.organizationId,
+          roundId: input.roundId,
+        });
+      }
       return true;
     });
   }

@@ -2,11 +2,21 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
+import {
+  createRootRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from "@tanstack/react-router";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
-
 import { buildOfferLinkCopy, OfferCardView } from "./offer-stage-cards";
+
+const apiCalls = vi.fn<typeof fetch>();
+let approvalRequired = true;
+let approvalStatus = "pending";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -22,8 +32,10 @@ const draft: OfferDraftRecord = {
   baseSalary: 30_000,
   bonus: null,
   candidateCounter: null,
+  contentRevision: 1,
   createdAt: "2026-08-05T00:00:00.000Z",
   currency: "CNY",
+  currentApprovalId: null,
   declineReason: null,
   emailRecipient: null,
   emailSentAt: null,
@@ -47,12 +59,277 @@ const draft: OfferDraftRecord = {
   version: 1,
 };
 
+beforeEach(() => {
+  approvalRequired = true;
+  approvalStatus = "pending";
+  apiCalls.mockImplementation((input) => {
+    const url = String(input);
+    if (url.includes("approval-policy")) {
+      return Promise.resolve(Response.json({ approvalRequired }));
+    }
+    return Promise.resolve(
+      Response.json(
+        url.includes("offer-approvals")
+          ? { canManage: true, invalidatedAt: null, status: approvalStatus }
+          : draft,
+      ),
+    );
+  });
+  vi.stubGlobal("fetch", apiCalls);
+});
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("OfferCard", () => {
+  it("uses the history-preserving void action after withdrawal", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient();
+    const onCancelled = vi.fn();
+    try {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail={null}
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{ ...draft, currentApprovalId: "approval-1" }}
+              onCancelled={onCancelled}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      const button = [...host.querySelectorAll("button")].find(
+        (item) => item.textContent === "作废 Offer 草稿",
+      );
+      expect(button).toBeDefined();
+      act(() => button?.click());
+      await vi.waitFor(() => expect(onCancelled).toHaveBeenCalledOnce());
+      expect(apiCalls.mock.calls.some(([url]) => String(url).endsWith("/offer-1/void"))).toBe(true);
+      expect(apiCalls.mock.calls.some(([url]) => String(url).endsWith("/offer-1/cancel"))).toBe(
+        false,
+      );
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
+
+  it("enables publication when another user finishes approval while the card stays open", async () => {
+    vi.useFakeTimers();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const publishButton = () =>
+      [...host.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("确认并发布"),
+      );
+    try {
+      const routeTree = createRootRoute({
+        component: () => (
+          <WorkspaceSlugProvider
+            id="org-1"
+            slug="acme"
+            memberRole="admin"
+            permissions={{ offerApproval: ["read"], page: ["offerApprovals"] }}
+          >
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail={null}
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{ ...draft, currentApprovalId: "approval-1" }}
+              onCancelled={vi.fn()}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </WorkspaceSlugProvider>
+        ),
+      });
+      const router = createRouter({
+        history: createMemoryHistory({ initialEntries: ["/"] }),
+        routeTree,
+        scrollRestoration: false,
+      });
+      await router.load();
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>,
+        ),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(host.textContent).toContain("待审批");
+      expect(publishButton()?.disabled).toBe(true);
+      approvalStatus = "approved";
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_001);
+      });
+      expect(host.textContent).toContain("已通过");
+      expect(publishButton()?.disabled).toBe(false);
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
+
+  it("shows the pending approval state and moves withdrawal into the Offer card", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    try {
+      const routeTree = createRootRoute({
+        component: () => (
+          <WorkspaceSlugProvider
+            id="org-1"
+            slug="acme"
+            memberRole="admin"
+            permissions={{
+              offerApproval: ["create", "read"],
+              page: ["offerApprovals"],
+            }}
+          >
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail={null}
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{ ...draft, currentApprovalId: "approval-1" }}
+              onCancelled={vi.fn()}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </WorkspaceSlugProvider>
+        ),
+      });
+      const router = createRouter({
+        history: createMemoryHistory({ initialEntries: ["/"] }),
+        routeTree,
+        scrollRestoration: false,
+      });
+      await router.load();
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>,
+        ),
+      );
+
+      await vi.waitFor(() => expect(host.textContent).toContain("审批中"));
+      expect(
+        [...host.querySelectorAll('[data-slot="badge"]')]
+          .map((badge) => badge.textContent?.trim())
+          .filter((label) => label === "草稿" || label === "审批中"),
+      ).toEqual(["审批中"]);
+      expect(host.textContent).toContain("当前审批");
+      expect(host.textContent).not.toContain("提交审批");
+
+      const withdrawButton = [...host.querySelectorAll("button")].find(
+        (button) => button.textContent?.trim() === "撤回本轮审批",
+      );
+      expect(withdrawButton).toBeDefined();
+      act(() => withdrawButton?.click());
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+        "撤回后，本轮审批会结束并保留在历史记录中",
+      );
+      expect(
+        [...(document.querySelector('[role="dialog"]')?.querySelectorAll("button") ?? [])].find(
+          (button) => button.textContent?.trim() === "确认撤回",
+        )?.disabled,
+      ).toBe(true);
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
+
+  it.each([
+    { expectedLabel: "已发布，待回复", status: "sent" },
+    { expectedLabel: "已接受", status: "accepted" },
+  ] as const)(
+    "shows the $expectedLabel Offer lifecycle status after approval",
+    async ({ expectedLabel, status }) => {
+      approvalStatus = "approved";
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      try {
+        const routeTree = createRootRoute({
+          component: () => (
+            <WorkspaceSlugProvider
+              id="org-1"
+              slug="acme"
+              memberRole="admin"
+              permissions={{ offerApproval: ["read"], page: ["offerApprovals"] }}
+            >
+              <OfferCardView
+                canDelete
+                canUpdate
+                candidateId="candidate-1"
+                candidateEmail={null}
+                candidateName="候选人"
+                dependencies={offerCardDependencies}
+                draft={{
+                  ...draft,
+                  currentApprovalId: "approval-1",
+                  publishedAt: "2026-09-20T00:00:00.000Z",
+                  sentAt: "2026-09-20T00:00:00.000Z",
+                  status,
+                }}
+                onCancelled={vi.fn()}
+                onRespond={vi.fn()}
+                onSaved={vi.fn()}
+              />
+            </WorkspaceSlugProvider>
+          ),
+        });
+        const router = createRouter({
+          history: createMemoryHistory({ initialEntries: ["/"] }),
+          routeTree,
+          scrollRestoration: false,
+        });
+        await router.load();
+        act(() =>
+          root.render(
+            <QueryClientProvider client={queryClient}>
+              <RouterProvider router={router} />
+            </QueryClientProvider>,
+          ),
+        );
+
+        await act(async () => {
+          await vi.waitFor(() => expect(host.textContent).toContain("当前审批"));
+        });
+        expect(host.querySelector('[data-slot="badge"]')?.textContent?.trim()).toBe(expectedLabel);
+      } finally {
+        act(() => root.unmount());
+        queryClient.clear();
+      }
+    },
+  );
+
   it("copies a forwardable offer invitation without exposing salary details", () => {
     const url = "https://example.com/offer/test-token?source=copy";
     expect(buildOfferLinkCopy({ candidateName: " 张三 ", position: " 产品经理 ", url })).toBe(
@@ -66,7 +343,7 @@ describe("OfferCard", () => {
     );
   });
 
-  it("publishes a draft before exposing email and link actions", async () => {
+  it("requires approval before a draft can be published when a template is enabled", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -97,6 +374,7 @@ describe("OfferCard", () => {
     expect(host.textContent).toContain("删除 Offer");
     expect(host.textContent).not.toContain("v1");
     expect(host.textContent).toContain("确认并发布");
+    await vi.waitFor(() => expect(host.textContent).toContain("请先提交并完成审批"));
     const editButton = [...host.querySelectorAll("button")].find(
       (button) => button.textContent?.trim() === "编辑",
     );
@@ -113,16 +391,51 @@ describe("OfferCard", () => {
     const sendButton = [...host.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("确认并发布"),
     );
-    await act(() => sendButton?.click());
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain("发布后内容将锁定");
-    const confirm = [...(dialog?.querySelectorAll("button") ?? [])].find(
-      (button) => button.textContent === "确认",
-    );
-    expect(confirm?.disabled).toBe(false);
+    expect(sendButton?.disabled).toBe(true);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
 
     act(() => root.unmount());
   });
+
+  it("allows direct publication when no approval template is enabled", async () => {
+    approvalRequired = false;
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    act(() =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <OfferCardView
+            canDelete
+            canUpdate
+            candidateId="candidate-1"
+            candidateEmail="candidate@example.com"
+            candidateName="候选人"
+            dependencies={offerCardDependencies}
+            draft={draft}
+            onCancelled={vi.fn()}
+            onRespond={vi.fn()}
+            onSaved={vi.fn()}
+          />
+        </QueryClientProvider>,
+      ),
+    );
+
+    const publishButton = () =>
+      [...host.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("确认并发布"),
+      );
+    await vi.waitFor(() => expect(publishButton()?.disabled).toBe(false));
+    expect(host.textContent).not.toContain("请先提交并完成审批");
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
   it("never exposes deletion after sending, even with delete permission", () => {
     const host = document.createElement("div");
     document.body.append(host);
@@ -158,5 +471,127 @@ describe("OfferCard", () => {
     expect(host.textContent).not.toContain("删除");
     expect(host.textContent).not.toContain("撤回");
     act(() => root.unmount());
+  });
+
+  it("keeps previous attachments when files are selected more than once", async () => {
+    apiCalls.mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.includes("email-preview")) {
+        return Promise.resolve(
+          Response.json({
+            content: "请查看 http://localhost:3000/offer/token",
+            offerUrl: "http://localhost:3000/offer/token",
+            subject: "Offer 通知",
+            to: "candidate@example.com",
+          }),
+        );
+      }
+      if (url.endsWith("/email") && init?.method === "POST") {
+        return Promise.resolve(
+          Response.json({
+            interviewRecordId: "candidate-1",
+            providerMessageId: "email-1",
+            sentAt: "2026-09-21T00:00:00.000Z",
+            url: "http://localhost:3000/offer/token",
+          }),
+        );
+      }
+      return Promise.resolve(Response.json({ approvalRequired: false }));
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    try {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <OfferCardView
+              canDelete
+              canUpdate
+              candidateId="candidate-1"
+              candidateEmail="candidate@example.com"
+              candidateName="候选人"
+              dependencies={offerCardDependencies}
+              draft={{
+                ...draft,
+                publicPath: "/offer/token",
+                publishedAt: "2026-09-21T00:00:00.000Z",
+                sentAt: "2026-09-21T00:00:00.000Z",
+                status: "sent",
+              }}
+              onCancelled={vi.fn()}
+              onRespond={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+
+      const openButton = [...host.querySelectorAll("button")].find(
+        (button) => button.textContent?.trim() === "发送邮件",
+      );
+      act(() => openButton?.click());
+      await vi.waitFor(() =>
+        expect(document.querySelector<HTMLInputElement>('input[type="file"]')).not.toBeNull(),
+      );
+
+      const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+      const firstAttachment = new File(["old"], "旧版录用通知.pdf", {
+        type: "application/pdf",
+      });
+      Object.defineProperty(fileInput, "files", {
+        configurable: true,
+        value: [firstAttachment],
+      });
+      act(() => fileInput?.dispatchEvent(new Event("change", { bubbles: true })));
+      await vi.waitFor(() => expect(document.body.textContent).toContain("旧版录用通知.pdf"));
+
+      const latestAttachment = new File(["latest"], "最终录用通知.pdf", {
+        type: "application/pdf",
+      });
+      Object.defineProperty(fileInput, "files", {
+        configurable: true,
+        value: [latestAttachment],
+      });
+      act(() => fileInput?.dispatchEvent(new Event("change", { bubbles: true })));
+      await vi.waitFor(() => {
+        expect(document.body.textContent).toContain("最终录用通知.pdf");
+        expect(document.body.textContent).toContain("旧版录用通知.pdf");
+      });
+
+      const attachmentRows = document.querySelectorAll('[data-slot="attachment"]');
+      expect(attachmentRows).toHaveLength(2);
+
+      const sendButton = [...document.querySelectorAll("button")].find(
+        (button) => button.textContent?.trim() === "发送邮件" && button !== openButton,
+      );
+      await vi.waitFor(() => expect(sendButton?.disabled).toBe(false));
+      act(() => sendButton?.click());
+      await vi.waitFor(() =>
+        expect(
+          apiCalls.mock.calls.some(
+            ([url, init]) => String(url).endsWith("/email") && init?.body instanceof FormData,
+          ),
+        ).toBe(true),
+      );
+      const emailCall = apiCalls.mock.calls.find(
+        ([url, init]) => String(url).endsWith("/email") && init?.body instanceof FormData,
+      );
+      const emailBody = emailCall?.[1]?.body;
+      expect(emailBody).toBeInstanceOf(FormData);
+      if (!(emailBody instanceof FormData)) {
+        throw new Error("Expected Offer email request body to be FormData");
+      }
+      const attachmentEntries = emailBody.getAll("attachments");
+      expect(attachmentEntries).toHaveLength(2);
+      expect(attachmentEntries.map((entry) => (entry instanceof File ? entry.name : null))).toEqual(
+        ["旧版录用通知.pdf", "最终录用通知.pdf"],
+      );
+      expect(emailBody.get("to")).toBe("candidate@example.com");
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
   });
 });

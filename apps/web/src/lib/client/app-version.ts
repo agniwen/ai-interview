@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const APP_VERSION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
-export const APP_VERSION_REQUEST_TIMEOUT_MS = 5000;
+const APP_VERSION_REQUEST_TIMEOUT_MS = 5000;
 
 const appVersionResponseSchema = z.object({ buildTime: z.string() });
 

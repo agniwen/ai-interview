@@ -75,12 +75,12 @@ export function QuestionView({
       >
         {question.options.map((option) => (
           <Label
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
             htmlFor={`${inputId}-${option.value}`}
             key={option.value}
           >
             <RadioGroupItem id={`${inputId}-${option.value}`} value={option.value} />
-            <span className="flex-1">{option.label}</span>
+            <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere">{option.label}</span>
           </Label>
         ))}
       </RadioGroup>
@@ -96,12 +96,23 @@ export function QuestionView({
         }}
         value={toTextAnswer(value) || undefined}
       >
-        <SelectTrigger aria-invalid={invalidProp} className="w-full" id={inputId}>
-          <SelectValue placeholder="请选择" />
+        <SelectTrigger
+          aria-invalid={invalidProp}
+          className="w-full text-left whitespace-pre-wrap data-[size=default]:h-auto data-[size=default]:min-h-9 *:data-[slot=select-value]:line-clamp-none"
+          id={inputId}
+        >
+          <SelectValue
+            className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere"
+            placeholder="请选择"
+          />
         </SelectTrigger>
         <SelectContent>
           {question.options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem
+              className="whitespace-pre-wrap wrap-anywhere"
+              key={option.value}
+              value={option.value}
+            >
               {option.label}
             </SelectItem>
           ))}
@@ -122,7 +133,7 @@ export function QuestionView({
           const checked = selected.has(option.value);
           return (
             <Label
-              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
               htmlFor={`${inputId}-${option.value}`}
               key={option.value}
             >
@@ -139,7 +150,9 @@ export function QuestionView({
                   onChange([...next]);
                 }}
               />
-              <span className="flex-1">{option.label}</span>
+              <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere">
+                {option.label}
+              </span>
             </Label>
           );
         })}

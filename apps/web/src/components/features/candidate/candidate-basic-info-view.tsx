@@ -4,7 +4,7 @@ import { IconUpload } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { DataField } from "@/components/features/display/data-field";
+import { CandidateInfoField as DataField } from "@/components/features/candidate/candidate-info-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
@@ -69,7 +69,7 @@ export function CandidateBasicInfoView({
 
   return (
     <div className={className}>
-      <DataFields columns={2}>
+      <DataFields columns={2} density="relaxed">
         <DataField label="姓名" value={candidateName} />
         <DataField kind="email" label="邮箱" value={candidateEmail} />
         <DataField kind="phone" label="电话" value={candidatePhone} />

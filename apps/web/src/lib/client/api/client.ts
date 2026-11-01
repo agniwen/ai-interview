@@ -15,7 +15,7 @@
  * 4) decode responses as JSON by default (use `raw` to handle the Response yourself).
  */
 
-import { ApiError } from "./errors";
+import { ApiError, apiErrorResponseMetadata, safeApiErrorMessage } from "./errors";
 import { z } from "zod";
 
 const apiErrorPayloadSchema = z.union([
@@ -142,6 +142,9 @@ export async function apiFetch<T = unknown>(
       headers: finalHeaders,
     });
   } catch (networkError) {
+    if (rest.signal?.aborted) {
+      throw rest.signal.reason;
+    }
     throw new ApiError("网络请求失败 / Network request failed", {
       cause: networkError,
       status: 0,
@@ -155,8 +158,12 @@ export async function apiFetch<T = unknown>(
 
   if (!response.ok) {
     const payload = await readErrorPayload(response);
-    const message = extractMessage(payload) ?? `请求失败 / Request failed (${response.status})`;
-    throw new ApiError(message, { payload, status: response.status });
+    const message = safeApiErrorMessage(extractMessage(payload), response.status);
+    throw new ApiError(message, {
+      payload,
+      status: response.status,
+      ...apiErrorResponseMetadata(response),
+    });
   }
 
   if (decode === "raw") {

@@ -1,21 +1,26 @@
 # @app/database
 
-后端运行时共享的 Drizzle PostgreSQL 数据库构造包，导出统一的 `Database` 类型和连接到 Drizzle schema 的工厂。
+后端运行时共享的 Drizzle PostgreSQL 基础包：数据库工厂与 `Database` 类型、共享包使用的环境数据库上下文、连接池参数解析，以及通用查询工具。
+
+## 主要入口
+
+- `.`：`createDatabase(client)` 和 `Database` 类型。
+- `./context`：共享包读取数据库的环境上下文。宿主用 `setDefaultDatabase(db)` 注册本进程的连接；某条调用链需要换库时用 `withDatabase` / `bindDatabase` 覆盖。包内模块直接 `import { db } from "@app/database/context"`。
+- `./connection-options`：根据 `POSTGRES_*` 环境变量计算连接池参数，供宿主创建连接池时使用。
+- `./serialize`、`./pagination`、`./list-text-filters`：DTO 日期序列化、排序分页、列表文本筛选等通用查询工具。
 
 ## 职责与边界
 
-- 根据一个已创建的 PostgreSQL client 构造 Drizzle database。
-- 统一导出 Server、Worker 和 processing 包使用的数据库类型。
+- 不读取 `DATABASE_URL`，也不创建或缓存连接池；这些属于宿主运行时（Server 的 `infrastructure/db`、Worker 的 `src/db.ts` 和 `src/workflow-database.ts`）。
+- 不放业务 DAO：招聘领域数据在 `@app/recruiting`，业务流程在对应的处理包里。
 - 依赖 canonical schema `@app/db-schema`。
-- 不负责读取 `DATABASE_URL`、创建/缓存连接池、事务业务规则或执行迁移；这些属于宿主运行时和 Web 的迁移工具。
 
-## 如何修改或新增
+## 如何修改
 
 - schema 或 relation 变化改 `@app/db-schema`，不要在这里重复声明表。
-- 新的 driver/runtime 适配应接受外部连接，避免包内全局连接和环境变量副作用。
-- 数据库查询与 DAO 放到拥有业务能力的 app/processing 包，不放在本包。
-- 修改工厂返回类型时同时 typecheck Server、Worker 和依赖该类型的 processing 包。
+- 修改 `./context` 的语义会影响所有共享包，要同时验证 Server、Worker 以及 `resume-processing`、`recruiting-workflows` 的测试。
 
 ```bash
 bun run --filter @app/database typecheck
+bun run --filter @app/database test
 ```

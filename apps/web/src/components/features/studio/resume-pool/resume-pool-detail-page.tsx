@@ -2,12 +2,13 @@
 
 import { IconAlertCircle, IconArrowLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
+import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -16,7 +17,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Frame, FrameHeader, FramePanel } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { fetchResumePoolItem } from "@/lib/client/api";
@@ -31,7 +31,10 @@ import {
   canManageResumePoolJobBinding,
   useRecordOwnedOpenState,
 } from "./resume-pool-details";
+import { ResumePoolCareerRail } from "./resume-pool-career-rail";
+import { ResumePoolDetailFloatingBar } from "./resume-pool-detail-floating-bar";
 import {
+  canImportResumePoolToLibrary,
   getCandidateTitle,
   resumeParseStatusBadge,
   resumeRecruitingStatusBadge,
@@ -59,18 +62,22 @@ const RESUME_POOL_DETAIL_STRUCTURED_SKELETON_SECTIONS = [
   { bodyClassName: "h-16 w-full max-w-3xl", id: "strengths" },
 ] as const;
 
-const RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_PANELS = [
-  "radar",
-  "skills-and-experience",
-  "projects-and-education",
-  "potential-and-stability",
+const RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_COLUMNS = ["matching", "risks"] as const;
+
+const RESUME_POOL_DETAIL_DIMENSION_SKELETON_ROWS = [
+  "skill-match",
+  "experience-relevance",
+  "project-match",
+  "education-background",
+  "potential",
+  "stability",
 ] as const;
 
 function ResumePoolDetailHeaderOverride({ onBack }: { onBack: () => void }) {
   const header = useMemo(
     () => (
       <Button
-        className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
+        className="-ml-1 shrink-0 px-2 text-muted-foreground hover:text-foreground"
         onClick={onBack}
         size="sm"
         type="button"
@@ -115,47 +122,45 @@ export function ResumePoolDetailPageSkeleton() {
       </header>
       <div className="flex flex-col gap-8">
         <div
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-10"
           data-resume-pool-detail-skeleton="qualitative-evaluation"
         >
-          <Frame>
-            <FrameHeader>
-              <Skeleton className="h-4 w-16" />
-            </FrameHeader>
-            <FramePanel className="flex flex-col gap-4">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-5 w-full max-w-2xl" />
+          <div className="flex flex-col gap-5">
+            <Skeleton className="h-4 w-16" />
+            <div className="flex max-w-4xl flex-col gap-4">
+              <Skeleton className="h-7 w-24 rounded-md" />
+              <Skeleton className="h-7 w-full max-w-2xl" />
               <Skeleton className="h-4 w-full max-w-3xl" />
               <Skeleton className="h-4 w-4/5 max-w-2xl" />
-            </FramePanel>
-          </Frame>
-          <Frame>
-            <FrameHeader>
-              <Skeleton className="h-4 w-16" />
-            </FrameHeader>
-            <div className="grid gap-1 lg:grid-cols-2">
-              {RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_PANELS.map((panel) => (
-                <FramePanel className="flex min-h-36 flex-col gap-3" key={panel}>
+            </div>
+          </div>
+          <div className="grid gap-x-12 gap-y-10 border-border/50 border-t pt-8 lg:grid-cols-2">
+            {RESUME_POOL_DETAIL_QUALITATIVE_SKELETON_COLUMNS.map((column) => (
+              <div className="flex flex-col gap-3" key={column}>
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1 border-border/50 border-t pt-8">
+            <Skeleton className="h-3 w-16" />
+            <div className="flex flex-col">
+              {RESUME_POOL_DETAIL_DIMENSION_SKELETON_ROWS.map((row) => (
+                <div
+                  className="flex items-center gap-4 border-border/50 border-b py-4 last:border-b-0"
+                  key={row}
+                >
                   <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-4/5" />
-                </FramePanel>
+                  <Skeleton className="h-2 w-24 max-sm:hidden" />
+                  <Skeleton className="h-4 flex-1" />
+                </div>
               ))}
             </div>
-          </Frame>
+          </div>
         </div>
 
         <section className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Skeleton className="h-5 w-20" />
-              <Skeleton className="h-6 w-14 rounded-sm" />
-              <Skeleton className="h-6 w-24 rounded-sm" />
-            </div>
-            <Skeleton className="h-4 w-full max-w-3xl" />
-            <Skeleton className="h-4 w-4/5 max-w-2xl" />
-          </div>
-
           <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
             {RESUME_POOL_DETAIL_SKELETON_FIELDS.map((field) => (
               <div data-resume-pool-detail-skeleton="summary-item" key={field}>
@@ -223,6 +228,8 @@ export function ResumePoolDetailPage({
   const currentUserId = sessionUserId(session);
   const canImportResumePool = useHasPermission("resumePool", "import");
   const canReadJobDescriptions = useHasPermission("jd", "read");
+  const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
+  const canCreateResumePool = useHasPermission("resumePool", "create");
   const canRecommend = canImportResumePool && canReadJobDescriptions;
   const [
     recommendationsOpen,
@@ -230,6 +237,7 @@ export function ResumePoolDetailPage({
     recommendationsRecordId,
     handleRecommendationsOpenChangeComplete,
   ] = useRecordOwnedOpenState(recordId);
+  const contentRef = useRef<HTMLDivElement>(null);
   const detailQuery = useQuery({
     queryFn: () => fetchResumePoolItem(slug, recordId),
     queryKey: ["resume-pool", "detail", slug, recordId] as const,
@@ -270,23 +278,22 @@ export function ResumePoolDetailPage({
   }
 
   const candidateName = getCandidateTitle(detail);
-  const avatarValue = (detail.candidateName || detail.candidateEmail || "?").trim().slice(0, 1);
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
+      <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-6 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         <ResumePoolDetailHeaderOverride onBack={onBack} />
         <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-5">
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <Avatar
-                className="size-14 shrink-0"
-                generatedSize={56}
-                label={`${candidateName}的头像`}
+              <CandidateAvatar
+                className="size-14"
+                label={candidateName}
+                recordId={detail.id}
                 seed={candidateName}
-              >
-                <AvatarFallback>{avatarValue}</AvatarFallback>
-              </Avatar>
+                source="resume-pool"
+                version={detail.candidateAvatarVersion}
+              />
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <h1 className="truncate font-semibold text-2xl tracking-normal">
@@ -310,26 +317,54 @@ export function ResumePoolDetailPage({
           </div>
         </header>
 
-        <div className="flex min-w-0 flex-col gap-8">
-          <ResumePoolQualitativeEvaluationPanel detail={detail} />
-          <ResumePoolDetailSummaryPanel
-            detail={detail}
-            isError={false}
-            isLoading={false}
-            onRequestRecommendations={
-              canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
-            }
-            resumeProfile={detail.resumeProfile}
-            slug={slug}
-          />
-          <ResumePoolStructuredInfoPanel
-            detail={detail}
-            isLoading={false}
-            resumeProfile={detail.resumeProfile}
-          />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-x-10 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="flex min-w-0 flex-col gap-8" ref={contentRef}>
+            <ResumePoolQualitativeEvaluationPanel
+              detail={detail}
+              onRequestRecommendations={
+                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
+              }
+              slug={slug}
+            />
+            <ResumePoolDetailSummaryPanel
+              detail={detail}
+              isError={false}
+              isLoading={false}
+              onRequestRecommendations={
+                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
+              }
+              resumeProfile={detail.resumeProfile}
+              showCandidateSummary={false}
+              slug={slug}
+            />
+            <ResumePoolStructuredInfoPanel
+              detail={detail}
+              isLoading={false}
+              resumeProfile={detail.resumeProfile}
+            />
+          </div>
+          <aside className="hidden min-w-0 max-w-full overflow-hidden xl:sticky xl:top-[calc(var(--header-height)+1rem)] xl:block xl:self-start">
+            <ResumePoolCareerRail
+              onWorkExperienceSelect={(companyName) => {
+                scrollToWorkExperienceCompany(contentRef.current, companyName);
+              }}
+              profile={detail.resumeProfile}
+            />
+          </aside>
         </div>
       </main>
 
+      <ResumePoolDetailFloatingBar
+        canCreateResumePool={canCreateResumePool}
+        canEnterRecruiting={canImportResumePoolToLibrary(
+          canImportResumePool,
+          canCreateResumeLibrary,
+        )}
+        currentUserId={currentUserId}
+        detail={detail}
+        key={detail.id}
+        slug={slug}
+      />
       <ResumePoolRecommendationsDialog
         canRecommend={canRecommend}
         currentUserId={currentUserId}

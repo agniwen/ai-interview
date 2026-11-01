@@ -1,12 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { barY, defineChart, stack } from "@tanstack/charts";
-import { scaleBand, scaleLinear } from "d3-scale";
-import { z } from "zod";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { DashboardActivityRow } from "@app/shared/studio-dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import {
   Table,
@@ -17,63 +15,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ACTIVITY_SERIES, formatActivityTooltip, getActivityChartData } from "./dashboard-activity";
-
-const activityDatumSchema = z.object({
-  aiCompleted: z.number(),
-  day: z.string(),
-  humanCompleted: z.number(),
-  offersSent: z.number(),
-  resumesAdded: z.number(),
-});
+import { ACTIVITY_SERIES, getActivityChartData } from "./dashboard-activity";
 
 const config: ChartConfig = Object.fromEntries(
   ACTIVITY_SERIES.map((series) => [series.key, { color: series.fill, label: series.label }]),
 );
 
 export function DashboardActivityCard({ activity }: { activity: DashboardActivityRow[] }) {
-  const definition = useMemo(() => {
-    const { data, domain, maximum, ticks } = getActivityChartData(activity);
-    return defineChart({
-      focus: "nearest-x",
-      focusRing: true,
-      margin: { bottom: 32, left: 40, right: 8, top: 12 },
-      marks: [
-        barY(data, {
-          fill: (row) => row.color,
-          key: (row) => `${row.day}-${row.series}`,
-          layout: stack({ order: ACTIVITY_SERIES.map((series) => series.key) }),
-          maxThickness: 24,
-          x: "day",
-          y: "value",
-          z: "series",
-        }),
-      ],
-      tooltip: {
-        ...chartTooltip,
-        format: (point) => {
-          const parsed = activityDatumSchema.safeParse(point.datum);
-          return parsed.success ? formatActivityTooltip(parsed.data) : "数据不可用";
-        },
-      },
-      x: {
-        axis: {
-          line: false,
-          ticks: {
-            format: (value) => String(value).slice(5),
-            size: 0,
-            values: domain.filter((_, index) => index % 10 === 0 || index === domain.length - 1),
-          },
-        },
-        scale: () => scaleBand<string>().domain(domain).padding(0.25),
-      },
-      y: {
-        axis: { line: false, ticks: { format: String, size: 0, values: ticks } },
-        grid: true,
-        scale: () => scaleLinear().domain([0, maximum]),
-      },
-    });
-  }, [activity]);
+  const { data, domain, maximum, ticks } = useMemo(
+    () => getActivityChartData(activity),
+    [activity],
+  );
 
   return (
     <Card className="min-w-0">
@@ -93,13 +45,45 @@ export function DashboardActivityCard({ activity }: { activity: DashboardActivit
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <ChartContainer className="h-60" config={config}>
-          <Chart
-            ariaLabel="近 30 天招聘活动，纵轴为活动次数"
-            className="w-full"
-            definition={definition}
-            height={240}
-          />
+        <ChartContainer
+          aria-label="近 30 天招聘活动，纵轴为活动次数"
+          className="aspect-auto h-60"
+          config={config}
+        >
+          <BarChart
+            accessibilityLayer
+            data={data}
+            margin={{ bottom: 8, left: 0, right: 8, top: 12 }}
+            maxBarSize={24}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="day"
+              axisLine={false}
+              tickLine={false}
+              tickMargin={8}
+              ticks={domain.filter((_, index) => index % 10 === 0 || index === domain.length - 1)}
+              tickFormatter={(day: string) => day.slice(5)}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              width={32}
+              allowDecimals={false}
+              domain={[0, maximum]}
+              ticks={ticks}
+            />
+            <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+            {ACTIVITY_SERIES.map((series) => (
+              <Bar
+                key={series.key}
+                dataKey={series.key}
+                fill={`var(--color-${series.key})`}
+                stackId="activity"
+                isAnimationActive={false}
+              />
+            ))}
+          </BarChart>
         </ChartContainer>
         <details className="mt-2 text-xs">
           <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

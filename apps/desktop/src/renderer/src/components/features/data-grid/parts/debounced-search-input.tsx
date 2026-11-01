@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 
 /** Default pause after typing before committing search (URL / query). */
-export const DEFAULT_SEARCH_DEBOUNCE_MS = 300;
+const DEFAULT_SEARCH_DEBOUNCE_MS = 300;
 
 export interface DebouncedSearchInputProps {
   value: string;

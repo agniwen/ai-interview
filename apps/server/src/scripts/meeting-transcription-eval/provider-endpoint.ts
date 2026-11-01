@@ -1,5 +1,5 @@
 import type { MeetingTranscriptionProviderId } from "@app/shared/meeting-transcription";
-import { resolveMeetingTranscriptionProviderEndpoint } from "../../server/routes/meetings/transcription/provider-endpoint";
+import { resolveMeetingTranscriptionProviderEndpoint } from "../../routes/meetings/transcription/provider-endpoint";
 
 interface MeetingTranscriptionBenchmarkEndpoint {
   baseUrl: string;

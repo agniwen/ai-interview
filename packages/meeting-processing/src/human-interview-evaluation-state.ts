@@ -18,6 +18,7 @@ export function isHumanInterviewEvaluationPublishCurrent(
 export function isHumanInterviewEvaluationSubmissionCurrent(
   state: {
     activeTranscriptRevisionId: string | null;
+    reviewTranscriptRevisionId?: string | null;
     transcriptionStatus: string | null;
   } | null,
   transcriptRevisionId: string | null,
@@ -25,8 +26,8 @@ export function isHumanInterviewEvaluationSubmissionCurrent(
   if (transcriptRevisionId === null) {
     return true;
   }
-  return (
-    state?.transcriptionStatus === "ready" &&
-    state.activeTranscriptRevisionId === transcriptRevisionId
-  );
+  // Manual feedback may use incomplete material; protect the revision displayed
+  // by loadHumanInterviewReview without requiring successful AI transcription.
+  const currentRevisionId = state?.activeTranscriptRevisionId ?? state?.reviewTranscriptRevisionId;
+  return currentRevisionId === transcriptRevisionId;
 }

@@ -5,8 +5,11 @@ import { attachmentTextSourceSchema } from "@app/db-schema/db-enums";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
 import type { AiRunEvent } from "@app/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
-import { generateResumeStructured, parseResumeDocument } from "../../../lib/resume-parse-pipeline";
-import type { ResumeParseProgressEvent } from "../../../lib/resume-parse-pipeline";
+import {
+  generateResumeStructured,
+  parseResumeDocument,
+} from "../../../runtime/resume-parse-pipeline";
+import type { ResumeParseProgressEvent } from "../../../runtime/resume-parse-pipeline";
 
 const resumeParseInputSchema = z.object({
   bytesBase64: z.string().min(1),

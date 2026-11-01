@@ -1,16 +1,20 @@
 import { cn } from "@app/shared/utils";
+import { Card } from "@/components/ui/card";
 
 export function SettingsSection({
   children,
   description,
+  id,
   title,
 }: {
   children: React.ReactNode;
   description?: string;
+  /** 页内锚点，供其他页面深链定位到该设置分组。 */
+  id?: string;
   title: string;
 }) {
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex scroll-mt-6 flex-col gap-2.5" id={id}>
       <div className="space-y-0.5">
         <h2 className="font-medium text-sm">{title}</h2>
         {description ? (
@@ -29,9 +33,7 @@ export function SettingsGroup({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cn("divide-y overflow-hidden rounded-lg border", className)}>{children}</div>
-  );
+  return <Card className={cn("divide-y overflow-hidden", className)}>{children}</Card>;
 }
 
 export function SettingsRow({

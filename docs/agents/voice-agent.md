@@ -7,7 +7,7 @@ Read for changes under `apps/livekit-agent/` or shared prompts used by the voice
 ### Entrypoint and structure
 
 - All Python agent code lives in `apps/livekit-agent/src/`. **Keep `apps/livekit-agent/src/agent.py` as the entrypoint** — the `Dockerfile` references it directly for production deployment, so do not rename or move it.
-- Use `uv` for everything (install, run, test) — never mix in `pip`/`poetry`. Run commands from `apps/livekit-agent/`; use `uv run src/agent.py dev` or `uv run src/agent.py console`. Before the first run, execute `uv run -m livekit.agents download-files`.
+- Use `uv` for everything (install, run, test) — never mix in `pip`/`poetry`. Run commands from `apps/livekit-agent/`; use `uv run src/agent.py dev` or `uv run src/agent.py console`. Before the first run, execute `uv run src/agent.py download-files`.
 - Format and lint Python with `uv run ruff format` and `uv run ruff check` before committing.
 
 ### LiveKit documentation access

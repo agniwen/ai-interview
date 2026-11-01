@@ -17,8 +17,8 @@ export function listMeetingTranscriptionProviderCandidates(
   return [
     {
       id: "qwen",
-      label: "通义千问 ASR（百炼 Qwen3-ASR-Flash）",
-      model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen3-asr-flash-filetrans",
+      label: "通义千问 ASR（百炼）",
+      model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen-audio-3.1-asr-flash-filetrans",
       region: endpoint.region,
     },
   ];
@@ -45,7 +45,7 @@ export function resolveMeetingTranscriptionProviderModel(
   );
   if (candidate.id === "qwen" && hasReadyDiarizableAudio) {
     return (
-      env.MEETING_TRANSCRIPTION_QWEN_MIXED_MODEL?.trim() || "qwen-audio-3.0-asr-flash-filetrans"
+      env.MEETING_TRANSCRIPTION_QWEN_MIXED_MODEL?.trim() || "qwen-audio-3.1-asr-flash-filetrans"
     );
   }
   return candidate.model;

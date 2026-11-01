@@ -37,7 +37,6 @@
       {
         "files": [
           "src/components/features/motion/animated-height.tsx",
-          "src/components/features/studio/charts/contribution-calendar.tsx",
           "src/components/features/studio/forms/form-template-management-page.tsx",
           "src/components/features/studio/interview-questions/interview-question-template-management-page.tsx",
           "src/components/layout/app-sidebar/workspace-sidebar-slots.tsx",

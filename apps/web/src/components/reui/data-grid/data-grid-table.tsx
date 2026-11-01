@@ -20,7 +20,7 @@ import type {
   DataGridTableInstance,
 } from "@/components/reui/data-grid/data-grid";
 import { flexRender, Subscribe } from "@tanstack/react-table";
-import type { Cell, Column, Header, Row, Table } from "@tanstack/react-table";
+import type { Cell, Column, Header, Row } from "@tanstack/react-table";
 
 import { cn } from "@app/shared/utils";
 import { Button } from "@/components/ui/button";
@@ -975,9 +975,7 @@ function DataGridTableHeadRowCell<TData extends object>({
         props.tableLayout?.columnsPinnable &&
           isPinned &&
           cn(
-            props.tableLayout?.headerBackground
-              ? "data-pinned:bg-muted"
-              : "data-pinned:bg-background",
+            props.tableLayout?.headerBackground ? "data-pinned:bg-muted" : "data-pinned:bg-control",
             "data-outer-pinned-col:bg-clip-padding data-pinned:isolate",
             "[&[data-pinned=end]:last-child_div.cursor-col-resize:last-child]:opacity-0",
             "[&:not([data-pinned]):has(+[data-pinned])_div.cursor-col-resize:last-child]:opacity-0 [&[data-last-col=start]_div.cursor-col-resize:last-child]:opacity-0",
@@ -1285,7 +1283,7 @@ function DataGridTableFootRow({ children }: { children: ReactNode }) {
     <tr
       data-slot="data-grid-table-foot-row"
       className={cn(
-        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-background",
+        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-control",
         props.tableLayout?.rowBorder && footRowBottomBorderClasses,
         props.tableLayout?.cellBorder && "*:last:border-e-0",
         // The fill foot cell is the :last child, so the rule above only
@@ -1323,7 +1321,7 @@ function DataGridTableFootRowCell({
       className={cn(
         "text-secondary-foreground/80 align-middle font-medium",
         spacing,
-        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-background",
+        props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-control",
         props.tableLayout?.cellBorder && "border-e",
         className,
       )}
@@ -1393,7 +1391,7 @@ function DataGridTableBodyRowSkeletonCell<TData extends object>({
         column.columnDef.meta?.cellClassName,
         props.tableLayout?.columnsPinnable &&
           isPinned &&
-          "data-pinned:bg-background data-pinned:isolate",
+          "data-pinned:bg-control data-pinned:isolate",
         column.getIndex() === 0 || column.getIndex() === table.getVisibleLeafColumns().length - 1
           ? props.tableClassNames?.edgeCell
           : "",
@@ -1450,10 +1448,10 @@ function DataGridTableBodyRow<TData extends object>({
         "hover:bg-muted/40 data-[state=selected]:bg-muted/50",
         /* Pinned cells hide scrolled content behind an OPAQUE background,
            which also hides the row's translucent hover and selected tints;
-           they get the same tints premixed over the background instead,
-           the row-status treatment. */
-        "hover:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_40%,var(--background))]",
-        "data-[state=selected]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))]",
+           they get the same tints premixed over the grid surface (--control,
+           the pinned cells' own fill) so they match unpinned cells. */
+        "hover:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_40%,var(--control))]",
+        "data-[state=selected]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--control))]",
         props.onRowClick && "cursor-pointer",
         // Optional CRUD indications, active only when getRowStatus is
         // wired; the warning-muted defaults yield to tableClassNames
@@ -1461,9 +1459,9 @@ function DataGridTableBodyRow<TData extends object>({
         // scrolled content), so they get the same tint pre-mixed over the
         // background instead of inheriting the translucent row fill.
         props.getRowStatus &&
-          "data-[row-status=deleted]:bg-destructive/5 data-[row-status=deleted]:opacity-60 data-[row-status=dirty]:bg-amber-500/5 data-[row-status=new]:bg-green-500/5 data-[row-status=deleted]:[&_td]:line-through",
+          "data-[row-status=deleted]:bg-destructive/5 data-[row-status=deleted]:opacity-60 data-[row-status=dirty]:bg-amber-tint data-[row-status=new]:bg-green-tint data-[row-status=deleted]:[&_td]:line-through",
         props.getRowStatus &&
-          "data-[row-status=deleted]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--destructive)_5%,var(--background))] data-[row-status=dirty]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--color-amber-500)_5%,var(--background))] data-[row-status=new]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--color-green-500)_5%,var(--background))]",
+          "data-[row-status=deleted]:[&>td[data-pinned]]:bg-[color-mix(in_oklab,var(--destructive)_5%,var(--control))] data-[row-status=dirty]:[&>td[data-pinned]]:bg-amber-tint data-[row-status=new]:[&>td[data-pinned]]:bg-green-tint",
         rowStatus === "new" && props.tableClassNames?.rowNew,
         rowStatus === "dirty" && props.tableClassNames?.rowDirty,
         rowStatus === "deleted" && props.tableClassNames?.rowDeleted,
@@ -1659,7 +1657,7 @@ function DataGridTableBodyRowCell<TData extends object>({
         // getCellStatus is wired: amber for "dirty", destructive for
         // "invalid".
         props.getCellStatus &&
-          "data-[cell-status=invalid]:after:border-t-destructive data-[cell-status]:relative data-[cell-status]:after:absolute data-[cell-status]:after:end-0 data-[cell-status]:after:top-0 data-[cell-status]:after:size-0 data-[cell-status]:after:border-s-[5px] data-[cell-status]:after:border-t-[5px] data-[cell-status]:after:border-s-transparent data-[cell-status]:after:content-[''] data-[cell-status=dirty]:after:border-t-amber-500",
+          "data-[cell-status=invalid]:after:border-t-destructive data-[cell-status]:relative data-[cell-status]:after:absolute data-[cell-status]:after:end-0 data-[cell-status]:after:top-0 data-[cell-status]:after:size-0 data-[cell-status]:after:border-s-[5px] data-[cell-status]:after:border-t-[5px] data-[cell-status]:after:border-s-transparent data-[cell-status]:after:content-[''] data-[cell-status=dirty]:after:border-t-amber",
         props.tableLayout?.cellBorder && "border-e",
         props.tableLayout?.cellBorder && isFirstEndPinned && "border-s",
         // Mirror of the head cell rule: the end-pinned column owns this
@@ -1676,7 +1674,7 @@ function DataGridTableBodyRowCell<TData extends object>({
         cell.column.columnDef.meta?.cellClassName,
         props.tableLayout?.columnsPinnable &&
           isPinned &&
-          "data-pinned:bg-background data-pinned:isolate",
+          "data-pinned:bg-control data-pinned:isolate",
         column.getIndex() === 0 || column.getIndex() === row.getVisibleCells().length - 1
           ? props.tableClassNames?.edgeCell
           : "",
@@ -1952,6 +1950,7 @@ function DataGridTableRowSelect<TData extends object>({
         <>
           <Checkbox
             checked={checked}
+            disabled={!row.getCanSelect()}
             indeterminate={indeterminate}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             onClick={(event) => {

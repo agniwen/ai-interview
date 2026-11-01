@@ -1,3 +1,4 @@
+import { DetailHeaderSkeleton, DetailTitleSkeleton } from "../studio-person-detail-skeletons";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -19,17 +20,13 @@ import { TransitionCandidateDialog } from "@/components/features/studio/resumes/
 import { resolveResumeDetailDefaultTab } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
+import { invalidateStudioResumeListQueries } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
-
-export {
-  listSearchFromDetailSearch,
-  resumeDetailPageSearchSchema,
-} from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 export type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 
 function getRecruiterResumeDocumentTitle(candidateName: string | null | undefined) {
@@ -45,7 +42,6 @@ function getRecruiterResumeAvatarIdentity(input: {
   return {
     label,
     seed: input.candidateName?.trim() || "未命名候选人",
-    value: label.slice(0, 1).toUpperCase(),
   };
 }
 
@@ -53,36 +49,11 @@ export function RecruiterResumeDetailSkeleton() {
   return (
     <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5">
       <div className="flex min-w-0 flex-col gap-3">
-        <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <Skeleton className="mb-3 h-8 w-28" />
-              <div className="flex min-w-0 items-center gap-3">
-                <Skeleton className="size-14 shrink-0 rounded-full" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-4 w-24" />
-                  </div>
-                  <Skeleton className="mt-2 h-4 w-64 max-w-full" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-2 flex flex-col items-stretch gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-            <div className="flex h-10 w-full items-center gap-1 rounded-md bg-muted p-1 sm:w-auto">
-              <Skeleton className="h-8 flex-1 sm:w-16 sm:flex-none" />
-              <Skeleton className="h-8 flex-1 sm:w-20 sm:flex-none" />
-              <Skeleton className="hidden h-8 w-20 sm:block" />
-              <Skeleton className="hidden h-8 w-16 sm:block" />
-            </div>
-            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-              <Skeleton className="h-9 w-full sm:w-64" />
-              <Skeleton className="h-9 w-full sm:w-24" />
-            </div>
-          </div>
+        <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b">
+          <DetailTitleSkeleton showId />
+          <DetailHeaderSkeleton mode="resume" />
         </header>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem] xl:gap-x-6">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-x-10 2xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0 flex flex-col gap-8">
             <section className="space-y-4">
               <div className="flex min-h-10 flex-wrap items-center justify-between gap-3">
@@ -162,7 +133,7 @@ function RecruiterResumeDetailHeaderOverride({
     () => (
       <div className="flex min-w-0 items-center gap-2">
         <Button
-          className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
+          className="-ml-1 shrink-0 px-2 text-muted-foreground hover:text-foreground"
           onClick={onBack}
           size="sm"
           type="button"
@@ -183,28 +154,28 @@ function RecruiterResumeDetailHeaderOverride({
 function RecruiterResumeDetailHeaderText({
   avatarLabel,
   avatarSeed,
-  avatarValue,
+  avatarVersion,
   description,
   recordId,
   title,
 }: {
   avatarLabel: string;
   avatarSeed: string;
-  avatarValue: string;
+  avatarVersion: string | null;
   description: ReactNode;
   recordId: string;
   title: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <Avatar
-        className="size-14 shrink-0"
-        generatedSize={56}
-        label={`${avatarLabel}的头像`}
+      <CandidateAvatar
+        className="size-14"
+        label={avatarLabel}
+        recordId={recordId}
         seed={avatarSeed}
-      >
-        <AvatarFallback>{avatarValue}</AvatarFallback>
-      </Avatar>
+        source="resumes"
+        version={avatarVersion}
+      />
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-baseline gap-2">
           <h1 className="font-semibold text-2xl tracking-normal">{title}</h1>
@@ -266,7 +237,7 @@ export function RecruiterResumeDetailPage({
   }, [documentTitle]);
 
   const invalidateAll = () => {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void invalidateStudioResumeListQueries(queryClient, slug);
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
     void router.invalidate();
@@ -355,13 +326,13 @@ export function RecruiterResumeDetailPage({
           shell={({ body, description, headerExtra, title }) => (
             <div className="flex min-w-0 flex-col gap-3">
               <RecruiterResumeDetailHeaderOverride backLabel={backLabel} onBack={onBack} />
-              <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
+              <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b">
                 <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <RecruiterResumeDetailHeaderText
                       avatarLabel={avatarIdentity.label}
                       avatarSeed={avatarIdentity.seed}
-                      avatarValue={avatarIdentity.value}
+                      avatarVersion={detail?.candidateAvatarVersion ?? null}
                       description={description}
                       recordId={recordId}
                       title={title}

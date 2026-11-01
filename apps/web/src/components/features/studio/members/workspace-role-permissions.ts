@@ -6,7 +6,7 @@ import {
 import { z } from "zod";
 
 export type PermissionResource = keyof typeof statement;
-export type PermissionAction<R extends PermissionResource = PermissionResource> =
+type PermissionAction<R extends PermissionResource = PermissionResource> =
   (typeof statement)[R][number];
 export type PermissionRecord = Record<string, string[]>;
 
@@ -26,14 +26,17 @@ interface DynamicWorkspaceRoleOrderKey {
 export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set([
   "owner",
   "admin",
+  "recruitingSupervisor",
+  "recruitingsupervisor",
   "member",
+  "interviewer",
   "noAccess",
   "noaccess",
 ]);
 export const ROLE_ASSIGNED_TO_MEMBERS_MESSAGE =
   "该角色下仍有成员，不能删除。请先将这些成员调整到其他角色。";
 
-export const WORKSPACE_PERMISSION_GROUPS = [
+const WORKSPACE_PERMISSION_GROUPS = [
   {
     description: "控制左侧导航页面是否可见。",
     resources: [
@@ -69,6 +72,11 @@ export const WORKSPACE_PERMISSION_GROUPS = [
   {
     description: "招聘主流程和候选人资料。",
     resources: [
+      {
+        actions: ["create", "read", "decide", "manage"] as const,
+        key: "offerApproval",
+        label: "Offer 审批",
+      },
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "resumeLibrary",
@@ -113,7 +121,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
     title: "招聘流程",
   },
   {
-    description: "组织结构、AI面试官和题库配置。",
+    description: "组织结构、面试官 Agent 和题库配置。",
     resources: [
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -123,7 +131,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "interviewer",
-        label: "AI面试官",
+        label: "面试官 Agent",
       },
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -156,11 +164,6 @@ export const WORKSPACE_PERMISSION_GROUPS = [
         key: "resumeEmailIngest",
         label: "简历邮箱采集",
       },
-      {
-        actions: ["create", "read", "update", "delete", "manage"] as const,
-        key: "mailIngestAccount",
-        label: "邮箱监听",
-      },
     ],
     title: "系统能力",
   },
@@ -174,7 +177,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
   }[];
 }[];
 
-export const PERMISSION_ACTION_LABELS = {
+const PERMISSION_ACTION_LABELS = {
   ...STUDIO_PAGE_PERMISSION_LABELS,
   cancel: "取消",
   create: "新增",
@@ -192,28 +195,28 @@ const PERMISSION_ITEM_ACTION_LABELS = {
 } satisfies PermissionActionLabels;
 
 const PAGE_PERMISSION_DESCRIPTIONS = {
-  dashboard: "控制是否能在侧边栏看到并访问「数据看板」页面；未勾选时直接访问会进入 404。",
-  departments:
-    "控制是否能在侧边栏看到并访问「部门管理」页面；页面内部门列表、详情和增删改仍受「部门」相关权限控制。",
-  forms:
-    "控制是否能在侧边栏看到并访问「表单题」页面；页面内列表、AI 生成、版本和增删改仍受「表单题」相关权限控制。",
+  calendar:
+    "控制是否能访问「面试管理」的列表视图和日历视图；只显示可见范围内的面试，以及分派给本人的面试轮次。",
+  dashboard: "控制是否能访问「招聘台账」中的「数据看板」标签；未勾选时隐藏该标签。",
   globalConfig:
     "控制是否能在侧边栏看到并访问「上下文设置」页面；读取和保存上下文配置仍受「上下文设置」查看/编辑权限控制。",
-  interviewQuestions:
-    "控制是否能在侧边栏看到并访问「沟通题」页面；题库列表、版本和增删改仍受「沟通题」相关权限控制。",
   interviewers:
-    "控制是否能在侧边栏看到并访问「AI面试官管理」页面；AI面试官列表、详情和增删改仍受「AI面试官」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「面试官 Agent 管理」页面；面试官 Agent 列表、详情和增删改仍受「面试官 Agent」相关权限控制。",
   interviews:
-    "控制是否能在侧边栏看到并访问「AI 面试」页面；列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制。",
+    "控制是否能访问「面试管理」的表格视图；AI 面试的列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制，真人面试记录需要「真人面试」查看权限。",
   jobDescriptions:
-    "控制是否能在侧边栏看到并访问「岗位设置」页面；岗位列表、详情和增删改仍受「在招岗位」相关权限控制，推荐候选人还需要「招聘台」查看权限。",
-  mailIngestAccounts:
-    "控制是否能在侧边栏看到并访问「邮箱监听」页面；邮箱解析入库到人才库的后续查看/导入仍受「招聘台」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「岗位设置」页面（含左侧部门栏）；岗位列表、详情和增删改仍受「在招岗位」相关权限控制，部门增删改受「部门」相关权限控制，推荐候选人还需要「招聘台」查看权限。",
   me: "控制是否能访问「个人中心」页面；页面里的工作区成员资料调整仍受「成员管理」相关权限控制。",
   members:
-    "控制是否能在侧边栏看到并访问「工作区管理」页面；成员角色、招聘组、邀请链接和工作区设置仍分别受成员、邀请和工作区设置权限控制。",
+    "控制是否能在侧边栏看到并访问「工作区管理」页面；成员角色、邀请链接和工作区设置仍分别受成员、邀请和工作区设置权限控制。",
+  offerApprovalTemplates:
+    "控制是否能在侧边栏看到并访问「审批流配置」页面；新建、编辑和设为默认仍需要「Offer 审批 · 管理」权限。",
   permissions:
     "控制是否能在侧边栏看到并访问「权限管理」页面；实际修改角色权限仅工作区拥有者和管理员可执行。",
+  questionBank:
+    "控制是否能在侧边栏看到并访问「面试题配置」页面（含表单题、沟通题两个标签）；列表、AI 生成、版本和增删改仍分别受「表单题」「沟通题」相关权限控制。",
+  recruitingLedger:
+    "控制是否能访问「招聘台账」中的 HR 统计、候选人明细和按岗位汇总；数据看板由独立的页面权限控制。",
   resumePool:
     "控制是否能在侧边栏看到并访问「人才库」页面；未勾选时直接访问会进入 404。页面内数据接口仍受「人才库」业务权限控制。",
   resumes:
@@ -225,7 +228,7 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     read: "允许查看工作区审计日志。当前主要作为系统能力预留，具体入口会按该权限控制。",
   },
   candidateForm: {
-    create: "允许在「表单题」页面创建表单题。",
+    create: "允许在「面试题配置」的表单题中创建表单题。",
     delete: "允许删除表单题。",
     read: "允许加载「表单题」列表、详情、版本详情，以及表单 AI 生成所需的读取接口。",
     update: "允许编辑、归档/恢复表单题，并使用表单 AI 生成或更新表单内容。",
@@ -237,9 +240,9 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     update: "允许更新聊天助手相关数据；当前权限矩阵预留给聊天会话编辑能力。",
   },
   department: {
-    create: "允许在「部门管理」页面新增部门。",
+    create: "允许在「岗位设置」页的部门栏，以及岗位、面试官 Agent 表单中新增部门。",
     delete: "允许删除部门。",
-    read: "允许加载「部门管理」页面的部门列表、全部部门选项和部门详情。",
+    read: "允许加载部门列表、全部部门选项和部门详情。",
     update: "允许编辑部门名称、描述等资料。",
   },
   globalConfig: {
@@ -259,10 +262,10 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     update: "允许编辑 AI 面试、轮次、题目绑定、邮件、重置、面试结果、人面安排和 offer 草稿等操作。",
   },
   interviewer: {
-    create: "允许在「AI面试官管理」页面新增 AI面试官。",
-    delete: "允许删除 AI面试官。",
-    read: "允许加载 AI面试官列表、全部 AI面试官选项和详情；相关选择器也依赖该权限。",
-    update: "允许编辑 AI面试官资料和可用性等配置。",
+    create: "允许在「面试官 Agent 管理」页面新增面试官 Agent。",
+    delete: "允许删除面试官 Agent。",
+    read: "允许加载面试官 Agent 列表、全部面试官 Agent 选项和详情；相关选择器也依赖该权限。",
+    update: "允许编辑面试官 Agent 资料和可用性等配置。",
   },
   invitation: {
     cancel: "允许取消尚未接受的成员邀请。",
@@ -274,19 +277,10 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     read: "允许加载岗位列表、全部岗位选项、岗位详情、岗位编码生成和推荐链接；推荐候选人接口还同时需要「招聘台」查看权限。",
     update: "允许编辑岗位描述、招聘要求、关联配置和发布状态。",
   },
-  mailIngestAccount: {
-    create: "允许在「邮箱监听」页面新增监听邮箱账号。",
-    delete: "允许删除监听邮箱账号。",
-    manage:
-      "允许查看和管理工作区内所有成员的监听邮箱账号；没有该权限时只能按接口限制访问自己的账号。",
-    read: "允许加载邮箱监听账号列表和详情。",
-    update: "允许编辑监听邮箱账号配置。",
-  },
   member: {
     create: "允许新增工作区成员，或处理会创建成员的加入流程。",
     delete: "允许从工作区移除成员。",
-    update:
-      "允许调整成员角色，并管理招聘组、组成员、组内角色和成员所属组；实际可调整范围仍受服务端角色规则限制。",
+    update: "允许调整成员角色；实际可调整范围仍受服务端角色规则限制。",
   },
   offer: {
     create: "允许将候选人推进到 Offer，并创建 Offer 草稿。",
@@ -298,7 +292,7 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     update: "允许修改工作区基础设置，例如工作区名称；不包含成员、角色和邀请管理。",
   },
   questionTemplate: {
-    create: "允许在「沟通题」页面新增沟通题。",
+    create: "允许在「面试题配置」的沟通题中新增沟通题。",
     delete: "允许删除沟通题。",
     read: "允许加载沟通题列表、全部模板选项、模板详情、版本详情和沟通题相关选择器。",
     update: "允许编辑、归档/恢复沟通题和模板版本内容。",
@@ -549,7 +543,7 @@ export function normalizeDynamicRoleName(value: string): string {
     .replaceAll(/^-+|-+$/gu, "");
 }
 
-export function getPermissionActions(
+function getPermissionActions(
   permission: PermissionRecord | null | undefined,
   resource: PermissionResource,
 ): string[] {

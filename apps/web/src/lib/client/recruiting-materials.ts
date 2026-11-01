@@ -1,3 +1,4 @@
+import type { RecruitingMaterialMetadata } from "@app/shared/recruiting-materials";
 import { apiFetch, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
@@ -23,11 +24,35 @@ export function deleteRecruitingMaterial(slug: string, candidateId: string, mate
   );
 }
 
-export function uploadRecruitingMaterial(slug: string, candidateId: string, file: File) {
+export function uploadRecruitingMaterial(
+  slug: string,
+  candidateId: string,
+  file: File,
+  metadata: RecruitingMaterialMetadata,
+) {
   const body = new FormData();
   body.append("file", file);
+  if (metadata.incomeType) {
+    body.append("incomeType", metadata.incomeType);
+  }
+  body.append("notes", metadata.notes);
   return apiFetch(
     `/api/w/${encodeURIComponent(slug)}/studio/interviews/${encodeURIComponent(candidateId)}/materials`,
     { body, method: "POST" },
+  );
+}
+
+export function updateRecruitingMaterial(
+  slug: string,
+  candidateId: string,
+  materialId: string,
+  metadata: RecruitingMaterialMetadata,
+) {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.interviews[":id"].materials[":materialId"].$patch({
+      json: metadata,
+      param: { id: candidateId, materialId, slug },
+    }),
+    "保存附件信息失败",
   );
 }

@@ -45,7 +45,7 @@ function toFieldErrors(errors: unknown[] | undefined): FieldErrorLike[] | undefi
 }
 
 // oxlint-disable no-explicit-any -- TanStack Form has 11 validator generics after TFormData; only the values type matters here.
-export type CandidateFormApi = ReactFormExtendedApi<
+type CandidateFormApi = ReactFormExtendedApi<
   ResumeLibraryFormValues,
   any,
   any,

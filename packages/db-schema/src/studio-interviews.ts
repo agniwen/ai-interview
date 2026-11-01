@@ -91,6 +91,7 @@ export {
   recruitingNodeResultMeta,
   recruitingCloseReasonValues,
   recruitingCloseReasonSchema,
+  recruitingCloseReasonMeta,
   normalizeLegacyPipelineStage,
 } from "./recruiting-contracts";
 export type { LegacyPipelineStage, PipelineStage } from "./recruiting-contracts";
@@ -204,13 +205,13 @@ export type HumanInterviewerAssignmentStatus = z.infer<
 export const humanInterviewRoundOutcomeValues = ["pass", "fail", "inconclusive"] as const;
 export const humanInterviewRoundOutcomeSchema = z.enum(humanInterviewRoundOutcomeValues);
 export type HumanInterviewRoundOutcome = z.infer<typeof humanInterviewRoundOutcomeSchema>;
-// Drafts and historical records may be inconclusive; final decisions cannot be.
+// Keep the legacy resolution request schema for compatibility; submitted outcomes are immutable.
 export const humanInterviewFinalOutcomeSchema = z.enum(["pass", "fail"]);
 export type HumanInterviewFinalOutcome = z.infer<typeof humanInterviewFinalOutcomeSchema>;
 
 export const humanInterviewRoundOutcomeMeta = {
   fail: { label: "未通过", tone: "outline" },
-  inconclusive: { label: "待定", tone: "info" },
+  inconclusive: { label: "待定", tone: "warning" },
   pass: { label: "通过", tone: "success" },
 } as const satisfies Record<
   HumanInterviewRoundOutcome,
@@ -303,7 +304,7 @@ export type HumanInterviewMeetingInterviewerRole = z.infer<
   typeof humanInterviewMeetingInterviewerRoleSchema
 >;
 
-export const humanInterviewEvaluationRatingValues = ["S", "A", "B", "C"] as const;
+export const humanInterviewEvaluationRatingValues = ["A", "B", "C", "D"] as const;
 export const humanInterviewEvaluationRatingSchema = z.enum(humanInterviewEvaluationRatingValues);
 export type HumanInterviewEvaluationRating = z.infer<typeof humanInterviewEvaluationRatingSchema>;
 
@@ -338,13 +339,22 @@ export const humanInterviewRecordingStatusValues = [
 export const humanInterviewRecordingStatusSchema = z.enum(humanInterviewRecordingStatusValues);
 export type HumanInterviewRecordingStatus = z.infer<typeof humanInterviewRecordingStatusSchema>;
 
-const humanInterviewEvaluationTextSchema = z.string().trim().max(20_000);
+export const HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH = 500;
+export const HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH = 3000;
+const humanInterviewEvaluationTextSchema = z
+  .string()
+  .trim()
+  .max(HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH);
+const humanInterviewEvaluationLongTextSchema = z
+  .string()
+  .trim()
+  .max(HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH);
 
 export const humanInterviewEvaluationSchema = z
   .object({
-    detailedAnalysis: humanInterviewEvaluationTextSchema,
+    detailedAnalysis: humanInterviewEvaluationLongTextSchema,
     evidenceTurnIds: z.array(z.string().trim().min(1)).max(500),
-    overallEvaluation: humanInterviewEvaluationTextSchema,
+    overallEvaluation: humanInterviewEvaluationLongTextSchema,
     professionalSkill: humanInterviewEvaluationTextSchema,
     rating: humanInterviewEvaluationRatingSchema,
     risks: humanInterviewEvaluationTextSchema,
@@ -356,16 +366,24 @@ export const humanInterviewEvaluationSchema = z
   .strict();
 export type HumanInterviewEvaluation = z.infer<typeof humanInterviewEvaluationSchema>;
 
-// Drafts may omit a judgment; generated and submitted evaluations still require a rating.
+// AI drafts may abstain when evidence is insufficient; submission still requires a rating.
+export const humanInterviewGeneratedEvaluationSchema = humanInterviewEvaluationSchema.extend({
+  rating: humanInterviewEvaluationRatingSchema.nullable(),
+});
+export type HumanInterviewGeneratedEvaluation = z.infer<
+  typeof humanInterviewGeneratedEvaluationSchema
+>;
+
+// Human drafts may also omit a judgment.
 export const humanInterviewEvaluationDraftSchema = humanInterviewEvaluationSchema.extend({
   // Stored only in the draft JSON; never writes the round's official outcome.
-  draftOutcome: humanInterviewFinalOutcomeSchema.nullable().optional(),
+  draftOutcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
   rating: humanInterviewEvaluationRatingSchema.nullable(),
 });
 export type HumanInterviewEvaluationDraft = z.infer<typeof humanInterviewEvaluationDraftSchema>;
 
 export const humanInterviewEvaluationSubmissionSchema = humanInterviewEvaluationSchema.extend({
-  overallEvaluation: humanInterviewEvaluationTextSchema.min(1),
+  overallEvaluation: humanInterviewEvaluationLongTextSchema,
 });
 
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
@@ -487,6 +505,8 @@ export const candidateExpectationsMetaSchema = z.object({
   earliestJoiningDate: z.string().trim().nullable().optional(),
   expectedSalary: z.number().int().min(0).nullable().optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
+  overseasSalary: z.number().int().positive().nullable().optional(),
+  probationSalary: z.number().int().positive().nullable().optional(),
 });
 export type CandidateExpectationsMeta = z.infer<typeof candidateExpectationsMetaSchema>;
 

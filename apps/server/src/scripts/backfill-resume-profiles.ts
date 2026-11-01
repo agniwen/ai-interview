@@ -1,5 +1,5 @@
-import { lockRecruitingRecord, updateRecruitingRecords } from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { lockRecruitingRecord, updateRecruitingRecords } from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { pathToFileURL } from "node:url";
 import { and, asc, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -7,8 +7,8 @@ import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { AttachmentTextSource } from "@app/db-schema/db-enums";
 import type { JsonValue } from "@app/db-schema/json";
 import { chatAttachment, resumePoolItem } from "@app/db-schema/schema";
-import type { Database } from "../lib/server/db/index";
-import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import type { Database } from "../infrastructure/db/index";
+import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { loadStandaloneEnv } from "../standalone/env";
 
 type BackfillTarget = "all" | "pool" | "private";
@@ -297,7 +297,7 @@ async function extractEducationForRecord(
   }
 
   const [{ extractResumeDocumentText }, { getObjectBytes }] = await Promise.all([
-    import("../lib/server/resume-parse-pipeline"),
+    import("@app/resume-processing/ingest/support/resume-parse-pipeline"),
     import("@app/object-storage"),
   ]);
   const object = await getObjectBytes(record.storageKey);
@@ -414,7 +414,7 @@ async function writeBackfillResult(
 
 async function backfillResumeProfiles(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("../lib/server/db/index");
+  const { closeDatabase, db } = await import("../infrastructure/db/index");
   const target = parseBackfillTarget(process.env.BACKFILL_RESUME_PROFILE_TARGET);
   const concurrency = parseBackfillConcurrency(process.env.BACKFILL_RESUME_PROFILE_CONCURRENCY);
   const limit = parseOptionalPositiveInteger(

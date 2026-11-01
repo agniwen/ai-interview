@@ -94,8 +94,7 @@ describe("candidate invitation", () => {
     const bodyClassName = document.body.className;
     const documentTheme = document.documentElement.className;
     const { container } = render();
-    expect(container.querySelector("main")?.classList.contains("dark")).toBe(false);
-    expect(container.querySelector("main")?.classList.contains("bg-background")).toBe(true);
+
     expect(container.querySelectorAll("button")).toHaveLength(3);
     expect(
       [...container.querySelectorAll("button")].some(

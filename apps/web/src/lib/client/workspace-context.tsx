@@ -16,8 +16,6 @@ import {
 } from "@/lib/client/workspace-access-query";
 import type { WorkspaceAccessSnapshot } from "@/lib/client/workspace-access-query";
 
-export { WORKSPACE_PERMISSION_REFRESH_INTERVAL_MS, workspaceAccessKeys };
-
 type WorkspaceContextValue = WorkspaceAccessSnapshot;
 
 const Ctx = createContext<WorkspaceContextValue | null>(null);
@@ -96,16 +94,6 @@ export function useWorkspaceMemberRole(): string {
   return workspace.memberRole;
 }
 
-export function useWorkspacePermissions(): WorkspacePermissionStatements {
-  const workspace = useContext(Ctx);
-  if (!workspace) {
-    throw new Error(
-      "useWorkspacePermissions must be used within a workspace route (under /w/[slug]/...)",
-    );
-  }
-  return workspace.permissions;
-}
-
 /**
  * Soft variant：返回 string | null。允许组件同时承担 workspace 内与无 workspace 的
  * 公开访问入口（例如 /r/[roundId]）。
@@ -117,15 +105,7 @@ export function useOptionalWorkspaceSlug(): string | null {
   return useContext(Ctx)?.slug ?? null;
 }
 
-export function useOptionalWorkspaceId(): string | null {
-  return useContext(Ctx)?.id ?? null;
-}
-
-export function useOptionalWorkspaceMemberRole(): string | null {
-  return useContext(Ctx)?.memberRole ?? null;
-}
-
-export function useOptionalWorkspacePermissions(): WorkspacePermissionStatements | null {
+function useOptionalWorkspacePermissions(): WorkspacePermissionStatements | null {
   return useContext(Ctx)?.permissions ?? null;
 }
 

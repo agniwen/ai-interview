@@ -19,8 +19,8 @@ import type {
 } from "@app/shared/studio-dashboard";
 import { cn } from "@app/shared/utils";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
-import { PageHeader } from "@/components/features/studio/page-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardActivityCard } from "./dashboard-activity-card";
@@ -106,9 +106,7 @@ function FunnelCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
               累计到达人数；右侧为本环节人数 ÷ 上一环节人数
             </p>
           </div>
-          <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground text-xs">
-            不含已归档
-          </span>
+          <Badge>不含已归档</Badge>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-5">
@@ -395,21 +393,18 @@ export function RecruitingDashboardPage({
   const [definitionsOpen, setDefinitionsOpen] = useState(false);
   const vacancyMetric = getVacancyMetric(metrics.summary);
   return (
-    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-4 md:gap-6">
-      <PageHeader
-        actionRender={
-          <Button onClick={() => setDefinitionsOpen(true)} size="sm" variant="outline">
-            <IconInfoCircle />
-            指标说明
-          </Button>
-        }
-        title="数据看板"
-      />
-      <div className="-mt-3 text-muted-foreground text-sm">整体招聘进展与风险预警</div>
+    <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-muted-foreground text-sm">整体招聘进展与风险预警</p>
+        <Button onClick={() => setDefinitionsOpen(true)} size="sm" variant="outline">
+          <IconInfoCircle />
+          指标说明
+        </Button>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           accent={DASHBOARD_COLORS.resumes.accent}
-          description="已发布"
+          description="招聘中"
           icon={IconBriefcase}
           label="在招岗位"
           slug={slug}

@@ -16,12 +16,15 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
   QualitativeEvaluationDetails,
-  QualitativeRecommendationIndicator,
+  QualitativeRecommendationBadge,
 } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
+import { cn } from "@app/shared/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { fetchResumePoolItem } from "@/lib/client/api";
+import { RESUME_EMAIL_INGEST_SECTION_ID } from "@/components/features/studio/profile/profile-anchors";
+import { useWorkspaceCan } from "@/lib/client/workspace-context";
 import type { ResumePoolDetailDialogContentProps } from "./resume-pool-detail-dialog-shell";
 
 import {
@@ -101,25 +104,17 @@ export function useRecordOwnedOpenState(recordId: string) {
   ] as const;
 }
 
-export function ResumePoolDetailSummaryPanel({
+function ResumePoolCandidateSummary({
   detail,
   isError,
   isLoading,
   onOpenDuplicateMatches,
-  onRequestRecommendations,
-  resumeProfile,
-  slug,
 }: {
   detail: ResumePoolDetailLike;
   isError: boolean;
   isLoading: boolean;
   onOpenDuplicateMatches?: () => void;
-  onRequestRecommendations?: () => void;
-  resumeProfile: ResumePoolProfile;
-  slug: string;
 }) {
-  const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
-  const strengths = resumeProfile?.personalStrengths.slice(0, 3) ?? [];
   const note = detail.notes?.trim();
   const qualitativeSummary = detail.qualitativeResumeSummary?.trim();
   let summaryContent: ReactNode = (
@@ -130,7 +125,7 @@ export function ResumePoolDetailSummaryPanel({
   } else if (detail.qualitativeRecommendationLevel && qualitativeSummary) {
     summaryContent = (
       <div className="mt-2 flex flex-col gap-2">
-        <QualitativeRecommendationIndicator level={detail.qualitativeRecommendationLevel} />
+        <QualitativeRecommendationBadge level={detail.qualitativeRecommendationLevel} size="sm" />
         <p className="text-muted-foreground text-sm leading-6">{qualitativeSummary}</p>
       </div>
     );
@@ -139,24 +134,58 @@ export function ResumePoolDetailSummaryPanel({
   }
 
   return (
-    <section className="space-y-6 rounded-2xl">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-sm">候选人摘要</h3>
-            {resumeParseStatusBadge(detail)}
-            {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
-            {resumeRecruitingStatusBadge(detail)}
-          </div>
-          {summaryContent}
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-medium text-sm">候选人摘要</h3>
+          {resumeParseStatusBadge(detail)}
+          {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
+          {resumeRecruitingStatusBadge(detail)}
         </div>
-        {isLoading ? (
-          <span className="inline-flex shrink-0 items-center gap-2 text-muted-foreground text-xs">
-            <IconLoader2 className="size-3.5 animate-spin" />
-            正在加载完整详情
-          </span>
-        ) : null}
+        {summaryContent}
       </div>
+      {isLoading ? (
+        <span className="inline-flex shrink-0 items-center gap-2 text-muted-foreground text-xs">
+          <IconLoader2 className="size-3.5 animate-spin" />
+          正在加载完整详情
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export function ResumePoolDetailSummaryPanel({
+  detail,
+  isError,
+  isLoading,
+  onOpenDuplicateMatches,
+  onRequestRecommendations,
+  resumeProfile,
+  showCandidateSummary = true,
+  slug,
+}: {
+  detail: ResumePoolDetailLike;
+  isError: boolean;
+  isLoading: boolean;
+  onOpenDuplicateMatches?: () => void;
+  onRequestRecommendations?: () => void;
+  resumeProfile: ResumePoolProfile;
+  /** 详情页已在上方展示完整 AI 评价，不再重复候选人摘要。 */
+  showCandidateSummary?: boolean;
+  slug: string;
+}) {
+  const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
+  const strengths = resumeProfile?.personalStrengths.slice(0, 3) ?? [];
+  return (
+    <section className="space-y-6 rounded-2xl">
+      {showCandidateSummary ? (
+        <ResumePoolCandidateSummary
+          detail={detail}
+          isError={isError}
+          isLoading={isLoading}
+          onOpenDuplicateMatches={onOpenDuplicateMatches}
+        />
+      ) : null}
 
       <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
@@ -266,9 +295,110 @@ export function ResumePoolDetailSummaryPanel({
   );
 }
 
-export function ResumePoolQualitativeEvaluationPanel({ detail }: { detail: ResumePoolDetail }) {
+const EVALUATION_PLACEHOLDER_SECTIONS = [
+  { kind: "matching", label: "匹配依据" },
+  { kind: "risk", label: "风险与待确认项" },
+] as const;
+const EVALUATION_PLACEHOLDER_ROWS = [
+  ["w-12", "w-full", "w-2/3"],
+  ["w-16", "w-11/12", "w-1/2"],
+  ["w-14", "w-5/6", "w-3/5"],
+] as const;
+
+/** 未绑定岗位时没有岗位相关评估：说明原因与获得方式，下方用淡化的空行示意评估版式。 */
+function ResumePoolEvaluationPlaceholder({
+  onRequestRecommendations,
+  slug,
+}: {
+  onRequestRecommendations?: () => void;
+  slug: string;
+}) {
+  const canOpenProfile = useWorkspaceCan("page", "me");
+  const canManageMailIngest = useWorkspaceCan("resumeEmailIngest", "read") && canOpenProfile;
+  return (
+    <section className="flex flex-col gap-5" data-resume-pool-evaluation-placeholder>
+      <div className="flex flex-col gap-2">
+        <h3 className="font-medium text-sm">综合评价</h3>
+        <p className="max-w-2xl text-muted-foreground text-sm leading-6">
+          这份简历还没有绑定岗位，暂时无法评价。绑定岗位后会对照 JD
+          给出匹配依据和风险；接入简历邮箱后，收到的简历会自动匹配岗位。
+        </p>
+        {canManageMailIngest || onRequestRecommendations ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            {onRequestRecommendations ? (
+              <Button
+                className="h-auto px-0"
+                onClick={onRequestRecommendations}
+                size="sm"
+                variant="link"
+              >
+                推荐岗位
+              </Button>
+            ) : null}
+            {canManageMailIngest ? (
+              <Button
+                className="h-auto px-0"
+                nativeButton={false}
+                render={
+                  <Link
+                    params={{ slug }}
+                    hash={RESUME_EMAIL_INGEST_SECTION_ID}
+                    to="/w/$slug/studio/me"
+                  />
+                }
+                size="sm"
+                variant="link"
+              >
+                接入简历邮箱
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div
+        aria-hidden="true"
+        className="grid gap-x-12 gap-y-6 border-border/50 border-t pt-6 opacity-60 [mask-image:linear-gradient(to_bottom,#000_40%,transparent)] lg:grid-cols-2"
+      >
+        {EVALUATION_PLACEHOLDER_SECTIONS.map((section, index) => (
+          <div
+            className={cn("min-w-0", index > 0 && "lg:border-border/50 lg:border-l lg:pl-8")}
+            key={section.kind}
+          >
+            <p className="mb-4 text-muted-foreground text-xs">{section.label}</p>
+            <ul className="flex flex-col gap-4">
+              {EVALUATION_PLACEHOLDER_ROWS.map(([badge, first, second]) => (
+                <li className="flex items-start gap-3" key={`${badge}-${first}`}>
+                  <span className={cn("h-5 shrink-0 rounded-md bg-muted", badge)} />
+                  <span className="flex flex-1 flex-col gap-2 pt-1">
+                    <span className={cn("h-2.5 rounded-sm bg-muted", first)} />
+                    <span className={cn("h-2.5 rounded-sm bg-muted", second)} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function ResumePoolQualitativeEvaluationPanel({
+  detail,
+  onRequestRecommendations,
+  slug,
+}: {
+  detail: ResumePoolDetail;
+  onRequestRecommendations?: () => void;
+  slug: string;
+}) {
   if (!detail.qualitativeResumeEvaluation) {
-    return null;
+    return detail.jobDescriptionId ? null : (
+      <ResumePoolEvaluationPlaceholder
+        onRequestRecommendations={onRequestRecommendations}
+        slug={slug}
+      />
+    );
   }
   return (
     <section data-resume-pool-qualitative-evaluation>
@@ -419,7 +549,13 @@ export function ResumePoolDetailDialogContent({
       {detail ? (
         <div className="space-y-8">
           {detailQuery.data ? (
-            <ResumePoolQualitativeEvaluationPanel detail={detailQuery.data} />
+            <ResumePoolQualitativeEvaluationPanel
+              detail={detailQuery.data}
+              onRequestRecommendations={
+                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
+              }
+              slug={slug}
+            />
           ) : null}
           <ResumePoolDetailSummaryPanel
             detail={detail}

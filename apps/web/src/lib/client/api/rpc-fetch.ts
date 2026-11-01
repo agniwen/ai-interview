@@ -1,7 +1,7 @@
 import type { ClientResponse } from "hono/client";
 import { DetailedError, parseResponse } from "hono/client";
 import { z } from "zod";
-import { ApiError } from "./errors";
+import { ApiError, apiErrorResponseMetadata, safeApiErrorMessage } from "./errors";
 
 // 保留 hc Promise 的具体响应联合类型，并只提取 ok 响应的 JSON body。
 // Keeping the concrete response union on the Promise avoids Hono's large status-filter
@@ -57,12 +57,17 @@ export async function rpcFetch<T extends RpcCall>(
   errorFallback: string,
   options?: { allow404?: boolean },
 ): Promise<RpcResult<T> | null> {
+  let response: Awaited<T> | undefined;
   try {
+    response = await promise;
     // SAFETY: rpcFetch accepts JSON hc calls only; RpcResult selects the same ok response
     // body that parseResponse returns and excludes non-ok branches handled below.
-    return (await parseResponse(promise)) as RpcResult<T>;
+    return (await parseResponse(Promise.resolve(response))) as RpcResult<T>;
   } catch (error) {
     if (!(error instanceof DetailedError)) {
+      if (!response && error instanceof TypeError) {
+        throw new ApiError("网络请求失败，请稍后重试。", { cause: error, status: 0 });
+      }
       throw error;
     }
     if (options?.allow404 && error.statusCode === 404) {
@@ -71,9 +76,11 @@ export async function rpcFetch<T extends RpcCall>(
     const parsedDetail = detailedErrorSchema.safeParse(error.detail);
     const data = parsedDetail.success ? (parsedDetail.data.data ?? null) : null;
     const serverMessage = extractRpcErrorMessage(data);
-    throw new ApiError(serverMessage ?? errorFallback, {
+    throw new ApiError(safeApiErrorMessage(serverMessage, error.statusCode ?? 0, errorFallback), {
       cause: error,
       payload: data,
+      requestId: response ? apiErrorResponseMetadata(response).requestId : null,
+      retryAfterMs: response ? apiErrorResponseMetadata(response).retryAfterMs : null,
       status: error.statusCode ?? 0,
     });
   }

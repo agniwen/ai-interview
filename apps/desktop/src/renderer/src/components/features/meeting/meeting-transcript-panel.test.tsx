@@ -7,7 +7,6 @@ import {
   canCorrectMeetingTranscript,
   isTranscriptCorrectionConflict,
   MeetingTranscriptStage,
-  MeetingTranscriptStageTurns,
   MeetingTranscriptPanel,
   MeetingTranscriptView,
   splitTranscriptTurn,
@@ -250,24 +249,6 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("说话人1");
     expect(html).toContain("说话人2");
     expect(html).not.toContain("待确认");
-  });
-
-  it("matches the live transcript spacing without hover treatment on the completed page", () => {
-    const html = renderToStaticMarkup(
-      <MeetingTranscriptStageTurns turns={readyTranscript.revision?.turns ?? []} />,
-    );
-
-    expect(html).toContain('class="grid select-text"');
-    expect(html).toContain("cursor-text");
-    expect(html).toContain("说话人1");
-    expect(html).toContain("说话人2");
-    expect(html.match(/data-meeting-speaker-avatar=/g)).toHaveLength(2);
-    expect(html).not.toContain("hover:bg-foreground/4");
-    expect(html).toContain("rounded-sm");
-    expect(html).toContain("px-px");
-    expect(html).toContain("py-1");
-    expect(html).not.toMatch(/(?:^|\s)p-1(?:\s|$)/);
-    expect(html).not.toContain("gap-3");
   });
 
   it("distinguishes human display names from stable speaker keys", () => {

@@ -6,7 +6,7 @@
 import type { CandidateFormTemplateSnapshot } from "@app/db-schema/candidate-forms";
 import { buildCandidateFormAnswersSchema } from "@app/db-schema/candidate-forms";
 import { z } from "zod";
-import type { AnswerMap, FieldErrorMap } from "./types";
+import type { AnswerMap, FieldErrorMap, FormsPayload } from "./types";
 
 /**
  * 根据题目类型预填初始答案：单选 / 文本 → 空串，多选 → 空数组。
@@ -24,7 +24,7 @@ export function buildInitialAnswers(snapshot: CandidateFormTemplateSnapshot): An
  * 把 Zod 抛出的"硬错误信息"转成候选人能看懂的提示。
  * Translate raw zod error messages into candidate-friendly hints.
  */
-export function friendlyMessage(raw: string): string {
+function friendlyMessage(raw: string): string {
   // Surface the most common required-field complaints in candidate-friendly
   // wording; unknown messages fall through unchanged.
   // 把最常见的必填校验文案换成候选人友好版本，未识别的原文透传。
@@ -74,4 +74,12 @@ export function validateAnswers(
     errors[questionId.data] = friendlyMessage(issue.message);
   }
   return errors;
+}
+
+/**
+ * 仍有未提交的必填表单时，候选人需先填写再开始面试。
+ * Whether any required form is still unsubmitted, which blocks starting the interview.
+ */
+export function hasPendingPreInterviewForms(payload: FormsPayload): boolean {
+  return payload.required.some((template) => !payload.submitted[template.templateId]);
 }

@@ -74,6 +74,17 @@ type ChipSegment = "operator" | "value" | "menu";
  *  can spread onto any element without a cast, and a no-op here. */
 const noopAutoFocusRef: React.RefCallback<HTMLElement> = () => {};
 
+// `has_all_of`、`gte` / `lte` 由字段文案说明（如“已选 2 个技能（同时具备）”、“起始日期”）。
+// / `has_all_of`, `gte` and `lte` are spelled out by the field copy (summary, "起始日期") instead.
+const IMPLICIT_OPERATOR_VALUES = new Set([
+  "contains",
+  "is",
+  "is_any_of",
+  "has_all_of",
+  "gte",
+  "lte",
+]);
+
 function defaultValueDisplay<V>(
   value: V | undefined,
   operator: FilterOperator | undefined,
@@ -833,6 +844,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
   // behind it is gated. That puts "Convert to advanced filter" out of reach
   // while locked; a consumer-composed menu still draws it.
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const valueControlId = React.useId();
   // Exactly one chip is in the tab order at a time. Before anything has been
   // focused that is the first chip, so Tab reaches the row in one press.
   const isTabStop = focused || (noFocus && index === 0);
@@ -840,6 +852,12 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
   const field = getFilterField(actions.index, rule.path);
   const operators = field ? actions.resolveOperators(field) : [];
   const operator = getFilterOperator(operators, rule.operator);
+  // 唯一的操作符（包含 / 是 / 属于任意 / 同时具备 / 不早于 / 不晚于）无可选择，不单独占一段。
+  // / A sole default operator offers no choice, so it gets no segment of its own.
+  const operatorImplicit =
+    operator !== undefined &&
+    IMPLICIT_OPERATOR_VALUES.has(operator.value) &&
+    visibleFilterOperators(operators).length <= 1;
 
   const {
     pathText,
@@ -859,6 +877,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
     // alone joined the arrow-key query with no `tabIndex` to land on.
     return (
       <ButtonGroup
+        attached
         data-slot="filter-chip"
         data-unknown=""
         role="group"
@@ -871,13 +890,13 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
           if (!focused) focusStore.set({ id: rule.id, segment: null, autoOpen: false });
         }}
       >
-        <ButtonGroupText className="bg-background dark:bg-input/30 text-muted-foreground">
+        <ButtonGroupText className="bg-control text-muted-foreground">
           {rule.path.join(actions.labels.pathSeparator)}
         </ButtonGroupText>
         <Button
           variant="outline"
           size={sizes.icon}
-          className="bg-background dark:bg-input/30"
+          className="bg-control"
           aria-label={actions.labels.remove}
           /* It had no gate at all, so the one chip whose whole purpose is to be
              removed could be removed from a bar that refuses every other edit. */
@@ -921,6 +940,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
 
   return (
     <ButtonGroup
+      attached
       data-slot="filter-chip"
       role="group"
       aria-label={actions.labels.filterLabel(
@@ -931,19 +951,26 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
       data-incomplete={incomplete || undefined}
       data-rule-id={rule.id}
       tabIndex={isTabStop ? 0 : -1}
-      className={cn("max-w-full min-w-0")}
+      className={cn(
+        "max-w-full min-w-0",
+        // 没有菜单按钮撑高度时，按控件档位给出同样的高度。
+        // / Without the kebab to set the height, match the control rung directly.
+        actions.variant === "basic" && (sizes.button === "sm" ? "h-7" : "h-8"),
+      )}
       onFocusCapture={() => {
         if (!focused) focusStore.set({ id: rule.id, segment: null, autoOpen: false });
       }}
       data-index={index}
     >
-      {/* DISPLAY ONLY: a div, not a button, not a tab stop, no popover. The
-          attribute is fixed for the life of the chip. */}
+      {/* Not a button, not a tab stop, no popover of its own: the <label> of
+          the value control, so a click on the field name focuses the inline
+          input or activates the value trigger (opening its editor). */}
       <ButtonGroupText
+        render={hasValue ? <label htmlFor={valueControlId} /> : undefined}
         /* Dropped while the path is collapsed: the ellipsis inside carries the
            same sentence as a tooltip, and the two would stack. */
         title={pathCollapsed ? undefined : pathText}
-        className="bg-background dark:bg-input/30 cursor-default gap-1.5 shrink-0"
+        className="bg-control cursor-default gap-1.5 shrink-0"
       >
         {field.icon}
         {/* Zero gap INSIDE the path, so the separator's own margin is the only
@@ -951,30 +978,32 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
         <span className="flex items-center">{pathLabel}</span>
       </ButtonGroupText>
 
-      <FilterOperatorPopover
-        rule={rule}
-        field={field}
-        trigger={
-          <ButtonGroupText
-            render={<button type="button" />}
-            className={cn(
-              "hover:bg-accent bg-background dark:bg-input/30 cursor-default shrink-0",
-              /* The operator is connective tissue between the field and the
+      {operatorImplicit ? null : (
+        <FilterOperatorPopover
+          rule={rule}
+          field={field}
+          trigger={
+            <ButtonGroupText
+              render={<button type="button" />}
+              className={cn(
+                "hover:bg-(--gray-2) dark:hover:bg-(--gray-3) bg-control cursor-default shrink-0",
+                /* The operator is connective tissue between the field and the
                  value, so it reads quieter than either - unless it is still
                  the prompt "Select condition", the one thing to act on. */
-              incomplete ? "text-foreground" : "text-muted-foreground",
-            )}
-            onPointerDown={() => focusSegment("operator")}
-          >
-            {operatorLabel}
-          </ButtonGroupText>
-        }
-      />
+                incomplete ? "text-foreground" : "text-muted-foreground",
+              )}
+              onPointerDown={() => focusSegment("operator")}
+            >
+              {operatorLabel}
+            </ButtonGroupText>
+          }
+        />
+      )}
 
       {/* No condition, no value: `getFilterArity(undefined)` defaults to "one",
           so testing the operator alone renders a stray value segment. */}
       {hasValue && inlineText ? (
-        <FilterInlineText rule={rule} field={field} />
+        <FilterInlineText id={valueControlId} rule={rule} field={field} />
       ) : hasValue ? (
         <FilterValuePopover
           rule={rule}
@@ -982,6 +1011,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
           operator={operator}
           trigger={
             <ButtonGroupText
+              id={valueControlId}
               render={<button type="button" />}
               /* Named explicitly rather than by its contents: avatars or a
                  "+2" badge, and "plus two" says nothing about two people. It
@@ -992,7 +1022,9 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
                  more to say than the segment already says. */
               title={valueFullText === valueText ? undefined : valueFullText}
               className={cn(
-                "hover:bg-accent bg-background dark:bg-input/30 cursor-default min-w-0 overflow-hidden",
+                /* The inline text input's width as a floor, so a short prompt such
+                 as "选择…" still reads as a field rather than a stub. */
+                "hover:bg-(--gray-2) dark:hover:bg-(--gray-3) bg-control cursor-default min-w-40 overflow-hidden",
                 valueEmpty && "text-muted-foreground",
               )}
               onPointerDown={() => focusSegment("value")}
@@ -1003,18 +1035,9 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
         />
       ) : null}
 
-      {actions.variant === "basic" ? (
-        <Button
-          variant="outline"
-          size={sizes.icon}
-          aria-label={`移除${field.label}筛选`}
-          disabled={actions.disabled}
-          {...filterReadOnlyProps(actions)}
-          onClick={() => actions.removeNode(rule.id)}
-        >
-          <IconX />
-        </Button>
-      ) : (
+      {/* 基础筛选栏不放移除按钮：字段的增删统一在“添加筛选”清单里勾选/取消。
+          / The basic bar has no remove button; fields are toggled in the Add filter checklist. */}
+      {actions.variant === "basic" ? null : (
         <DropdownMenu
           open={menuOpen}
           onOpenChange={(next) => {
@@ -1032,7 +1055,7 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
                 /* The same surface the three text segments force. Styles whose
                  outline button is transparent in dark (sera, luma, rhea) left
                  the kebab as a notch in an otherwise filled pill. */
-                className="bg-background dark:bg-input/30"
+                className="bg-control"
                 aria-label={actions.labels.chipMenu(field.label)}
                 onPointerDown={() => focusSegment("menu")}
               />

@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
+import { TransitionCandidateDialog } from "./resumes/transition-candidate-dialog";
 import { ScheduleRoundDialogView } from "./human-interview-stage-dialogs";
 
 const fetchMock = vi.fn();
@@ -304,4 +306,83 @@ describe("ScheduleRoundDialog", () => {
     queryClient.clear();
     host.remove();
   });
+});
+
+describe("recruiting dialog text limits", () => {
+  it.each(["round-notes", "reactivation-reason"])(
+    "shows the limit and detects oversized %s",
+    async (inputId) => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      fetchMock.mockResolvedValue(Response.json(null, { status: 404 }));
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      try {
+        await act(() => {
+          root.render(
+            <QueryClientProvider client={queryClient}>
+              <WorkspaceSlugProvider
+                slug="test-workspace"
+                id="workspace-1"
+                memberRole="owner"
+                permissions={{}}
+              >
+                {inputId === "round-notes" ? (
+                  <ScheduleRoundDialogView
+                    candidateId="candidate-1"
+                    candidateName="测试候选人"
+                    dependencies={scheduleDependencies}
+                    passedRoundCount={0}
+                    onOpenChange={vi.fn()}
+                    onScheduled={vi.fn()}
+                    open
+                  />
+                ) : (
+                  <TransitionCandidateDialog
+                    candidate={{ candidateName: "测试候选人", id: "candidate-1" }}
+                    mode="reactivate"
+                    onOpenChange={vi.fn()}
+                    onCompleted={vi.fn()}
+                    open
+                  />
+                )}
+              </WorkspaceSlugProvider>
+            </QueryClientProvider>,
+          );
+        });
+        const input = document.querySelector<HTMLTextAreaElement>(`#${inputId}`);
+        expect(input?.maxLength).toBe(500);
+        expect(document.querySelector(`#${inputId}-limit`)?.textContent).toContain("0/500");
+        const setValue = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          "value",
+        )?.set;
+        for (const length of [501, 500, 0]) {
+          await act(() => {
+            setValue?.call(input, "1".repeat(length));
+            input?.dispatchEvent(new Event("input", { bubbles: true }));
+          });
+          expect(document.querySelector(`#${inputId}-limit`)?.textContent).toContain(
+            `${length}/500`,
+          );
+          expect(input?.getAttribute("aria-invalid")).toBe(length > 500 ? "true" : null);
+          if (length > 500) {
+            expect(document.body.textContent).toContain("请缩减至 500 字以内");
+            const submit = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+              (button) =>
+                button.textContent === (inputId === "round-notes" ? "保存" : "确认重新激活"),
+            );
+            expect(submit?.disabled).toBe(true);
+          }
+          if (length === 500) {
+            expect(document.body.textContent).toContain("已达字数上限");
+          }
+        }
+      } finally {
+        act(() => root.unmount());
+        queryClient.clear();
+        host.remove();
+      }
+    },
+  );
 });

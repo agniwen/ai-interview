@@ -4,9 +4,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { cn } from "@app/shared/utils";
 
-export type DataFieldKind = "boolean" | "date" | "datetime" | "email" | "number" | "phone" | "text";
-
-export type DataFieldSpan = 1 | 2 | 3 | 4 | "full";
+type DataFieldSpan = 1 | 2 | 3 | 4 | "full";
 
 const SPAN_CLASS = {
   1: "col-span-1",

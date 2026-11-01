@@ -10,7 +10,7 @@ import type { RefObject } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const STUDIO_DATE_GROUP_HEADER_HEIGHT = 44;
-export const STUDIO_DATE_GROUP_HEADER_GAP = 12;
+export const STUDIO_DATE_GROUP_HEADER_GAP = 0;
 export const STUDIO_DATE_GROUP_ROW_HEIGHT =
   STUDIO_DATE_GROUP_HEADER_HEIGHT + STUDIO_DATE_GROUP_HEADER_GAP;
 
@@ -28,6 +28,17 @@ export interface StudioDateGroup<TRecord> {
 export type StudioDateGroupedVirtualRow<TRecord> =
   | { id: string; label: string; recordCount: number; type: "date-header" }
   | { id: string; record: TRecord; type: "record" };
+
+/** 记录行之间的分隔线；分组最后一条不画，避免与下一个日期标题重复分隔。 */
+export const STUDIO_RECORD_ROW_DIVIDER_CLASS =
+  "after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-border-subtle";
+
+export function hasStudioRecordRowDivider<TRecord>(
+  rows: StudioDateGroupedVirtualRow<TRecord>[],
+  index: number,
+) {
+  return rows[index + 1]?.type === "record";
+}
 
 export interface StudioStickyDateHeaderPosition {
   index: number;
@@ -278,9 +289,8 @@ export function StudioStickyDateGroupHeader({
   return (
     <div
       className={cn(
-        "left-0 z-10 flex w-fit items-center rounded-r-xl border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70 [contain:layout]",
+        "left-0 z-10 flex w-fit items-center [contain:layout]",
         active ? "sticky" : "absolute",
-        isStuck && "border-input bg-background/80 backdrop-blur-md",
       )}
       style={{
         height: STUDIO_DATE_GROUP_HEADER_HEIGHT,
@@ -290,7 +300,10 @@ export function StudioStickyDateGroupHeader({
     >
       <h2 className="font-medium text-sm" id={headingId}>
         <button
-          className="-mx-4 -my-2 flex items-center gap-2 px-4 py-2 text-left outline-none"
+          className={cn(
+            "flex items-center gap-2 rounded-r-lg bg-background px-3 py-1.5 text-left outline-none transition-shadow hover:shadow-default focus-visible:ring-2 focus-visible:ring-ring",
+            isStuck && "shadow-default",
+          )}
           onClick={onNavigate}
           type="button"
         >

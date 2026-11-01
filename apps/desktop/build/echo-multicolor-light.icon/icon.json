@@ -1,0 +1,51 @@
+{
+  "fill-specializations": [
+    {
+      "value": {
+        "linear-gradient": [
+          "srgb:0.93333,0.63529,0.55686,1.00000",
+          "srgb:0.40784,0.52941,0.87059,1.00000"
+        ]
+      }
+    },
+    {
+      "appearance": "light",
+      "value": {
+        "linear-gradient": [
+          "srgb:0.93333,0.63529,0.55686,1.00000",
+          "srgb:0.40784,0.52941,0.87059,1.00000"
+        ]
+      }
+    }
+  ],
+  "groups": [
+    {
+      "blur-material": null,
+      "layers": [
+        {
+          "glass": true,
+          "hidden": false,
+          "image-name": "mouse-mark.png",
+          "name": "AI Pebble",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [0, 0]
+          }
+        }
+      ],
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.25
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.12
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": ["macOS"]
+  }
+}

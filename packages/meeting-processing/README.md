@@ -5,6 +5,7 @@
 ## 公开入口
 
 - `./transcription`：转写 provider、DAO ports 和转写流程。
+- `./answer`：会议问答上下文选取、答案生成和持久化。
 - `./intelligence`：会议摘要/智能生成和持久化协调。
 - `./purge`：会议产物清理与审计流程。
 - `./human-interview`：人工面试录音处理与评估。
@@ -14,7 +15,7 @@
 - 用显式依赖/DAO port 表达完整业务动作，供 HTTP、Worker 或脚本复用。
 - 协调 `@app/meeting-media`、AI runtime、queue 和数据库端口。
 - 不包含 Hono Context、Worker 进程启动、Web UI 或 Electron 采集代码。
-- queue payload 属于 `@app/meeting-processing-queue`；共享产品响应属于 `@app/shared`。
+- queue payload 属于 `@app/job-queues`；共享产品响应属于 `@app/shared`。
 
 ## 如何修改或新增
 

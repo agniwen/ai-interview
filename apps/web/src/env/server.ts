@@ -1,8 +1,6 @@
-import { createServerEnv, SERVER_ENV_NAMES } from "@app/server/env";
-import type { ServerEnvName } from "@app/server/env";
+import { createServerEnv, SERVER_ENV_NAMES } from "@app/server/web/runtime";
 
-export { createServerEnv, SERVER_ENV_NAMES };
-export type { ServerEnvName };
+export { createServerEnv };
 
 export function applyServerEnv(
   target: Record<string, string | undefined> = process.env,

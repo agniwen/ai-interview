@@ -8,13 +8,13 @@ function educationLevelTagClassName(level: string | null | undefined) {
     return "";
   }
   if (normalized.includes("硕")) {
-    return "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:border-purple-500/40 dark:bg-purple-500/15 dark:text-purple-300";
+    return "border-transparent bg-purple-tint text-purple-ink";
   }
   if (normalized.includes("本") || normalized.includes("学士")) {
-    return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300";
+    return "border-transparent bg-blue-tint text-blue-ink";
   }
   if (normalized.includes("专")) {
-    return "border-green-500/30 bg-green-500/10 text-green-700 dark:border-green-500/40 dark:bg-green-500/15 dark:text-green-300";
+    return "border-transparent bg-green-tint text-green-ink";
   }
   return "";
 }

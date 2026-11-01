@@ -50,7 +50,7 @@ export function FeishuSignInButton({
       className={cn("w-full gap-2", className)}
       disabled={isSubmitting}
       onClick={handleClick}
-      size="lg"
+      size="default"
       type="button"
       variant={variant}
     >

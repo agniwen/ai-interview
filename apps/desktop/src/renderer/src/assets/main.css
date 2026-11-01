@@ -130,53 +130,52 @@
   --toggle-track-duration: 0ms;
   --toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
   --background: oklch(1 0 0);
-  /* Main content and header share the sidebar's primary text color. */
-  --foreground: var(--sidebar-foreground);
+  --foreground: #262626;
   --card: var(--background);
   --card-foreground: var(--foreground);
-  --popover: #fafafa;
+  --popover: #ffffff;
   --popover-foreground: var(--foreground);
-  /* Desktop uses Klein blue actions in both light and dark modes. */
-  --primary: #1d4ed8;
+  /* Match Web's brand blue (Radix blue-9) light-mode actions. */
+  --primary: #0090ff;
   --primary-foreground: #ffffff;
   --secondary: #f5f5f5;
   --secondary-foreground: var(--foreground);
   --muted: #f5f5f5;
-  --muted-foreground: oklch(0.52 0.035 254);
+  --muted-foreground: #666666;
   --accent: #f5f5f5;
   --accent-foreground: var(--foreground);
   --ai-correction-gradient: linear-gradient(135deg, #0891b2, #8b5cf6 48%, #ec4899);
   --destructive: oklch(0.577 0.245 27.325);
   /* Content borders match Web; native chrome uses --sidebar-border below. */
-  --border: #eeeeed;
-  --input: #eeeeed;
-  --ring: #4f70d2;
-  --chart-1: #1d4ed8;
-  --chart-2: #4f70d2;
-  --chart-3: #7699ef;
-  --chart-4: #9ebaf6;
-  --chart-5: #c7d8fa;
+  --border: rgb(0 0 0 / 8%);
+  --input: rgb(0 0 0 / 10%);
+  --ring: #5eb1ef;
+  --chart-1: #0090ff;
+  --chart-2: #5eb1ef;
+  --chart-3: #8ec8f6;
+  --chart-4: #acd8fc;
+  --chart-5: #c2e5ff;
   /*
    * Sidebar chrome tokens. On macOS/Win the glass panel is mostly transparent
    * so native vibrancy/acrylic (window-level) shows through. A faint wash
    * improves label contrast without hiding the desktop blur.
    */
-  --sidebar: #f7f7f7;
+  --sidebar: #fafafa;
   /* Very light wash only — desktop vibrancy must stay visible underneath. */
   --sidebar-glass: oklch(1 0 0 / 0.08);
   /* Between main UI black and muted gray — readable on glass without feeling heavy. */
   --sidebar-foreground: oklch(0.36 0 0);
-  --sidebar-primary: #1d4ed8;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
   /* Menu hover / active — keep translucent so items match the glass sidebar. */
   --sidebar-accent: oklch(0.2 0 0 / 0.06);
   --sidebar-accent-active: oklch(0.2 0 0 / 0.1);
-  --sidebar-accent-foreground: oklch(0.32 0 0);
+  --sidebar-accent-foreground: #262626;
   /* Skeleton bars — translucent wash in the same hue family as --sidebar-accent,
      so placeholders sit on the glass instead of painting solid blocks. */
   --sidebar-skeleton: oklch(0.2 0 0 / 0.06);
   --sidebar-border: oklch(0.55 0 0 / 0.08);
-  --sidebar-ring: #4f70d2;
+  --sidebar-ring: var(--ring);
   --destructive-foreground: var(--color-red-700);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-700);
@@ -280,7 +279,7 @@
   }
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, white);
-    color: #173e2c;
+    color: var(--foreground);
   }
 
   .dark ::selection {
@@ -786,21 +785,4 @@ html[data-transparent-background="false"] [data-slot="sidebar"][data-variant="gl
 #root .cursor-web,
 #root .cursor-web * {
   cursor: pointer !important;
-}
-
-/* TanStack chart tooltip (shared with web arc-ts-chart-tooltip) */
-.arc-ts-chart-tooltip {
-  min-width: 8rem;
-  max-width: 18rem;
-  border-radius: 0.5rem;
-  border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
-  background: var(--background);
-  padding: 0.375rem 0.625rem;
-  color: var(--foreground);
-  font-size: 0.75rem;
-  line-height: 1.35;
-  box-shadow:
-    0 2px 8px -2px rgb(0 0 0 / 0.08),
-    0 1px 2px -1px rgb(0 0 0 / 0.04);
-  white-space: pre-line;
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "job_description" ADD COLUMN "recruiting_status" text DEFAULT 'active' NOT NULL;--> statement-breakpoint
+ALTER TABLE "job_description" ADD CONSTRAINT "job_description_recruiting_status_check" CHECK ("recruiting_status" IN ('active', 'paused', 'stopped'));

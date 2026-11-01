@@ -1,6 +1,6 @@
-# AI Hiring Copilot
+# Hireseer
 
-AI Hiring Copilot is a Chinese-first recruiting workspace for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
+Hireseer (Next Recruiting Agent) is a Chinese-first recruiting agent for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
 
 ## Frontend Module Boundary
 
@@ -31,8 +31,12 @@ A user who belongs to a workspace with a workspace role.
 _Avoid_: Account, teammate, staff
 
 **Workspace Role**:
-A member's permission profile inside one workspace, such as owner, admin, hr, or viewer.
+A member's permission profile inside one workspace: owner, admin, recruiting supervisor, recruiting specialist (`member`), interviewer, pending assignment (`noAccess`), or a workspace-defined dynamic role. It is the only source of workspace action permissions; which recruiting data a member sees follows Reporting Lines (ADR-0043, ADR-0044).
 _Avoid_: User type, permission level
+
+**Reporting Line**:
+A member's single direct manager inside one workspace. A member sees recruiting data created by themselves and by all direct or indirect reports. Peers (same direct manager, or both top-level) do not see each other unless a member shares data with peers, which exposes only that member's own records to them. A member may also have dotted-line managers, who additionally see that member and their reports without changing the reporting tree or peer groups. Owners and admins see all workspace recruiting data, and noAccess members see none (ADR-0043).
+_Avoid_: Recruiting group, team, org chart rank
 
 **Platform Administrator**:
 A platform-level operator who can inspect and support across workspaces without being a normal workspace member.
@@ -92,6 +96,18 @@ _Avoid_: Survey, questionnaire
 Workspace-wide interview settings such as company context, opening instructions, closing instructions, and job-code prefix.
 _Avoid_: System config, environment config
 
+**Offer Approval Template**:
+A workspace-managed shortcut that fills an ordered set of Offer approval nodes when a recruiter starts an approval. A template is not part of an approval after submission; editing or deleting it never changes an existing approval instance.
+_Avoid_: Active approval flow, approval policy, immutable workflow
+
+**Offer Approval Node Resolver**:
+A template rule that resolves one concrete approver at submission time, such as a fixed member, the job reporting manager, or the recruiting owner. User-facing Chinese labels preserve the rule that produced the concrete approver.
+_Avoid_: Workspace role, approver group, runtime assignment
+
+**Offer Approval Instance**:
+The immutable submitted approval request containing the ordered concrete approvers and their resolver-label snapshots. Later template, job, or ownership changes do not rewrite the instance.
+_Avoid_: Approval template, live organization rule
+
 **Workspace Recruiting Copilot**:
 A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context. Its primary navigation label is “智能体”.
 _Avoid_: Agent, Chat page, resume upload chat, global recruiting bot
@@ -111,6 +127,10 @@ _Avoid_: Full resume, raw resume text, search row
 **Copilot Retrieval Scope**:
 The temporary recruiting-data boundary used by the workspace recruiting copilot for the current turn or short conversation segment.
 _Avoid_: Saved filter, default workspace setting, permission scope
+
+**Subject Thread**:
+A Studio detail-page agent conversation that belongs to one workspace record, such as a job description or resume record, and is shared by every member who can view that record. A record has at most one active thread; earlier threads are archived on the same record. Its Chinese product label is “实体会话”.
+_Avoid_: Personal chat, chat session list, record comment thread
 
 ### Candidates and Resumes
 
@@ -160,8 +180,9 @@ _Avoid_: Resume library, upload queue
 
 **Private Resume Pool**:
 The workspace resume-pool scope whose records remain privately owned. It defaults to the current
-user's uploads; workspace owners/admins can browse all uploaders, while recruiting supervisors and
-leads can browse their own uploads and those of lower-ranked members in their recruiting groups.
+user's uploads; members with resume-pool read access can browse uploads by their direct or indirect
+reports and by peers who share data with peers, while workspace owners/admins can browse all
+uploaders (ADR-0043).
 _Avoid_: My uploads, personal library
 
 **Public Resume Pool**:
@@ -598,11 +619,11 @@ One preserved generation of the seven HR information fields from a human initial
 _Avoid_: AI interview report version, current Feishu document body, meeting summary
 
 **Human Interview Evaluation**:
-The single current evaluation for one human interview round. AI may create its draft and a person may revise or submit it, but the user-facing evaluation does not identify itself as AI-authored or human-authored.
-_Avoid_: AI evaluation, human evaluation, parallel final evaluations
+Each interviewer owns an independent draft and submission for one human interview round. Only the round's interviewers (non-declined assignees and non-observers in non-cancelled meetings) may write or submit one; other members, including managers, can only read. AI-generated suggestions remain separate and may be explicitly adopted. The round aggregates submitted outcomes with pass taking precedence over fail, then inconclusive; missing evaluations do not override submitted decisions. A pass can complete the round immediately; without a pass, recruitment closure waits for every assigned, non-declined interviewer and every non-observer in non-cancelled meetings to submit. Historical authored feedback is retained under its known author; unattributed feedback remains a historical round evaluation. See ADR-0042.
+_Avoid_: Shared editable evaluation, last-writer-wins feedback
 
 **Human Interview Evaluation Snapshot**:
-A historical copy of an AI-generated or person-submitted human interview evaluation retained for later quality analysis; it never competes with the round's single current evaluation in the recruiting interface.
+A historical copy of an AI-generated suggestion or submitted round evaluation projection. Individual submissions remain attributable in interviewer evaluation records; the round projection combines their text for existing downstream readers and document synchronization.
 _Avoid_: Current evaluation, visible evaluation version, second final evaluation
 
 **Interviewer Candidate Materials**:

@@ -12,13 +12,14 @@ describe("当前 tab 刷新范围", () => {
     expect(matches("overview", ["studio-resumes", "other", "detail", "candidate"])).toBe(false);
     expect(matches("overview", ["studio-resumes", "workspace", "list"])).toBe(false);
   });
-  it("仅概览刷新活动与关联会议", () => {
-    for (const key of [
-      ["studio-resumes", "workspace", "timeline", "candidate"],
-      ["studio-resumes", "workspace", "detail", "candidate", "meetings"],
-    ]) {
-      expect(matches("overview", key)).toBe(true);
-      expect(matches("offer", key)).toBe(false);
+  it("仅概览刷新活动，不再刷新已移除的关联会议", () => {
+    const timeline = ["studio-resumes", "workspace", "timeline", "candidate"];
+    expect(matches("overview", timeline)).toBe(true);
+    expect(matches("offer", timeline)).toBe(false);
+    for (const tab of ["overview", "rounds", "ai-analysis"] as const) {
+      expect(matches(tab, ["studio-resumes", "workspace", "detail", "candidate", "meetings"])).toBe(
+        false,
+      );
     }
   });
   it("AI tab 刷新轮次和报告且隔离其他轮次", () => {

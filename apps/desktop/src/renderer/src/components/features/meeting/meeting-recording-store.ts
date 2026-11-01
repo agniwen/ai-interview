@@ -9,7 +9,7 @@ import type {
 
 type MeetingRecordingStore = ReturnType<typeof createStore>;
 
-export const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
+const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
   active: null,
   error: null,
   localSessions: [],
@@ -20,7 +20,7 @@ export const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
   workspaceSaves: [],
 };
 
-export const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
+const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
   captureId: null,
   droppedAudioMs: 0,
   droppedPcmFrames: 0,
@@ -37,7 +37,7 @@ export const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
   turns: [],
 };
 
-export const INITIAL_LIVE_SUMMARY_SNAPSHOT: MeetingLiveSummaryControllerSnapshot = {
+const INITIAL_LIVE_SUMMARY_SNAPSHOT: MeetingLiveSummaryControllerSnapshot = {
   captureId: null,
   error: null,
   pendingCharacters: 0,

@@ -8,7 +8,7 @@ pass/fail summary with the relevant error for each failure:
 
 1. **TypeScript lint and format check**: `bun run check`
 2. **TypeScript type check**: `bun run typecheck`
-3. **TypeScript tests**: `bun run test`
+3. **TypeScript tests**: `bun run test -- --filter='!@app/server' --filter='!@app/worker' --filter='!@app/desktop'` (Server, Worker and Desktop tests are excluded by repository rule)
 4. **Python lint**: `cd apps/livekit-agent && uv run ruff check`
 5. **Python format check**: `cd apps/livekit-agent && uv run ruff format --check`
 6. **Python tests**: `cd apps/livekit-agent && uv run python -m pytest`

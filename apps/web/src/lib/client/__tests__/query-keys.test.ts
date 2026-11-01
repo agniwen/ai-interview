@@ -4,6 +4,7 @@ import {
   humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
   invalidateHumanInterviewWorkspaceQueries,
+  invalidateStudioResumeListQueries,
   jobDescriptionKeys,
   studioCalendarKeys,
   studioResumeKeys,
@@ -83,16 +84,15 @@ describe("studioCalendarKeys", () => {
 describe("studioResumeKeys", () => {
   it("keeps metrics out of resume-list invalidations", async () => {
     const queryClient = new QueryClient();
-    const metricsKey = studioResumeKeys.metrics("acme", "team");
-    expect(studioResumeKeys.metrics("acme", "team", "interview")).toEqual([
+    const metricsKey = studioResumeKeys.metrics("acme");
+    expect(studioResumeKeys.metrics("acme", "interview")).toEqual([
       "studio-resume-metrics",
       "acme",
-      "team",
       "interview",
     ]);
 
     queryClient.setQueryData(["studio-resumes", "acme", "list"], []);
-    queryClient.setQueryData(metricsKey, { totalCandidates: 12 });
+    queryClient.setQueryData(metricsKey, { boardStatusCounts: [], groupCounts: [] });
 
     await queryClient.invalidateQueries({
       queryKey: ["studio-resumes"],
@@ -100,6 +100,22 @@ describe("studioResumeKeys", () => {
     });
 
     expect(queryClient.getQueryState(metricsKey)?.isInvalidated).toBe(false);
+  });
+
+  it("refreshes board tab counts together with the workspace resume list", async () => {
+    const queryClient = new QueryClient();
+    const listKey = ["studio-resumes", "acme", "list"];
+    const presetMetricsKey = studioResumeKeys.metrics("acme", "interview");
+    const otherWorkspaceMetricsKey = studioResumeKeys.metrics("other");
+    queryClient.setQueryData(listKey, []);
+    queryClient.setQueryData(presetMetricsKey, { boardStatusCounts: [], groupCounts: [] });
+    queryClient.setQueryData(otherWorkspaceMetricsKey, { boardStatusCounts: [], groupCounts: [] });
+
+    await invalidateStudioResumeListQueries(queryClient, "acme");
+
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(presetMetricsKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherWorkspaceMetricsKey)?.isInvalidated).toBe(false);
   });
 });
 

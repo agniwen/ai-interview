@@ -2,28 +2,53 @@ import { getLocale } from "@/paraglide/runtime";
 
 const HOME_DEMO_COPY = {
   en: {
-    feature: {
-      agentMessages: [
-        { content: "What did Asuka own in complex frontend projects?", role: "user" },
+    capability: {
+      followup: [
+        ["ai", "Tell me about a community campaign you led. What exactly did you own?"],
+        [
+          "candidate",
+          "I ran a “Weekend Check-in” campaign. I set the topic, rules, and rewards, and it went really well.",
+        ],
+        ["ai", "What does “really well” mean? How many new members, and how did you count them?"],
+        [
+          "candidate",
+          "4,200 new members in 3 weeks. I only counted people who completed a first check-in, excluding staff and duplicates.",
+        ],
+        ["ai", "What did the rewards cost, and what was the in-store redemption rate?"],
+        [
+          "candidate",
+          "About ¥6 per person, with 27% redemption, 9 points higher than the previous round.",
+        ],
+        ["ai", "Where did that lift come from, and what did you change after the retro?"],
+      ],
+      positions: [
         {
-          content:
-            "She led a design-system migration across four product lines and cut average delivery time by 30%. Evidence: resume page 2 and interview answer at 12:36.",
-          role: "assistant",
+          focus: ["10k+ member communities", "Campaign delivery", "Data review"],
+          interviewer: "Strict · Pushes for exact numbers",
+          name: "Community Ops",
+          question: "Tell me about a time you revived a quiet community.",
         },
-        { content: "Which key decisions did she personally make?", role: "user" },
         {
-          content:
-            "She scoped the migration, set staged-release and rollback criteria, and aligned product and engineering priorities.",
-          role: "assistant",
+          focus: ["Topic planning", "Multi-platform distribution", "Content analytics"],
+          interviewer: "Case deep dive · Method first",
+          name: "Content Ops",
+          question: "How did you choose the topic for your best-performing piece?",
+        },
+        {
+          focus: ["Growth experiments", "Channel ROI", "Cross-team work"],
+          interviewer: "Situational · Focused on trade-offs",
+          name: "Growth Manager",
+          question: "Describe a growth experiment that missed its target and what you changed.",
         },
       ],
+    },
+    feature: {
       avatarLabel: "Avatar for Asuka",
       calibrationComment:
-        "The risk was clarified in follow-ups. Validate team leadership scope in the next round.",
+        "The risk was clarified in follow-ups. Validate how she works across teams in the next round.",
       calibrationComplete: "3 interviewers calibrated",
-      calibrationTitle: "Asuka · Overall evaluation",
       candidateName: "Asuka",
-      candidateRole: "Senior Frontend Engineer · 8 years",
+      candidateRole: "Senior Community Operations · 5 years",
       dimensionLabels: {
         educationBackground: "Education",
         experienceRelevance: "Experience relevance",
@@ -34,11 +59,14 @@ const HOME_DEMO_COPY = {
       },
       interviewerAvatar: "Interviewer Misato's avatar",
       low: "Low",
-      matchBody: "Core skills and project complexity are backed by direct experience.",
+      matchBody: "Campaign planning and community scale are backed by measurable project records.",
       matchLead: "Strong overall fit.",
-      metrics: { evidence: "Evidence coverage", fit: "Capability fit", risk: "Risk" },
+      metrics: {
+        evidence: "Evidence coverage",
+        fit: "Capability fit",
+        risk: "Risk",
+      },
       overallScore: "Overall score",
-      placeholder: "Ask more about Asuka's projects, evidence, or risks…",
       radarAria: "Asuka's six-dimension resume score",
       radarLabels: {
         educationBackground: "Education",
@@ -50,188 +78,139 @@ const HOME_DEMO_COPY = {
       },
       recommendInterview: "Interview recommended",
       recommendNext: "Advance",
-      send: "Send to Agent",
     },
-    principles: [
-      {
-        description:
-          "Align responsibilities, capability requirements, and screening gates so every later step shares one standard.",
-        label: "Job context",
-        title: "Define what good looks like first.",
-      },
-      {
-        description:
-          "Strengths and risks link to resume text, so every conclusion shows where it came from.",
-        label: "Resume screening",
-        title: "Keep evidence beside every conclusion.",
-      },
-      {
-        description:
-          "When an answer is broad, follow up on examples, ownership, and outcomes until it becomes specific.",
-        label: "AI interview",
-        title: "If it is unclear, keep asking.",
-      },
-      {
-        description:
-          "Keep conversations, recordings, and structured evaluations together instead of relying on scattered impressions.",
-        label: "Evaluation",
-        title: "Move from records back to judgment.",
-      },
-      {
-        description:
-          "Review what the AI interview confirmed and what remains uncertain, then spend human time on the key questions.",
-        label: "Human interview",
-        title: "Let people judge what truly matters.",
-      },
-      {
-        description:
-          "Recruiters and hiring managers share the same candidate context, without repeating every handoff.",
-        label: "Teamwork",
-        title: "One candidate. One set of facts.",
-      },
-      {
-        description:
-          "No registration or app install. Follow clear prompts and focus on communicating experience.",
-        label: "Candidate experience",
-        title: "Open the link and begin.",
-      },
-      {
-        description:
-          "Keep key answers, follow-up paths, and evaluation evidence together for complete review later.",
-        label: "Process record",
-        title: "Never lose an answer.",
-      },
-      {
-        description:
-          "From screening to AI and human interviews, every advance has a clear stage and context.",
-        label: "Multi-stage hiring",
-        title: "Clear stages. Natural handoffs.",
-      },
-      {
-        description:
-          "Compare differences in capability and evidence before discussing fit; never let one score replace judgment.",
-        label: "Candidate comparison",
-        title: "Differences matter more than rankings.",
-      },
-      {
-        description:
-          "Return to the resume, answers, and evidence behind any decision so the process keeps improving.",
-        label: "Hiring review",
-        title: "Every decision remains reviewable.",
-      },
-      {
-        description:
-          "AI organizes evidence, closes question gaps, and gives guidance. The recruiting team always decides.",
-        label: "Human–AI boundary",
-        title: "AI provides grounds. People decide.",
-      },
-    ],
-    process: {
-      decision: {
-        collected: "All feedback received",
-        facts: [
-          ["Capability fit", "88"],
-          ["Evidence coverage", "84"],
-          ["Stability", "78"],
+    roles: {
+      candidate: {
+        checks: [
+          ["Microphone", "Ready"],
+          ["Network", "Stable"],
+          ["Headphones", "Recommended"],
         ],
-        finalDecision: "Final decision",
-        finalValue: "Advance to the next interview",
-        headers: ["Interviewer", "Judgment", "Rationale"],
-        subtitle: "3 interviewers · One evidence base",
-        summary:
-          "Core capability has direct project evidence, and team scope was confirmed in the human interview.",
-        title: "Asuka · Team review",
-        verdicts: [
-          ["Misato", "Advance", "Core capability is clear"],
-          ["Ritsuko", "Advance", "Risk confirmed"],
-          ["Gendo", "Proceed", "Evidence is comprehensive"],
-        ],
+        checksTitle: "Before you start",
+        duration: "About 20 minutes · Spoken answers",
+        inviter: "Yunfan Tech Recruiting invites you to",
+        note: "No sign-up · An AI interviewer asks every question by voice",
+        start: "Start interview",
+        title: "Community Operations · AI interview",
       },
-      evidence: {
+      hr: {
+        queueTitle: "Ready to move forward",
+        rows: [
+          ["Asuka", "second_interview", "Live interview", "Thu 14:00 · panel confirmed"],
+          ["Shinji", "ai_interview", "AI interview", "Answers in, report ready"],
+          ["Rei", "screening", "Resume screening", "Evaluation ready to review"],
+        ],
+        stages: [
+          ["screening", "Screening", "12"],
+          ["ai_interview", "AI interview", "7"],
+          ["second_interview", "Live interview", "4"],
+          ["onboarding", "Hired", "1"],
+        ],
+        subtitle: "This week · 24 candidates",
+        title: "Community Operations · Hiring progress",
+      },
+      manager: {
+        aiLabel: "AI suggestion",
+        aiValue: "Recommend",
         avatarLabel: "Avatar for Asuka",
+        evidenceTitle: "Key evidence",
+        followup: "How did you split work with product and support?",
+        followupTitle: "Suggested follow-up",
         items: [
-          [
-            "Complex delivery",
-            "Led a design-system migration across four product lines",
-            "Resume · Page 2",
-          ],
-          ["Outcome", "Reduced average delivery time by 30%", "Project experience"],
-          ["Risk to confirm", "Team size and direct reports not specified", "Follow-up needed"],
+          ["strength", "Led an online challenge with 12,000 participants", "Resume p.2"],
+          ["strength", "New-user 7-day retention up to 41%", "AI interview Q3"],
+          ["risk", "Cross-team collaboration not stated", "Needs follow-up"],
         ],
-        name: "Asuka · Resume screening",
-        originalLines: [
-          "Led a design-system migration across four product lines and owned the release strategy.",
-          "Reduced average delivery time by 30%.",
-          "Team size and direct management scope were not specified.",
-        ],
-        originalTitle: "Resume source · Page 2",
-        overallScore: "Overall score",
-        role: "Senior Frontend Engineer · 8 years",
+        name: "Asuka",
+        role: "Senior Community Operations · 5 years",
       },
-      interview: {
-        count: "3 items to validate",
-        footers: ["Interview answers update evidence coverage", "Synced with interviewers"],
-        headers: ["Dimension to validate", "Human interview question"],
-        questions: [
-          [
-            "Project ownership",
-            "Which key decisions did you personally make during the design-system migration?",
-            "From resume evidence",
-          ],
-          [
-            "Outcome validation",
-            "How was the 30% delivery-time improvement measured?",
-            "From outcome evidence",
-          ],
-          [
-            "Risk confirmation",
-            "How many direct reports did you have, and where were cross-team boundaries?",
-            "From unresolved risk",
-          ],
+    },
+    trust: {
+      data: {
+        footer: "Views and changes are all logged",
+        members: [
+          ["Misato", "Admin", "All candidates", "full"],
+          ["Ritsuko", "Interviewer", "Assigned candidates", "partial"],
+          ["Outside guest", "Not a member", "No access", "none"],
         ],
-        subtitle: "Prepared from unresolved resume items",
-        title: "Asuka · Human interview questions",
+        scope: "Workspace · 3 members",
+        workspace: "Yunfan Tech · User Growth",
       },
-      role: {
-        criteria: [
-          ["React architecture and engineering", "40%", "w-full"],
-          ["Complex project delivery", "35%", "w-[88%]"],
-          ["Collaboration and technical decisions", "25%", "w-[63%]"],
+      decision: {
+        actions: ["Advance", "Hold", "Pass"],
+        actionsLabel: "Team decision",
+        aiLabel: "AI suggestion",
+        aiValue: "Recommend",
+        candidate: "Asuka",
+        evidence: "3 sources",
+        note: "AI never changes a status on its own",
+        role: "Senior Community Operations",
+      },
+      source: {
+        after: ".",
+        answer: {
+          after: " joined; I set the rules and rewards.”",
+          before: "“In the end ",
+          highlight: "12,000 people",
+          label: "AI interview answer",
+        },
+        before: "Led the “City Summer Challenge”; ",
+        claim: "Campaign planning",
+        highlight: "12,000 joined one run",
+        label: "Strength",
+        resumeLabel: "Resume excerpt",
+        sources: [
+          ["Resume", "p. 2"],
+          ["AI interview", "Q3 · 02:14"],
         ],
-        hardRequirements: "5+ years · Complex projects · Technical decisions",
-        hardRequirementsLabel: "Hard requirements",
-        scope: "Screening, human interviews, and team review",
-        scopeLabel: "Used for",
-        subtitle: "Role benchmark · Version 3",
-        title: "Senior Frontend Engineer",
-        updated: "Updated today at 10:24",
-        weights: "Capability weights",
       },
     },
   },
   ja: {
-    feature: {
-      agentMessages: [
-        { content: "アスカは複雑なフロントエンド案件で何を担当しましたか？", role: "user" },
+    capability: {
+      followup: [
+        ["ai", "あなたが主導したコミュニティ施策を教えてください。具体的に何を担当しましたか？"],
+        [
+          "candidate",
+          "「週末来店チェックイン」を企画しました。テーマ、ルール、特典まで私が決めて、とても好評でした。",
+        ],
+        ["ai", "「好評」とは具体的に？新規は何人で、どう数えましたか？"],
+        [
+          "candidate",
+          "3 週間で 4,200 人がグループに参加しました。初回チェックインを完了した人だけを数え、社員と重複アカウントは除外しています。",
+        ],
+        ["ai", "特典のコストと来店利用率はどうでしたか？"],
+        ["candidate", "1 人あたり約 6 元、利用率は 27% で、前回より 9 ポイント高くなりました。"],
+        ["ai", "その向上は何によるものですか？振り返りで何を変えましたか？"],
+      ],
+      positions: [
         {
-          content:
-            "4 製品ラインのデザインシステム移行を主導し、平均リードタイムを 30% 短縮しました。根拠は履歴書 2 ページ目と面接回答 12:36 です。",
-          role: "assistant",
+          focus: ["1 万人規模の運営", "イベントの実行", "データ振り返り"],
+          interviewer: "厳格 · 具体的な数字まで確認",
+          name: "コミュニティ運営",
+          question: "停滞したコミュニティを再び活性化させた経験を教えてください。",
         },
-        { content: "本人が担った重要な意思決定は？", role: "user" },
         {
-          content:
-            "移行範囲、段階リリースとロールバック基準を定め、プロダクトと開発の優先順位を調整しました。",
-          role: "assistant",
+          focus: ["企画立案", "マルチ配信", "コンテンツ分析"],
+          interviewer: "事例の深掘り · 方法論を重視",
+          name: "コンテンツ運営",
+          question: "最も読まれたコンテンツは、どのようにテーマを決めましたか？",
+        },
+        {
+          focus: ["グロース実験", "チャネル ROI", "部門横断の協働"],
+          interviewer: "状況質問 · トレードオフを重視",
+          name: "グロースマネージャー",
+          question: "グロース実験が目標に届かなかったとき、どう修正しましたか？",
         },
       ],
+    },
+    feature: {
       avatarLabel: "アスカのアバター",
       calibrationComment:
-        "リスク項目は追加質問で確認済みです。次回はチームマネジメント規模を重点的に検証します。",
+        "リスクは深掘りで確認済み。次の面接では部門横断の協働スタイルを重点的に検証してください。",
       calibrationComplete: "面接官 3 名が調整済み",
-      calibrationTitle: "アスカ · 総合評価",
       candidateName: "アスカ",
-      candidateRole: "シニアフロントエンドエンジニア · 経験 8 年",
+      candidateRole: "シニアコミュニティ運営 · 経験 5 年",
       dimensionLabels: {
         educationBackground: "学歴・背景",
         experienceRelevance: "経験の関連性",
@@ -242,11 +221,15 @@ const HOME_DEMO_COPY = {
       },
       interviewerAvatar: "ミサト面接官のアバター",
       low: "低",
-      matchBody: "中核スキルとプロジェクトの複雑さには直接的な経験の裏付けがあります。",
+      matchBody:
+        "イベント企画とコミュニティ規模の両方が定量的なプロジェクト記録で裏付けられています。",
       matchLead: "総合的に適合。",
-      metrics: { evidence: "根拠の充実度", fit: "能力適合", risk: "リスク" },
+      metrics: {
+        evidence: "根拠の充実度",
+        fit: "能力適合",
+        risk: "リスク",
+      },
       overallScore: "総合スコア",
-      placeholder: "アスカのプロジェクト、能力の根拠、リスクをさらに質問…",
       radarAria: "アスカの履歴書 6 軸評価",
       radarLabels: {
         educationBackground: "学歴",
@@ -258,169 +241,139 @@ const HOME_DEMO_COPY = {
       },
       recommendInterview: "面接を推奨",
       recommendNext: "次へ進める",
-      send: "Agent に送信",
     },
-    principles: [
-      {
-        description: "責任、能力要件、選考基準を先に揃え、その後の全工程に共通基準を持たせます。",
-        label: "職務コンテキスト",
-        title: "適任とは何かを先に定義。",
-      },
-      {
-        description: "強みとリスクを履歴書原文へ結び付け、結論と出典を同時に確認できます。",
-        label: "書類選考",
-        title: "結論のそばに、必ず根拠を。",
-      },
-      {
-        description: "回答が曖昧なら、事例、役割、成果を追加質問し、具体化します。",
-        label: "AI 面接",
-        title: "明確になるまで、掘り下げる。",
-      },
-      {
-        description: "会話、録音、構造化評価をまとめ、断片的な印象に頼らず振り返れます。",
-        label: "評価",
-        title: "記録から、判断へ戻る。",
-      },
-      {
-        description: "AI 面接で確認済みの点と未確認の点を見て、人の時間を重要な質問に使います。",
-        label: "対人面接",
-        title: "重要なことを、人が判断。",
-      },
-      {
-        description:
-          "採用担当と採用マネージャーが同じ候補者情報を見て、引き継ぎの説明を減らします。",
-        label: "チーム連携",
-        title: "一人の候補者、一つの事実。",
-      },
-      {
-        description: "登録もアプリも不要。明確な案内に沿い、経験を伝えることに集中できます。",
-        label: "候補者体験",
-        title: "リンクを開けば、すぐ開始。",
-      },
-      {
-        description: "重要回答、追加質問、評価根拠をまとめて保存し、必要なときに完全に見直せます。",
-        label: "プロセス記録",
-        title: "すべての回答を残す。",
-      },
-      {
-        description: "書類選考から AI 面接、対人面接まで、各段階に明確な状態と文脈があります。",
-        label: "複数段階の採用",
-        title: "明確な段階、自然な引き継ぎ。",
-      },
-      {
-        description: "能力と根拠の違いを見てから適合度を議論し、一つの点数に判断を任せません。",
-        label: "候補者比較",
-        title: "順位より、違いが重要。",
-      },
-      {
-        description: "判断時の履歴書、回答、評価根拠へ戻り、採用プロセスを継続的に改善します。",
-        label: "採用の振り返り",
-        title: "すべての判断を見直せる。",
-      },
-      {
-        description:
-          "AI は根拠を整理し、質問を補い、参考を提示。最終判断は常に採用チームが行います。",
-        label: "人と AI の境界",
-        title: "AI は根拠を、人が判断を。",
-      },
-    ],
-    process: {
-      decision: {
-        collected: "全員の意見を収集済み",
-        facts: [
-          ["能力適合", "88"],
-          ["根拠の充実度", "84"],
-          ["安定性", "78"],
+    roles: {
+      candidate: {
+        checks: [
+          ["マイク", "準備完了"],
+          ["ネットワーク", "安定"],
+          ["イヤホン", "着用推奨"],
         ],
-        finalDecision: "最終判断",
-        finalValue: "次の対人面接へ進む",
-        headers: ["面接官", "判断", "根拠"],
-        subtitle: "面接官 3 名 · 同じ根拠",
-        summary: "中核能力には直接的な案件根拠があり、チーム規模も対人面接で確認済みです。",
-        title: "アスカ · チームレビュー",
-        verdicts: [
-          ["ミサト", "次へ", "中核能力が明確"],
-          ["リツコ", "次へ", "リスク確認済み"],
-          ["ゲンドウ", "進行", "根拠が十分"],
-        ],
+        checksTitle: "開始前のチェック",
+        duration: "約 20 分 · 音声で回答",
+        inviter: "雲帆テック採用チームからの招待",
+        note: "登録不要 · AI 面接官がすべて音声で質問します",
+        start: "面接を始める",
+        title: "コミュニティ運営 · AI 面接",
       },
-      evidence: {
+      hr: {
+        queueTitle: "次に進める候補者",
+        rows: [
+          ["アスカ", "second_interview", "対面面接", "木曜 14:00 · 面接官確定"],
+          ["シンジ", "ai_interview", "AI 面接", "回答済み、レポート完成"],
+          ["レイ", "screening", "書類選考", "評価が完成、確認待ち"],
+        ],
+        stages: [
+          ["screening", "書類選考", "12"],
+          ["ai_interview", "AI 面接", "7"],
+          ["second_interview", "対面面接", "4"],
+          ["onboarding", "採用決定", "1"],
+        ],
+        subtitle: "今週 · 候補者 24 名",
+        title: "コミュニティ運営 · 採用の進捗",
+      },
+      manager: {
+        aiLabel: "AI の提案",
+        aiValue: "推薦",
         avatarLabel: "アスカのアバター",
+        evidenceTitle: "主な根拠",
+        followup: "プロダクトやサポートとはどう分担しましたか？",
+        followupTitle: "おすすめの深掘り質問",
         items: [
-          ["複雑な案件遂行", "4 製品ラインのデザインシステム移行を主導", "履歴書 · 2 ページ"],
-          ["成果", "平均リードタイムを 30% 短縮", "プロジェクト経験"],
-          ["未確認リスク", "チーム規模と直属部下の範囲が未記載", "追加質問が必要"],
+          ["strength", "1.2 万人が参加したオンラインチャレンジを主導", "履歴書 p.2"],
+          ["strength", "新規ユーザーの 7 日定着率を 41% に", "AI 面接 Q3"],
+          ["risk", "部門横断の協働方法が未記載", "深掘りが必要"],
         ],
-        name: "アスカ · 書類選考",
-        originalLines: [
-          "4 製品ラインのデザインシステム移行を主導し、リリース戦略を担当。",
-          "平均リードタイムを 30% 短縮。",
-          "チーム規模と直接管理範囲は未記載。",
-        ],
-        originalTitle: "履歴書原文 · 2 ページ",
-        overallScore: "総合スコア",
-        role: "シニアフロントエンドエンジニア · 経験 8 年",
+        name: "アスカ",
+        role: "シニアコミュニティ運営 · 経験 5 年",
       },
-      interview: {
-        count: "検証項目 3 件",
-        footers: ["面接回答を根拠の充実度へ反映", "面接官へ共有済み"],
-        headers: ["検証する観点", "対人面接の質問"],
-        questions: [
-          [
-            "案件の責任",
-            "デザインシステム移行で、本人が担った重要な意思決定は？",
-            "履歴書の根拠から",
-          ],
-          ["成果の検証", "リードタイム 30% 短縮はどのように測定しましたか？", "成果の根拠から"],
-          [
-            "リスク確認",
-            "直属部下の人数と、チーム間連携の境界を説明してください。",
-            "未確認項目から",
-          ],
+    },
+    trust: {
+      data: {
+        footer: "閲覧、評価、段階の変更はすべて記録されます",
+        members: [
+          ["ミサト", "管理者", "すべての候補者", "full"],
+          ["リツコ", "面接官", "担当の候補者のみ", "partial"],
+          ["外部ゲスト", "未参加", "アクセス不可", "none"],
         ],
-        subtitle: "履歴書の未確認項目から作成",
-        title: "アスカ · 対人面接の質問",
+        scope: "ワークスペース · メンバー 3 名",
+        workspace: "雲帆テック · ユーザーグロース部",
       },
-      role: {
-        criteria: [
-          ["React アーキテクチャと開発基盤", "40%", "w-full"],
-          ["複雑な案件遂行", "35%", "w-[88%]"],
-          ["連携と技術判断", "25%", "w-[63%]"],
+      decision: {
+        actions: ["次へ進める", "保留", "推薦しない"],
+        actionsLabel: "チームの判断",
+        aiLabel: "AI の提案",
+        aiValue: "推薦",
+        candidate: "アスカ",
+        evidence: "根拠 3 件",
+        note: "AI がステータスを自動で変えることはありません",
+        role: "シニアコミュニティ運営",
+      },
+      source: {
+        after: "。",
+        answer: {
+          after: "が参加しました。ルールと特典は私が決めました。」",
+          before: "「最終的に ",
+          highlight: "1.2 万人",
+          label: "AI 面接の回答",
+        },
+        before: "「シティサマーチャレンジ」を主導し、",
+        claim: "イベント企画",
+        highlight: "1 回で 1.2 万人が参加",
+        label: "強み",
+        resumeLabel: "履歴書の原文",
+        sources: [
+          ["履歴書", "2 ページ"],
+          ["AI 面接", "質問 3 · 02:14"],
         ],
-        hardRequirements: "経験 5 年以上 · 複雑な案件 · 技術判断",
-        hardRequirementsLabel: "必須条件",
-        scope: "書類選考、対人面接、チームレビュー",
-        scopeLabel: "利用範囲",
-        subtitle: "職務基準 · 第 3 版",
-        title: "シニアフロントエンドエンジニア",
-        updated: "本日 10:24 更新",
-        weights: "能力ウェイト",
       },
     },
   },
   ko: {
-    feature: {
-      agentMessages: [
-        { content: "아스카는 복잡한 프런트엔드 프로젝트에서 무엇을 담당했나요?", role: "user" },
+    capability: {
+      followup: [
+        ["ai", "직접 주도한 커뮤니티 캠페인을 소개해 주세요. 구체적으로 무엇을 맡았나요?"],
+        [
+          "candidate",
+          "‘주말 매장 체크인’을 진행했습니다. 주제, 규칙, 보상까지 제가 정했고 반응이 아주 좋았습니다.",
+        ],
+        ["ai", "‘아주 좋았다’는 구체적으로 무엇인가요? 신규는 몇 명이고 어떻게 집계했나요?"],
+        [
+          "candidate",
+          "3주 동안 4,200명이 그룹에 들어왔습니다. 첫 체크인을 완료한 사람만 세고 직원과 중복 계정은 제외했습니다.",
+        ],
+        ["ai", "보상 비용과 매장 사용률은 어땠나요?"],
+        ["candidate", "1인당 약 6위안, 사용률은 27%로 지난번보다 9%p 높았습니다."],
+        ["ai", "그 향상은 어디에서 왔고, 회고 후 무엇을 바꿨나요?"],
+      ],
+      positions: [
         {
-          content:
-            "4개 제품 라인의 디자인 시스템 마이그레이션을 주도해 평균 리드 타임을 30% 단축했습니다. 근거는 이력서 2페이지와 12:36의 면접 답변입니다.",
-          role: "assistant",
+          focus: ["1만 명 규모 커뮤니티", "이벤트 실행", "데이터 회고"],
+          interviewer: "엄격 · 구체적인 수치까지 확인",
+          name: "커뮤니티 운영",
+          question: "조용해진 커뮤니티를 다시 살린 경험을 말해 주세요.",
         },
-        { content: "본인이 직접 내린 핵심 결정은 무엇인가요?", role: "user" },
         {
-          content:
-            "마이그레이션 범위를 정하고 단계별 출시와 롤백 기준을 수립했으며 제품과 개발의 우선순위를 조율했습니다.",
-          role: "assistant",
+          focus: ["주제 기획", "멀티 플랫폼 배포", "콘텐츠 분석"],
+          interviewer: "사례 심층 · 방법론 중시",
+          name: "콘텐츠 운영",
+          question: "가장 많이 읽힌 콘텐츠의 주제는 어떻게 정했나요?",
+        },
+        {
+          focus: ["그로스 실험", "채널 ROI", "팀 간 협업"],
+          interviewer: "상황 질문 · 트레이드오프 중시",
+          name: "그로스 매니저",
+          question: "그로스 실험이 목표에 못 미쳤을 때 무엇을 바꿨는지 말해 주세요.",
         },
       ],
+    },
+    feature: {
       avatarLabel: "아스카의 프로필 이미지",
       calibrationComment:
-        "추가 질문으로 위험 요소를 확인했습니다. 다음 면접에서는 팀 리더십 범위를 중점적으로 검증하세요.",
+        "리스크는 추가 질문으로 확인했습니다. 다음 면접에서는 부서 간 협업 방식을 중점적으로 검증하세요.",
       calibrationComplete: "면접관 3명 조율 완료",
-      calibrationTitle: "아스카 · 종합 평가",
       candidateName: "아스카",
-      candidateRole: "시니어 프런트엔드 엔지니어 · 경력 8년",
+      candidateRole: "시니어 커뮤니티 운영 · 경력 5년",
       dimensionLabels: {
         educationBackground: "학력/배경",
         experienceRelevance: "경험 관련성",
@@ -431,11 +384,14 @@ const HOME_DEMO_COPY = {
       },
       interviewerAvatar: "미사토 면접관의 프로필 이미지",
       low: "낮음",
-      matchBody: "핵심 기술과 프로젝트 복잡성 모두 직접 경험으로 뒷받침됩니다.",
+      matchBody: "이벤트 기획과 커뮤니티 규모 모두 정량적인 프로젝트 기록으로 뒷받침됩니다.",
       matchLead: "전반적으로 적합합니다.",
-      metrics: { evidence: "근거 충실도", fit: "역량 적합도", risk: "위험" },
+      metrics: {
+        evidence: "근거 충실도",
+        fit: "역량 적합도",
+        risk: "위험",
+      },
       overallScore: "종합 점수",
-      placeholder: "아스카의 프로젝트, 역량 근거 또는 위험 요소를 더 질문하세요…",
       radarAria: "아스카의 6개 항목 이력서 점수",
       radarLabels: {
         educationBackground: "학력",
@@ -447,179 +403,135 @@ const HOME_DEMO_COPY = {
       },
       recommendInterview: "면접 추천",
       recommendNext: "다음 단계 진행",
-      send: "Agent에게 보내기",
     },
-    principles: [
-      {
-        description:
-          "책임, 역량 요건, 심사 기준을 먼저 맞춰 이후 모든 단계가 하나의 기준을 공유하게 합니다.",
-        label: "직무 맥락",
-        title: "적합한 인재의 기준을 먼저 정의합니다.",
-      },
-      {
-        description: "강점과 위험 요소를 이력서 원문에 연결해 모든 결론의 출처를 함께 확인합니다.",
-        label: "이력서 심사",
-        title: "모든 결론 곁에 근거를 둡니다.",
-      },
-      {
-        description: "답변이 모호하면 사례, 역할, 성과를 추가로 질문해 구체적인 사실로 만듭니다.",
-        label: "AI 면접",
-        title: "분명해질 때까지 계속 질문합니다.",
-      },
-      {
-        description:
-          "대화, 녹음, 구조화된 평가를 한곳에 모아 흩어진 인상에 의존하지 않고 검토합니다.",
-        label: "평가",
-        title: "기록에서 다시 판단으로 돌아갑니다.",
-      },
-      {
-        description:
-          "AI 면접에서 확인한 항목과 남은 불확실성을 살펴 사람의 시간을 핵심 질문에 씁니다.",
-        label: "대면 면접",
-        title: "정말 중요한 것을 사람이 판단합니다.",
-      },
-      {
-        description:
-          "채용 담당자와 채용 관리자가 같은 후보자 맥락을 공유해 인수인계 때마다 설명을 반복하지 않습니다.",
-        label: "팀 협업",
-        title: "한 명의 후보자, 하나의 사실.",
-      },
-      {
-        description:
-          "가입이나 앱 설치 없이 명확한 안내에 따라 자신의 경험을 전달하는 데 집중합니다.",
-        label: "후보자 경험",
-        title: "링크를 열면 바로 시작합니다.",
-      },
-      {
-        description:
-          "핵심 답변, 추가 질문 경로, 평가 근거를 함께 보관해 나중에도 완전하게 검토합니다.",
-        label: "과정 기록",
-        title: "어떤 답변도 놓치지 않습니다.",
-      },
-      {
-        description:
-          "이력서 심사부터 AI 면접과 대면 면접까지 모든 진행 단계에 명확한 상태와 맥락이 있습니다.",
-        label: "다단계 채용",
-        title: "명확한 단계, 자연스러운 연결.",
-      },
-      {
-        description:
-          "역량과 근거의 차이를 확인한 뒤 적합도를 논의하며 하나의 점수가 판단을 대신하지 않게 합니다.",
-        label: "후보자 비교",
-        title: "순위보다 차이가 중요합니다.",
-      },
-      {
-        description: "결정 당시의 이력서, 답변, 평가 근거로 돌아가 채용 절차를 계속 개선합니다.",
-        label: "채용 회고",
-        title: "모든 결정을 다시 검토할 수 있습니다.",
-      },
-      {
-        description:
-          "AI는 근거를 정리하고 질문의 빈틈을 채우며 참고 정보를 제공합니다. 최종 판단은 언제나 채용 팀이 내립니다.",
-        label: "사람과 AI의 경계",
-        title: "AI는 근거를, 사람은 판단을.",
-      },
-    ],
-    process: {
-      decision: {
-        collected: "모든 의견 수집 완료",
-        facts: [
-          ["역량 적합도", "88"],
-          ["근거 충실도", "84"],
-          ["안정성", "78"],
+    roles: {
+      candidate: {
+        checks: [
+          ["마이크", "준비됨"],
+          ["네트워크", "안정적"],
+          ["이어폰", "착용 권장"],
         ],
-        finalDecision: "최종 결정",
-        finalValue: "다음 대면 면접 진행",
-        headers: ["면접관", "판단", "근거"],
-        subtitle: "면접관 3명 · 하나의 근거",
-        summary:
-          "핵심 역량에는 직접적인 프로젝트 근거가 있고 팀 규모도 대면 면접에서 확인했습니다.",
-        title: "아스카 · 팀 검토",
-        verdicts: [
-          ["미사토", "진행", "핵심 역량이 분명함"],
-          ["리츠코", "진행", "위험 요소 확인 완료"],
-          ["겐도", "계속", "근거가 충분함"],
-        ],
+        checksTitle: "시작 전 점검",
+        duration: "약 20분 · 음성 답변",
+        inviter: "윈판테크 채용팀의 초대",
+        note: "가입 불필요 · AI 면접관이 모든 질문을 음성으로 진행",
+        start: "면접 시작",
+        title: "커뮤니티 운영 · AI 면접",
       },
-      evidence: {
+      hr: {
+        queueTitle: "다음 단계로 넘길 후보자",
+        rows: [
+          ["아스카", "second_interview", "대면 면접", "목 14:00 · 면접관 확정"],
+          ["신지", "ai_interview", "AI 면접", "답변 완료, 리포트 생성"],
+          ["레이", "screening", "이력서 심사", "평가 완료, 검토 대기"],
+        ],
+        stages: [
+          ["screening", "이력서 심사", "12"],
+          ["ai_interview", "AI 면접", "7"],
+          ["second_interview", "대면 면접", "4"],
+          ["onboarding", "채용 확정", "1"],
+        ],
+        subtitle: "이번 주 · 후보자 24명",
+        title: "커뮤니티 운영 · 채용 진행",
+      },
+      manager: {
+        aiLabel: "AI 제안",
+        aiValue: "추천",
         avatarLabel: "아스카의 프로필 이미지",
+        evidenceTitle: "핵심 근거",
+        followup: "제품·고객지원 팀과는 어떻게 역할을 나눴나요?",
+        followupTitle: "추천 추가 질문",
         items: [
-          [
-            "복잡한 프로젝트 수행",
-            "4개 제품 라인의 디자인 시스템 마이그레이션 주도",
-            "이력서 · 2페이지",
-          ],
-          ["성과", "평균 리드 타임 30% 단축", "프로젝트 경험"],
-          ["확인할 위험", "팀 규모와 직속 부하 범위가 기재되지 않음", "추가 질문 필요"],
+          ["strength", "1.2만 명이 참여한 온라인 챌린지 주도", "이력서 2쪽"],
+          ["strength", "신규 사용자 7일 유지율 41%로 향상", "AI 면접 Q3"],
+          ["risk", "부서 간 협업 방식 미기재", "추가 질문 필요"],
         ],
-        name: "아스카 · 이력서 심사",
-        originalLines: [
-          "4개 제품 라인의 디자인 시스템 마이그레이션을 주도하고 출시 전략을 담당했습니다.",
-          "평균 리드 타임을 30% 단축했습니다.",
-          "팀 규모와 직접 관리 범위는 기재되지 않았습니다.",
-        ],
-        originalTitle: "이력서 원문 · 2페이지",
-        overallScore: "종합 점수",
-        role: "시니어 프런트엔드 엔지니어 · 경력 8년",
+        name: "아스카",
+        role: "시니어 커뮤니티 운영 · 경력 5년",
       },
-      interview: {
-        count: "검증할 항목 3개",
-        footers: ["면접 답변을 근거 충실도에 반영", "면접관과 동기화 완료"],
-        headers: ["검증 항목", "대면 면접 질문"],
-        questions: [
-          [
-            "프로젝트 책임",
-            "디자인 시스템 마이그레이션에서 본인이 직접 내린 핵심 결정은 무엇인가요?",
-            "이력서 근거에서 생성",
-          ],
-          ["성과 검증", "리드 타임 30% 단축은 어떻게 측정했나요?", "성과 근거에서 생성"],
-          [
-            "위험 확인",
-            "직속 부하 인원과 팀 간 협업 경계를 설명해 주세요.",
-            "미확인 항목에서 생성",
-          ],
+    },
+    trust: {
+      data: {
+        footer: "열람, 평가, 단계 변경이 모두 기록됩니다",
+        members: [
+          ["미사토", "관리자", "모든 후보자", "full"],
+          ["리츠코", "면접관", "배정된 후보자만", "partial"],
+          ["외부 게스트", "미가입", "접근 불가", "none"],
         ],
-        subtitle: "이력서의 미확인 항목에서 생성",
-        title: "아스카 · 대면 면접 질문",
+        scope: "워크스페이스 · 구성원 3명",
+        workspace: "윈판테크 · 사용자 그로스팀",
       },
-      role: {
-        criteria: [
-          ["React 아키텍처와 엔지니어링", "40%", "w-full"],
-          ["복잡한 프로젝트 수행", "35%", "w-[88%]"],
-          ["협업과 기술 의사결정", "25%", "w-[63%]"],
+      decision: {
+        actions: ["다음 단계로", "보류", "비추천"],
+        actionsLabel: "팀 결정",
+        aiLabel: "AI 제안",
+        aiValue: "추천",
+        candidate: "아스카",
+        evidence: "근거 3건",
+        note: "AI는 후보자 상태를 스스로 바꾸지 않습니다",
+        role: "시니어 커뮤니티 운영",
+      },
+      source: {
+        after: ".",
+        answer: {
+          after: "이 참여했고, 규칙과 보상은 제가 정했습니다.”",
+          before: "“결국 ",
+          highlight: "1.2만 명",
+          label: "AI 면접 답변",
+        },
+        before: "‘시티 서머 챌린지’를 주도해 ",
+        claim: "이벤트 기획",
+        highlight: "한 번에 1.2만 명 참여",
+        label: "강점",
+        resumeLabel: "이력서 원문",
+        sources: [
+          ["이력서", "2쪽"],
+          ["AI 면접", "질문 3 · 02:14"],
         ],
-        hardRequirements: "경력 5년 이상 · 복잡한 프로젝트 · 기술 의사결정",
-        hardRequirementsLabel: "필수 요건",
-        scope: "이력서 심사, 대면 면접, 팀 검토",
-        scopeLabel: "사용 범위",
-        subtitle: "직무 기준 · 버전 3",
-        title: "시니어 프런트엔드 엔지니어",
-        updated: "오늘 10:24 업데이트",
-        weights: "역량 가중치",
       },
     },
   },
   "zh-CN": {
-    feature: {
-      agentMessages: [
-        { content: "明日香在复杂前端项目里，具体负责过什么？", role: "user" },
+    capability: {
+      followup: [
+        ["ai", "请介绍一次你主导的社群活动，你在里面具体负责什么？"],
+        ["candidate", "我做过一次“周末探店打卡”，从选题、规则到奖励都是我定的，最后效果很好。"],
+        ["ai", "“效果很好”具体指什么？拉新多少人，用的是什么口径？"],
+        [
+          "candidate",
+          "3 周新增 4,200 人进群，按“完成首次打卡”算有效新用户，剔除了员工和重复账号。",
+        ],
+        ["ai", "奖励成本是多少？到店核销率怎么样？"],
+        ["candidate", "每人成本约 6 元，核销率 27%，比上一期高了 9 个百分点。"],
+        ["ai", "核销率提升主要来自哪里？复盘时你改了什么？"],
+      ],
+      positions: [
         {
-          content:
-            "她主导了设计系统迁移，覆盖 4 条产品线，并将平均交付周期缩短 30%。证据来自简历第 2 页和面试回答 12:36。",
-          role: "assistant",
+          focus: ["万人社群管理", "活动策划落地", "数据复盘"],
+          interviewer: "严格 · 追问到具体数字",
+          name: "社群运营",
+          question: "讲一次你把一个沉默社群重新做活的经历。",
         },
-        { content: "她本人承担了哪些关键决策？", role: "user" },
         {
-          content: "她负责划定迁移范围、确定分阶段发布与回滚标准，并协调产品和研发统一优先级。",
-          role: "assistant",
+          focus: ["选题策划", "多平台分发", "内容数据分析"],
+          interviewer: "案例深挖 · 关注方法论",
+          name: "内容运营",
+          question: "你阅读量最高的一篇内容，是怎么选题的？",
+        },
+        {
+          focus: ["增长实验设计", "渠道 ROI", "跨团队协作"],
+          interviewer: "情境追问 · 关注取舍",
+          name: "用户增长经理",
+          question: "说一次增长实验不及预期时，你是怎么调整的。",
         },
       ],
+    },
+    feature: {
       avatarLabel: "明日香的头像",
-      calibrationComment: "风险项已经在追问中确认，建议下一轮重点验证带队规模。",
+      calibrationComment: "风险项已经在追问中确认，建议下一轮重点验证跨部门协作方式。",
       calibrationComplete: "3 位面试官已完成校准",
-      calibrationTitle: "明日香 · 综合评估",
       candidateName: "明日香",
-      candidateRole: "高级前端工程师 · 8 年经验",
+      candidateRole: "高级社群运营 · 5 年经验",
       dimensionLabels: {
         educationBackground: "学历/背景",
         experienceRelevance: "经验相关性",
@@ -630,11 +542,14 @@ const HOME_DEMO_COPY = {
       },
       interviewerAvatar: "葛城美里的头像",
       low: "低",
-      matchBody: "核心技能与项目复杂度均有直接经历支撑。",
+      matchBody: "活动策划与社群规模均有可量化的项目记录支撑。",
       matchLead: "整体匹配。",
-      metrics: { evidence: "证据完整", fit: "能力匹配", risk: "风险" },
+      metrics: {
+        evidence: "证据完整",
+        fit: "能力匹配",
+        risk: "风险",
+      },
       overallScore: "综合评分",
-      placeholder: "继续询问明日香的项目经历、能力证据或风险…",
       radarAria: "明日香的六维简历评分",
       radarLabels: {
         educationBackground: "学历",
@@ -646,72 +561,91 @@ const HOME_DEMO_COPY = {
       },
       recommendInterview: "建议面试",
       recommendNext: "建议复试",
-      send: "发送给 Agent",
     },
-    principles: [],
-    process: {
-      decision: {
-        collected: "意见已收齐",
-        facts: [
-          ["能力匹配", "88"],
-          ["证据完整", "84"],
-          ["稳定性", "78"],
+    roles: {
+      candidate: {
+        checks: [
+          ["麦克风", "已就绪"],
+          ["网络", "连接稳定"],
+          ["耳机", "建议佩戴"],
         ],
-        finalDecision: "最终决定",
-        finalValue: "进入下一轮复面",
-        headers: ["面试官", "判断", "依据"],
-        subtitle: "3 位面试官 · 同一份证据",
-        summary: "核心能力有直接项目证据，带队规模已在复面中确认。",
-        title: "明日香 · 团队评审记录",
-        verdicts: [
-          ["葛城美里", "建议复试", "核心能力明确"],
-          ["赤木律子", "建议复试", "风险已确认"],
-          ["碇源堂", "建议推进", "证据较完整"],
-        ],
+        checksTitle: "开始前检查",
+        duration: "约 20 分钟 · 语音作答",
+        inviter: "云帆科技招聘团队邀请你参加",
+        note: "无需注册 · 由 AI 面试官全程语音提问",
+        start: "开始面试",
+        title: "社群运营 · AI 面试",
       },
-      evidence: {
+      hr: {
+        queueTitle: "待推进",
+        rows: [
+          ["明日香", "second_interview", "真人复面", "周四 14:00 · 面试官已确认"],
+          ["真嗣", "ai_interview", "AI 面试", "已作答，报告已生成"],
+          ["丽", "screening", "简历筛选", "评估已生成，待查看"],
+        ],
+        stages: [
+          ["screening", "简历筛选", "12"],
+          ["ai_interview", "AI 面试", "7"],
+          ["second_interview", "真人复面", "4"],
+          ["onboarding", "已录用", "1"],
+        ],
+        subtitle: "本周 · 24 位候选人",
+        title: "社群运营 · 招聘进度",
+      },
+      manager: {
+        aiLabel: "AI 建议",
+        aiValue: "推荐",
         avatarLabel: "明日香的头像",
+        evidenceTitle: "关键证据",
+        followup: "你和产品、客服团队是怎么分工协作的？",
+        followupTitle: "建议追问",
         items: [
-          ["复杂项目交付", "主导 4 条产品线的设计系统迁移", "简历 · 第 2 页"],
-          ["结果影响", "将平均交付周期缩短 30%", "项目经历"],
-          ["待确认风险", "带队规模与直接管理范围未说明", "需要追问"],
+          ["strength", "主导单场 1.2 万人参与的线上挑战赛", "简历 · 第 2 页"],
+          ["strength", "新用户 7 日留存提升至 41%", "AI 面试 · 第 3 问"],
+          ["risk", "跨部门协作方式未说明", "需要追问"],
         ],
-        name: "明日香 · 简历筛选",
-        originalLines: [
-          "主导 4 条产品线的设计系统迁移，并负责发布策略。",
-          "将平均交付周期缩短 30%。",
-          "团队规模与直接管理范围未说明。",
-        ],
-        originalTitle: "简历原文 · 第 2 页",
-        overallScore: "综合评分",
-        role: "高级前端工程师 · 8 年经验",
+        name: "明日香",
+        role: "高级社群运营 · 5 年经验",
       },
-      interview: {
-        count: "3 个待验证项",
-        footers: ["面试回答将回写证据完整度", "已同步给面试官"],
-        headers: ["待验证维度", "真人复面问题"],
-        questions: [
-          ["项目所有权", "设计系统迁移中，你本人承担了哪些关键决策？", "来自简历证据"],
-          ["结果验证", "交付周期缩短 30% 的统计口径是什么？", "来自结果影响"],
-          ["风险确认", "请说明直接管理人数，以及跨团队协作边界。", "来自待确认项"],
+    },
+    trust: {
+      data: {
+        footer: "查看、评估与流程变更都留有记录",
+        members: [
+          ["葛城美里", "管理员", "全部候选人", "full"],
+          ["赤木律子", "面试官", "分配给她的候选人", "partial"],
+          ["外部访客", "未加入", "无法访问", "none"],
         ],
-        subtitle: "根据简历中的待确认项整理",
-        title: "明日香 · 真人复面问题",
+        scope: "工作区 · 3 位成员",
+        workspace: "云帆科技 · 用户增长部",
       },
-      role: {
-        criteria: [
-          ["React 架构与工程化", "40%", "w-full"],
-          ["复杂项目交付", "35%", "w-[88%]"],
-          ["协作与技术决策", "25%", "w-[63%]"],
+      decision: {
+        actions: ["进入下一轮", "待定", "不推荐"],
+        actionsLabel: "团队决定",
+        aiLabel: "AI 建议",
+        aiValue: "推荐",
+        candidate: "明日香",
+        evidence: "3 条依据",
+        note: "AI 不会自动改变候选人状态",
+        role: "高级社群运营",
+      },
+      source: {
+        after: "。",
+        answer: {
+          after: " 参加，规则和奖励都是我定的。”",
+          before: "“那场挑战赛最后有 ",
+          highlight: "1.2 万人",
+          label: "AI 面试回答",
+        },
+        before: "主导“城市夏日挑战”线上活动，单场 ",
+        claim: "活动策划",
+        highlight: "1.2 万人参与",
+        label: "亮点",
+        resumeLabel: "简历原文",
+        sources: [
+          ["简历", "第 2 页"],
+          ["AI 面试", "第 3 问 · 02:14"],
         ],
-        hardRequirements: "5 年以上 · 复杂项目 · 技术决策",
-        hardRequirementsLabel: "硬性门槛",
-        scope: "筛选、复面与团队评审",
-        scopeLabel: "使用范围",
-        subtitle: "岗位标尺 · 第 3 版",
-        title: "资深前端工程师",
-        updated: "今天 10:24 更新",
-        weights: "能力权重",
       },
     },
   },

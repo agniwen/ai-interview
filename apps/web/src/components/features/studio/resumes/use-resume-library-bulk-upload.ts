@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upload";
 import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-query";
+import { invalidateStudioResumeListQueries } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 export function useResumeLibraryBulkUpload({
@@ -25,9 +26,11 @@ export function useResumeLibraryBulkUpload({
   const queryClient = useQueryClient();
 
   const bulk = useBulkUpload({
-    onBatchQueued: (detail) => {
-      setProgressOpen(false);
-      setPendingFiles([]);
+    onBatchQueued: (detail, { failedCount }) => {
+      if (failedCount === 0) {
+        setProgressOpen(false);
+        setPendingFiles([]);
+      }
       void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       toast.success(`${detail.batch.totalCount} 份简历已上传，正在解析`);
     },
@@ -50,7 +53,7 @@ export function useResumeLibraryBulkUpload({
   );
 
   const canUploadResumeLibrary = canCreateResumeLibrary && canCreateResumeUploadBatch;
-  const uploadEntryDisabled = bulk.state.phase === "uploading" || !canUploadResumeLibrary;
+  const uploadEntryDisabled = !canUploadResumeLibrary;
   const hasActiveUploadBatches = libraryBatches.some(
     (batch) => batch.status === "pending" || batch.status === "running",
   );
@@ -67,9 +70,9 @@ export function useResumeLibraryBulkUpload({
     );
     activeUploadBatchIdsRef.current = nextActiveBatchIds;
     if (hadBatchFinish) {
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+      void invalidateStudioResumeListQueries(queryClient, slug);
     }
-  }, [libraryBatches, queryClient]);
+  }, [libraryBatches, queryClient, slug]);
 
   async function handleOpenBatch(batch: (typeof libraryBatches)[number]) {
     setProgressOpen(true);

@@ -40,11 +40,12 @@ interface DashScopeStreamingParameters extends JsonObject {
   format: string;
   heartbeat: boolean;
   language_hints?: string[];
-  max_sentence_silence: number;
+  max_sentence_silence?: number;
   multi_threshold_mode_enabled: boolean;
   sample_rate: number;
   semantic_punctuation_enabled: boolean;
   speech_noise_threshold?: number;
+  vad_model?: string;
   vocabulary?: Record<string, number>;
 }
 
@@ -132,7 +133,7 @@ export function connectDashScopeRealtimeWs(
   dependencies: DashScopeRealtimeWsDependencies,
 ): DashScopeRealtimeWsConnection {
   const WebSocketImpl = dependencies.webSocket ?? WebSocket;
-  const streaming = dependencies.model.startsWith("qwen-audio-3.0-asr-flash-streaming");
+  const streaming = /^qwen-audio-3\.[01]-asr-flash-streaming(?:$|-)/u.test(dependencies.model);
   const taskId = randomUUID();
   const socket = new WebSocketImpl(
     streaming
@@ -265,11 +266,15 @@ export function connectDashScopeRealtimeWs(
       const parameters: DashScopeStreamingParameters = {
         format: "pcm",
         heartbeat: true,
-        max_sentence_silence: 800,
         multi_threshold_mode_enabled: true,
         sample_rate: 16_000,
         semantic_punctuation_enabled: false,
       };
+      if (dependencies.model.startsWith("qwen-audio-3.1-asr-flash-streaming")) {
+        parameters.vad_model = "far_field_meeting_16k";
+      } else {
+        parameters.max_sentence_silence = 800;
+      }
       if (dependencies.speechNoiseThreshold !== undefined) {
         parameters.speech_noise_threshold = dependencies.speechNoiseThreshold;
       }

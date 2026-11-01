@@ -1,6 +1,8 @@
 # 简历评分校准与回归基线工作项拆分
 
-> **历史计划说明：** 本文仍可用于 legacy 评估基线研究，但其中的工作区评分策略、共享 workflow、可变生产阈值和 Agent `nextStep` 架构不再是 structured V1 的生产设计。新版以 `docs/superpowers/specs/2026-07-29-structured-resume-evaluation-design.md` 和 ADR-0022 至 ADR-0025 为准。
+> 历史方案（状态核对：2026-10-09）：本文描述已退役的数字评分、发布或结构化升级流程，不是当前实施计划。新评价与岗位保存遵循[当前评价契约](../agents/resume-evaluation.md)；历史结果和相应兼容读取仍需保留。本文中的代码路径、命令和依赖版本属于原编写时期，不能直接用于当前部署。
+
+> **历史计划说明：** 本文仍可用于 legacy 评估基线研究，但其中的工作区评分策略、共享 workflow、可变生产阈值和 Agent `nextStep` 架构不再是 structured V1 的生产设计。这段说明中的 structured V1 也已成为历史方案；当前入口见上方定性评价契约。
 
 ## 简短版（贴项目管理工具用）
 

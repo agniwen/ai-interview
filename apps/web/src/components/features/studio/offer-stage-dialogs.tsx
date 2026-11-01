@@ -22,6 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   OfferDraftFormFields,
   buildOfferDraftPayload,
@@ -62,6 +63,7 @@ export function CreateOrEditOfferDialog({
       : createBlankOfferFormState(initialBaseSalary),
   );
   const setFormField = createOfferFormFieldSetter(setForm);
+  const [invalidateApproval, setInvalidateApproval] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -73,6 +75,7 @@ export function CreateOrEditOfferDialog({
         ? offerFormStateFromDraft(existingDraft)
         : createBlankOfferFormState(initialBaseSalary),
     );
+    setInvalidateApproval(false);
   }, [existingDraft, initialBaseSalary, mode, open]);
 
   function handleOpenChange(next: boolean) {
@@ -83,7 +86,11 @@ export function CreateOrEditOfferDialog({
     mutationFn: () => {
       const payload = buildOfferDraftPayload(form);
       if (mode === "edit" && existingDraft) {
-        return patchOfferDraft(slug, candidateId, existingDraft.id, payload);
+        return patchOfferDraft(slug, candidateId, existingDraft.id, {
+          ...payload,
+          expectedContentRevision: existingDraft.contentRevision,
+          invalidateApproval,
+        });
       }
       return createOfferDraft(slug, candidateId, payload);
     },
@@ -112,6 +119,17 @@ export function CreateOrEditOfferDialog({
         </DialogHeader>
 
         <OfferDraftFormFields form={form} idPrefix="offer" onFieldChange={setFormField} />
+
+        {mode === "edit" && existingDraft?.currentApprovalId ? (
+          <div className="flex items-start gap-2 rounded-md border border-amber-line bg-amber-tint/50 p-3 text-sm">
+            <Checkbox
+              aria-label="确认修改可能使已通过审批失效"
+              checked={invalidateApproval}
+              onCheckedChange={(checked) => setInvalidateApproval(checked === true)}
+            />
+            <span>我确认修改可能使已通过的审批失效，并在保存后重新提交审批。</span>
+          </div>
+        ) : null}
 
         <DialogFooter>
           <Button
@@ -218,7 +236,7 @@ export function RespondOfferDialog({
               {(["accepted", "declined", "counter"] as const).map((value) => (
                 <div className="flex items-center gap-2" key={value}>
                   <RadioGroupItem id={`resp-${value}`} value={value} />
-                  <Label className="cursor-pointer text-sm" htmlFor={`resp-${value}`}>
+                  <Label className="cursor-pointer" htmlFor={`resp-${value}`}>
                     {offerResponseLabel(value)}
                   </Label>
                 </div>
@@ -228,9 +246,7 @@ export function RespondOfferDialog({
 
           {response === "counter" ? (
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="counter-content">
-                议价内容
-              </Label>
+              <Label htmlFor="counter-content">议价内容</Label>
               <Textarea
                 id="counter-content"
                 maxLength={2000}
@@ -243,9 +259,7 @@ export function RespondOfferDialog({
           ) : null}
           {response === "declined" ? (
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="offer-decline-reason">
-                拒绝原因（选填）
-              </Label>
+              <Label htmlFor="offer-decline-reason">拒绝原因（选填）</Label>
               <Textarea
                 id="offer-decline-reason"
                 maxLength={1000}

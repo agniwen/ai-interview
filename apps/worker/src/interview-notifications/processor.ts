@@ -1,4 +1,4 @@
-// oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
+// oxlint-disable complexity, max-classes-per-file, func-names -- Effect services and tagged errors are class-based; processing also combines leases, retries, and current-state checks.
 import type { InterviewNotificationDeliveryRecord, InterviewNotificationEventRecord } from "./dao";
 import type {
   InterviewNotificationAudienceType,
@@ -15,11 +15,16 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 import { isConfirmedManualHumanEmail } from "@app/shared/manual-human-email";
 
-export interface InterviewNotificationSendResult {
+interface InterviewNotificationSendResult {
   providerMessageId: string | null;
 }
 
 export interface InterviewNotificationProcessorDependencies {
+  prepareApprovalEvent?(event: InterviewNotificationEventRecord): Promise<void>;
+  validateApprovalDelivery?(
+    event: InterviewNotificationEventRecord,
+    delivery: InterviewNotificationDeliveryRecord,
+  ): Promise<boolean>;
   claimDelivery(input: {
     deliveryId: string;
     leaseDurationMs: number;
@@ -67,12 +72,12 @@ export interface InterviewNotificationProcessorDependencies {
   }): Promise<boolean>;
 }
 
-export class InterviewNotificationProcessor extends Context.Service<
+class InterviewNotificationProcessor extends Context.Service<
   InterviewNotificationProcessor,
   InterviewNotificationProcessorDependencies
 >()("@app/worker/InterviewNotificationProcessor") {}
 
-export const interviewNotificationProcessorLayer = (
+const interviewNotificationProcessorLayer = (
   dependencies: InterviewNotificationProcessorDependencies,
 ) => Layer.succeed(InterviewNotificationProcessor, dependencies);
 
@@ -186,6 +191,12 @@ async function processInterviewNotificationEventPromise(
     });
     return;
   }
+  if (event.scopeType === "offer_approval") {
+    if (!dependencies.prepareApprovalEvent || !dependencies.validateApprovalDelivery) {
+      throw new Error("审批通知处理器尚未配置");
+    }
+    await dependencies.prepareApprovalEvent(event);
+  }
   const deliveries = await dependencies.listDeliveries(event.id);
   // Delivery preparation may insert rows a few milliseconds after the event's
   // claim timestamp. Use a fresh claim time so those new rows are immediately
@@ -225,6 +236,20 @@ async function processInterviewNotificationEventPromise(
         if (!completed) {
           return;
         }
+        continue;
+      }
+      if (
+        event.scopeType === "offer_approval" &&
+        !(await dependencies.validateApprovalDelivery?.(event, claimed))
+      ) {
+        await dependencies.markDeliveryFailed({
+          code: "offer-approval-stale",
+          deliveryId: claimed.id,
+          leaseOwner: input.leaseOwner,
+          message: "审批任务或接收人已失效，已停止发送",
+          nextAttemptAt: null,
+          status: "dead",
+        });
         continue;
       }
       const result = await dependencies.send({
@@ -279,7 +304,7 @@ async function processInterviewNotificationEventPromise(
   await finalizeEvent(event, input.leaseOwner, now, dependencies);
 }
 
-export function processInterviewNotificationEventEffect(
+function processInterviewNotificationEventEffect(
   event: InterviewNotificationEventRecord,
   input: { leaseOwner: string; now?: Date },
 ) {

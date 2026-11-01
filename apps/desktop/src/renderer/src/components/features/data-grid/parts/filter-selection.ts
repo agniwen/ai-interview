@@ -7,7 +7,7 @@ type FilterSelection = Record<string, string[]>;
 const storage = createJSONStorage<FilterSelection>(() => globalThis.window?.localStorage);
 
 // Field names only. Values, operators, query ids and candidate data never enter storage.
-export const listFilterSelectionAtom = atomWithStorage<FilterSelection>(
+const listFilterSelectionAtom = atomWithStorage<FilterSelection>(
   "arc:list-filter-selection:v1",
   {},
   storage,

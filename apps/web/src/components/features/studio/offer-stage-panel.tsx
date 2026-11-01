@@ -44,13 +44,41 @@ const offerStageTasks = {
   salary_negotiation: "记录候选人期望并完成薪资沟通，确认结果后可进入发 Offer。",
 } satisfies Record<OfferNegotiationStage, string>;
 
-function OfferNegotiationProgress({
+function getOfferStageTask(
+  stage: OfferNegotiationStage,
+  offerStatus: OfferDraftRecord["status"] | null | undefined,
+) {
+  if (stage !== "offer") {
+    return offerStageTasks[stage];
+  }
+  if (offerStatus === "accepted") {
+    return "候选人已接受 Offer，可进入背调。";
+  }
+  if (offerStatus === "declined") {
+    return "候选人已拒绝 Offer，可重新沟通并创建新版 Offer，或结束招聘流程。";
+  }
+  if (offerStatus === "expired") {
+    return "Offer 已过期，可创建新版 Offer 后重新发起审批。";
+  }
+  if (offerStatus === "sent") {
+    return "Offer 已发布，等待候选人确认；接受后可进入背调。";
+  }
+  return offerStageTasks.offer;
+}
+
+function getCurrentOfferStatus(drafts: OfferDraftRecord[]) {
+  return drafts[0]?.status;
+}
+
+export function OfferNegotiationProgress({
   disabled,
   nodeStates,
+  offerStatus,
   stage,
 }: {
   disabled?: boolean;
   nodeStates: RecruitingNodeStateRecord[];
+  offerStatus?: OfferDraftRecord["status"] | null;
   stage: ResumeLibraryDetail["pipelineStage"];
 }) {
   const currentIndex = offerNegotiationSteps.findIndex((step) => step.stage === stage);
@@ -68,13 +96,17 @@ function OfferNegotiationProgress({
         </div>
         <Badge variant="outline">当前：{currentStep.label}</Badge>
       </div>
-      <ol aria-label="Offer 协商子阶段" className="mt-4 grid grid-cols-4 gap-2">
+      <ol aria-label="Offer 协商子阶段" className="mx-4 mt-4 flex pb-6">
         {offerNegotiationSteps.map((step, index) => {
           const isCurrent = index === currentIndex;
           const nodeState = nodeStates.find((state) => state.node === step.stage);
           const isDone = nodeState?.status === "completed" && nodeState.result === "pass";
           return (
-            <li aria-current={isCurrent ? "step" : undefined} className="min-w-0" key={step.stage}>
+            <li
+              aria-current={isCurrent ? "step" : undefined}
+              className="relative min-w-0 flex-1 last:flex-none"
+              key={step.stage}
+            >
               <div className="flex items-center">
                 <span
                   className={cn(
@@ -86,12 +118,12 @@ function OfferNegotiationProgress({
                   {isDone ? <IconCheck className="size-3.5" /> : index + 1}
                 </span>
                 {index < offerNegotiationSteps.length - 1 ? (
-                  <span className={cn("h-px flex-1 bg-border", isDone && "bg-primary/35")} />
+                  <span className={cn("mx-2 h-px flex-1 bg-border", isDone && "bg-primary/35")} />
                 ) : null}
               </div>
               <p
                 className={cn(
-                  "mt-1.5 truncate text-muted-foreground text-xs",
+                  "absolute top-6 left-3 mt-1.5 -translate-x-1/2 whitespace-nowrap text-center text-muted-foreground text-xs",
                   isCurrent && "font-medium text-foreground",
                 )}
               >
@@ -103,7 +135,9 @@ function OfferNegotiationProgress({
       </ol>
       <p className="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-sm">
         <span className="font-medium">{disabled ? "流程状态：" : "当前阶段："}</span>
-        {disabled ? "招聘流程已结束，以下内容仅作历史留存。" : offerStageTasks[currentStep.stage]}
+        {disabled
+          ? "招聘流程已结束，以下内容仅作历史留存。"
+          : getOfferStageTask(currentStep.stage, offerStatus)}
       </p>
     </section>
   );
@@ -235,8 +269,14 @@ export function OfferStagePanel({
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <OfferNegotiationProgress disabled={disabled} nodeStates={nodeStates} stage={stage} />
+      <OfferNegotiationProgress
+        disabled={disabled}
+        nodeStates={nodeStates}
+        offerStatus={getCurrentOfferStatus(currentDrafts)}
+        stage={stage}
+      />
       <RecruitingMaterialsPanel
+        canUpdate={canUpdate}
         candidateId={candidateId}
         canCreate={canCreate}
         canDelete={canDelete}

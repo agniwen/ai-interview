@@ -19,7 +19,7 @@ export function canManageMeetingRecruitingContext(role: MeetingAccessRole): bool
   return role === "administrator" || role === "owner";
 }
 
-export const MEETING_RECRUITING_SEARCH_DEBOUNCE_MS = 250;
+const MEETING_RECRUITING_SEARCH_DEBOUNCE_MS = 250;
 
 export function useDebouncedMeetingRecruitingSearch(search: string): string {
   const [debounced, setDebounced] = useState(search);

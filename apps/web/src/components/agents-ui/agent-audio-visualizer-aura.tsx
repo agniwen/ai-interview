@@ -5,7 +5,6 @@ import type { VariantProps } from "class-variance-authority";
 import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
 import type { ComponentProps } from "react";
 import { cva } from "class-variance-authority";
-import * as React from "react";
 import { useMemo } from "react";
 import { ReactShaderToy } from "@/components/agents-ui/react-shader-toy";
 import { useAgentAudioVisualizerAura } from "@/hooks/agents-ui/use-agent-audio-visualizer-aura";

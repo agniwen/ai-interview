@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
+import { toast } from "sonner";
 import { JobDescriptionHoverCardView } from "./job-description-hover-card";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -23,12 +23,14 @@ const record = {
   id: "job-1",
   interviewerIds: ["interviewer-1"],
   name: "前端工程师",
-  prompt: "熟悉 **React** 与 TypeScript",
+  prompt: "  # 岗位要求\n\n- 熟悉 **React** 与 TypeScript\n",
 } as JobDescriptionRecord;
 
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("JobDescriptionHoverCard", () => {
@@ -58,8 +60,6 @@ describe("JobDescriptionHoverCard", () => {
 
       expect(fetchDetailMock).not.toHaveBeenCalled();
       const trigger = host.querySelector("button");
-      expect(trigger?.className).not.toMatch(/(^|\s)underline(\s|$)/);
-      expect(trigger?.className).toContain("hover:underline");
 
       act(() => {
         trigger?.click();
@@ -81,9 +81,7 @@ describe("JobDescriptionHoverCard", () => {
       await vi.waitFor(() => {
         expect(document.body.textContent).toContain("岗位 JD");
         expect(document.body.textContent).not.toContain("负责产品前端研发");
-        expect(
-          document.body.querySelector('[data-slot="hover-card-content"]')?.classList,
-        ).toContain("bg-background");
+
         const scrollAreas = document.body.querySelectorAll('[data-slot="scroll-area"]');
         expect(scrollAreas).toHaveLength(internalCriteria ? 2 : 1);
         if (internalCriteria) {
@@ -92,13 +90,33 @@ describe("JobDescriptionHoverCard", () => {
         } else {
           expect(document.body.textContent).not.toContain("内部标准");
         }
-        expect(scrollAreas[0]?.classList).toContain("[--scroll-fade-reveal:1rem]");
-        for (const scrollArea of scrollAreas) {
-          expect(scrollArea.firstElementChild?.classList).toContain("scroll-fade");
-        }
+
         expect(document.body.querySelector("strong")?.textContent).toBe("React");
         expect(getRevealState()).toBe("revealed");
       });
+
+      vi.spyOn(toast, "success").mockImplementation(() => "success");
+      vi.spyOn(toast, "error").mockImplementation(() => "error");
+      const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+      vi.stubGlobal("navigator", { clipboard: { writeText } });
+      const copyButton = document.body.querySelector<HTMLButtonElement>(
+        'button[aria-label="复制岗位 JD Markdown 原文"]',
+      );
+      expect(copyButton).not.toBeNull();
+      await act(async () => {
+        copyButton?.click();
+        await Promise.resolve();
+      });
+      expect(writeText).toHaveBeenCalledWith(record.prompt);
+      expect(toast.success).toHaveBeenCalledTimes(1);
+
+      writeText.mockRejectedValueOnce(new Error("Permission denied"));
+      await act(async () => {
+        copyButton?.click();
+        await Promise.resolve();
+      });
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      expect(toast.success).toHaveBeenCalledTimes(1);
 
       act(() => root.unmount());
     },

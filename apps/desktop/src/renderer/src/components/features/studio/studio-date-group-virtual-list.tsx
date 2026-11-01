@@ -9,8 +9,8 @@ import type { RefObject } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const STUDIO_DATE_GROUP_HEADER_HEIGHT = 44;
-export const STUDIO_DATE_GROUP_HEADER_GAP = 12;
+const STUDIO_DATE_GROUP_HEADER_HEIGHT = 44;
+const STUDIO_DATE_GROUP_HEADER_GAP = 12;
 export const STUDIO_DATE_GROUP_ROW_HEIGHT =
   STUDIO_DATE_GROUP_HEADER_HEIGHT + STUDIO_DATE_GROUP_HEADER_GAP;
 
@@ -19,7 +19,7 @@ interface StudioDateGroupedRecord {
   id: string;
 }
 
-export interface StudioDateGroup<TRecord> {
+interface StudioDateGroup<TRecord> {
   id: string;
   label: string;
   records: TRecord[];
@@ -51,7 +51,7 @@ function daysBetweenDateKeys(earlier: string, later: string) {
   return Math.round((laterTimestamp - earlierTimestamp) / 86_400_000);
 }
 
-export function groupStudioRecordsByCreatedAt<TRecord extends StudioDateGroupedRecord>(
+function groupStudioRecordsByCreatedAt<TRecord extends StudioDateGroupedRecord>(
   records: TRecord[],
   now: Date = new Date(),
 ): StudioDateGroup<TRecord>[] {

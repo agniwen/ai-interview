@@ -15,12 +15,15 @@ COPY apps/server/package.json apps/server/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
 COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/feishu/package.json packages/feishu/
+COPY packages/job-queues/package.json packages/job-queues/
 COPY packages/meeting-live-transcript/package.json packages/meeting-live-transcript/
 COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing/package.json packages/meeting-processing/
-COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
 COPY packages/object-storage/package.json packages/object-storage/
-COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
+COPY packages/recruiting/package.json packages/recruiting/
+COPY packages/recruiting-mcp-apps/package.json packages/recruiting-mcp-apps/
+COPY packages/recruiting-workflows/package.json packages/recruiting-workflows/
 COPY packages/resume-processing/package.json packages/resume-processing/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --filter @app/worker
@@ -32,7 +35,9 @@ COPY apps/worker apps/worker
 COPY apps/server apps/server
 COPY packages packages
 
-RUN bun run --filter @app/worker build
+# The regression test builds the same dist copied into the runtime image and
+# rejects workspace imports that cannot resolve without source packages.
+RUN bun run --filter @app/worker test src/tests/production-build.test.ts
 RUN bun -e "const fs = require('node:fs'); const path = require('node:path'); const entry = require.resolve('mupdf', { paths: ['/repo/packages/resume-processing'] }); fs.copyFileSync(path.join(path.dirname(entry), 'mupdf-wasm.wasm'), '/repo/apps/worker/dist/mupdf-wasm.wasm');"
 
 # --- Production dependencies ---
@@ -44,12 +49,15 @@ COPY apps/server/package.json apps/server/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
 COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/feishu/package.json packages/feishu/
+COPY packages/job-queues/package.json packages/job-queues/
 COPY packages/meeting-live-transcript/package.json packages/meeting-live-transcript/
 COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing/package.json packages/meeting-processing/
-COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
 COPY packages/object-storage/package.json packages/object-storage/
-COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
+COPY packages/recruiting/package.json packages/recruiting/
+COPY packages/recruiting-mcp-apps/package.json packages/recruiting-mcp-apps/
+COPY packages/recruiting-workflows/package.json packages/recruiting-workflows/
 COPY packages/resume-processing/package.json packages/resume-processing/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --production --filter @app/worker

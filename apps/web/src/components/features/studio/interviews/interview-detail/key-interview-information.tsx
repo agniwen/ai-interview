@@ -91,7 +91,8 @@ export function KeyInterviewInformation({
 }: {
   data: InterviewKeyInformation;
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
-  surface?: "card" | "frame";
+  /** "none" 只渲染内容，由外层负责标题。"none" renders only the content; the caller owns the title. */
+  surface?: "card" | "frame" | "none";
 }) {
   const hasContent =
     data.skillEvidence.length > 0 ||
@@ -117,6 +118,10 @@ export function KeyInterviewInformation({
       <RiskSection items={data.risks} onEvidenceSelect={onEvidenceSelect} />
     </>
   );
+
+  if (surface === "none") {
+    return <div className="flex flex-col gap-4">{content}</div>;
+  }
 
   if (surface === "frame") {
     return (

@@ -118,14 +118,6 @@ function EventCalendarAgendaView({ className, render, ...props }: EventCalendarA
                   data-slot="event-calendar-agenda-day-header"
                   className={cn(
                     "bg-muted/60 sticky top-0 z-10 flex items-baseline justify-between gap-4 border-b px-4 py-2",
-                    // The custom ScrollArea's overlay scrollbar (w-2.5 = 10px)
-                    // is painted UNDER this sticky, z-10, opaque header, so the
-                    // thumb vanishes behind the day bar at the top of the view.
-                    // Inset the header by the scrollbar lane so its background
-                    // stops before the scrollbar instead of covering it. Native
-                    // scrollbars already sit outside the content box, so this
-                    // only applies to the custom-scrollbar path.
-                    !native && "me-2.5",
                     viewConfig.classNames?.agendaDayHeader,
                   )}
                 >
@@ -158,7 +150,8 @@ function EventCalendarAgendaView({ className, render, ...props }: EventCalendarA
         {body}
       </div>
     ) : (
-      <ScrollArea className="h-full">{body}</ScrollArea>
+      // Keep the overlay scrollbar above sticky headers without reserving a blank lane.
+      <ScrollArea className="isolate h-full [&_.os-scrollbar]:z-20">{body}</ScrollArea>
     ),
     className: cn(
       "flex min-h-0 flex-1 flex-col overflow-hidden border-t",

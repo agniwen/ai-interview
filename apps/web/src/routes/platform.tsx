@@ -12,16 +12,13 @@ function PlatformRoute() {
 }
 
 export const Route = createFileRoute("/platform")({
-  loader: async ({ location }) => {
+  loader: async () => {
     const state = await getPlatformAdminState();
     if (state.status === "unauthenticated") {
       throw redirect({ href: "/login" });
     }
     if (state.status === "forbidden") {
       throw redirect({ href: "/" });
-    }
-    if (location.pathname === "/platform") {
-      throw redirect({ href: "/platform/organizations" });
     }
     return null;
   },

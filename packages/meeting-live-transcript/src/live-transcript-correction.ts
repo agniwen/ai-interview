@@ -3,7 +3,7 @@ import { liveCorrectionResultSchema } from "@app/shared/meeting-live-correction"
 import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@app/shared/meeting-live-correction";
 import { z } from "zod";
 
-export const LIVE_CORRECTION_MODEL = "qwen-audio-3.0-asr-flash";
+export const LIVE_CORRECTION_MODEL = "qwen-audio-3.1-asr-flash";
 export const LIVE_CORRECTION_LLM = "deepseek-v4-flash-0731";
 const SAMPLE_RATE = 16_000;
 const MAX_PENDING_BATCHES = 4;

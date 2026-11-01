@@ -62,7 +62,7 @@ function SavedLiveTranscriptDraft({
 type MeetingTranscriptStageTurn = Pick<FinalMeetingTranscriptTurn, "id" | "text"> &
   Partial<Pick<FinalMeetingTranscriptTurn, "speakerDisplayName" | "speakerKey">>;
 
-export function MeetingTranscriptStageTurns({
+function MeetingTranscriptStageTurns({
   numberedSpeakers = false,
   speakerScopeId = "meeting-transcript",
   turns,

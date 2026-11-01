@@ -5,7 +5,7 @@ import { departmentFormSchema } from "@app/shared/departments";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import { z } from "zod";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable();
+const savedPayloadSchema = z.object({ id: z.string() });
 
 function defaultValues(): DepartmentFormValues {
   return { description: "", name: "" };
@@ -39,10 +40,13 @@ export function DepartmentFormDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: DepartmentRecord | null;
-  onSaved: () => void;
+  onSaved: (saved: { id: string }) => void;
 }) {
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
+  // 该弹窗会叠在岗位/面试官表单之上，字段 id 需唯一，否则点击标签会聚焦到下层同名字段。
+  // Stacks above job/interviewer forms; unique ids keep labels from focusing same-named fields below.
+  const fieldIdPrefix = useId();
   const buildValues = useCallback(
     () => (record ? toFormValues(record) : defaultValues()),
     [record],
@@ -72,8 +76,9 @@ export function DepartmentFormDialog({
         return;
       }
 
+      const saved = savedPayloadSchema.safeParse(rawPayload);
       toast.success(isEdit ? "部门已更新" : "部门已创建");
-      onSaved();
+      onSaved({ id: saved.success ? saved.data.id : (record?.id ?? "") });
       onOpenChange(false);
     },
     open,
@@ -98,13 +103,13 @@ export function DepartmentFormDialog({
           const errors = toFieldErrors(field.state.meta.errors);
           return (
             <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-              <FieldLabel htmlFor={field.name}>
+              <FieldLabel htmlFor={`${fieldIdPrefix}-${field.name}`}>
                 部门名称 <span className="text-destructive">*</span>
               </FieldLabel>
               <FieldContent className="gap-2">
                 <Input
                   aria-invalid={!!errors?.length}
-                  id={field.name}
+                  id={`${fieldIdPrefix}-${field.name}`}
                   maxLength={NAME_MAX_LENGTH}
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
@@ -123,13 +128,13 @@ export function DepartmentFormDialog({
           const errors = toFieldErrors(field.state.meta.errors);
           return (
             <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-              <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
+              <FieldLabel htmlFor={`${fieldIdPrefix}-${field.name}`}>描述（可选）</FieldLabel>
               <FieldContent className="gap-2">
                 <div className="relative">
                   <Textarea
                     aria-invalid={!!errors?.length}
                     className="max-h-48 min-h-24 resize-none pb-6"
-                    id={field.name}
+                    id={`${fieldIdPrefix}-${field.name}`}
                     maxLength={DESCRIPTION_MAX_LENGTH}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}

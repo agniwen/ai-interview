@@ -12,15 +12,13 @@
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
 import type { StudioInterviewRoundDetail } from "@app/shared/studio-interview-rounds";
+import type { InterviewQuestionOutcome } from "@app/shared/interview/question-outcomes";
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
 import { z } from "zod";
-import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { isOfferStage } from "@app/shared/candidate-pipeline-machine";
-
-export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/50 bg-background/70 bg-clip-padding backdrop-blur-xl backdrop-saturate-150 ${cossWhisperShadowClass}`;
 
 export type StudioPersonDetailMode = "interview" | "resume";
 export type StudioPersonDetailLayoutMode = "modal" | "page";
@@ -61,13 +59,25 @@ const cachedCandidatePagesSchema = z.object({
 
 type CachedCandidateRecord = z.infer<typeof cachedCandidateRecordSchema>;
 
+interface TabVisibilityStage {
+  pipelineStage?: string;
+  closedFromNode?: string | null;
+}
+
+function getTabVisibilityStage(record: TabVisibilityStage | null): string | null {
+  return record?.pipelineStage === "closed"
+    ? (record.closedFromNode ?? null)
+    : (record?.pipelineStage ?? null);
+}
+
 export function shouldShowAiInterviewTab(
-  record: { pipelineStage?: string; hasInitialInterview?: boolean } | null,
+  record: (TabVisibilityStage & { hasInitialInterview?: boolean }) | null,
 ): boolean {
   if (record?.hasInitialInterview) {
     return true;
   }
-  if (!record?.pipelineStage) {
+  const stage = getTabVisibilityStage(record);
+  if (!stage) {
     return false;
   }
   return [
@@ -79,26 +89,24 @@ export function shouldShowAiInterviewTab(
     "offer",
     "background_check",
     "onboarding",
-    "closed",
-  ].includes(record.pipelineStage);
+  ].includes(stage);
 }
 
 // 真人面试 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
-// 关闭后仍显示（HR 想回看历史 / 重新激活时直接点）。
-// Human-interview tab is visible once the candidate has reached or passed that
-// stage; remains visible after close for HR audit and reactivation.
+// 已结束时按结束前的节点判断；实际面试记录仍保留历史查看入口。
 export function shouldShowHumanInterviewTab(
-  record: { hasHumanInterview?: boolean; pipelineStage?: string } | null,
+  record: (TabVisibilityStage & { hasHumanInterview?: boolean }) | null,
   canReadHumanInterview: boolean,
 ): boolean {
   if (!canReadHumanInterview) {
     return false;
   }
-  if (!record?.pipelineStage) {
-    return false;
-  }
-  if (record.hasHumanInterview) {
+  if (record?.hasHumanInterview) {
     return true;
+  }
+  const stage = getTabVisibilityStage(record);
+  if (!stage) {
+    return false;
   }
   return [
     "second_interview",
@@ -108,23 +116,21 @@ export function shouldShowHumanInterviewTab(
     "offer",
     "background_check",
     "onboarding",
-    "closed",
-  ].includes(record.pipelineStage);
+  ].includes(stage);
 }
 
 export function shouldShowOfferTab(
-  record: { pipelineStage?: string } | null,
+  record: TabVisibilityStage | null,
   canReadOffer: boolean,
 ): boolean {
   if (!canReadOffer) {
     return false;
   }
-  if (!record?.pipelineStage) {
+  const stage = getTabVisibilityStage(record);
+  if (!stage) {
     return false;
   }
-  return (
-    isOfferStage(record.pipelineStage) || ["onboarding", "closed"].includes(record.pipelineStage)
-  );
+  return isOfferStage(stage) || stage === "onboarding";
 }
 
 export function shouldShowOnboardingTab(
@@ -242,6 +248,8 @@ export interface StudioPersonDetailSlots {
   modalClassName?: string;
   modalSize?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
   footer: ReactNode;
+  /** 叠在弹窗内容之上、相对弹窗定位的层（如悬浮操作栏）。Layer positioned over the modal content. */
+  overlay?: ReactNode;
 }
 
 export function renderHeaderDescription({
@@ -276,6 +284,16 @@ export interface CollectedCandidateInfoItem {
   answers: string[];
   id: string;
   kind: "form" | "interview";
+  /** 沟通题的逐题结果（状态、得分、追问与用时）；表单题与旧数据为空。 */
+  /** Per-question result for interview items (status, score, follow-ups, time); null otherwise. */
+  outcome?: {
+    durationSecs: number;
+    followUpCount: number;
+    maxScore: number;
+    reason: InterviewQuestionOutcome["reason"];
+    score: number | null;
+    status: InterviewQuestionOutcome["status"];
+  } | null;
   question: string;
   sequence: number;
 }

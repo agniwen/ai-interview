@@ -10,7 +10,9 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import * as React from "react";
+import { createPortal } from "react-dom";
 
+import { createClientOnlyFn } from "@tanstack/react-start";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type * as ReactPdf from "react-pdf";
@@ -38,8 +40,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { attachPdfPinchZoom } from "./pdf-viewer-touch-zoom";
 
 type ReactPdfModule = typeof ReactPdf;
+const loadReactPdf = createClientOnlyFn(() => import("react-pdf"));
 type PageRotationDeltas = Map<number, number>;
 
 type PDFPageMetrics = {
@@ -89,16 +93,24 @@ export type PDFViewerProps = {
   documentOptions?: ReactPdf.DocumentProps["options"];
   defaultThumbnailSidebarOpen?: boolean;
   defaultZoom?: number;
+  enableModifierWheelZoom?: boolean;
+  enableTouchPinchZoom?: boolean;
+  fitWidthOnMobile?: boolean;
   pageWidth?: number;
   pageHeight?: number;
   pageNumbers?: number[];
   pageRenderBuffer?: number;
+  scrollFade?: boolean;
   setRenderRange?: (visiblePagesRange: PDFViewerVisiblePagesRange) => PDFViewerRenderRange;
   downloadFileName?: string;
   showDownload?: boolean;
   showRotateControls?: boolean;
+  showRotateControlsOnMobile?: boolean;
+  showSearchOnMobile?: boolean;
   showUpload?: boolean;
+  showToolbar?: boolean;
   toolbarActions?: React.ReactNode;
+  toolbarContainer?: HTMLElement | null;
   pageClassName?: (pageNumber: number) => string | undefined;
   renderPageOverlay?: (props: PDFViewerPageOverlayProps) => React.ReactNode;
   onActivePageChange?: (pageNumber: number) => void;
@@ -113,7 +125,8 @@ export type PDFViewerProps = {
 const DEFAULT_PAGE_WIDTH = 612;
 const DEFAULT_PAGE_HEIGHT = 792;
 const DEFAULT_ZOOM = 1;
-const ZOOM_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const ZOOM_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+const WHEEL_ZOOM_STEP = 0.1;
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const DEFAULT_PAGE_RENDER_BUFFER = 4;
 const FAST_SCROLL_VELOCITY_PX_PER_MS = 1;
@@ -413,6 +426,7 @@ function PDFViewerPage({
   pageClassName,
   renderPageOverlay,
   onPageSettled,
+  preserveCanvasOnZoom,
   onPagePointerDown,
   onPagePointerMove,
   onPagePointerUp,
@@ -430,14 +444,59 @@ function PDFViewerPage({
   pageClassName?: (pageNumber: number) => string | undefined;
   renderPageOverlay?: (props: PDFViewerPageOverlayProps) => React.ReactNode;
   onPageSettled: (pageNumber: number, devicePixelRatioLimit: number) => void;
+  preserveCanvasOnZoom: boolean;
   onPagePointerDown?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
   onPagePointerMove?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
   onPagePointerUp?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
   onPagePointerCancel?: (event: React.PointerEvent<HTMLDivElement>, pageNumber: number) => void;
 }) {
   const pageRef = React.useRef<HTMLDivElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const previousCanvasRef = React.useRef<HTMLCanvasElement>(null);
+  const previousRenderedWidthRef = React.useRef(renderedPageWidth);
+  const renderedPageWidthRef = React.useRef(renderedPageWidth);
+  const preserveCanvasOnZoomRef = React.useRef(preserveCanvasOnZoom);
   const [searchHighlights, setSearchHighlights] = React.useState<SearchHighlight[]>([]);
   const hasSearchQuery = Boolean(searchQuery.trim());
+  renderedPageWidthRef.current = renderedPageWidth;
+  preserveCanvasOnZoomRef.current = preserveCanvasOnZoom;
+
+  React.useLayoutEffect(() => {
+    previousRenderedWidthRef.current = renderedPageWidth;
+  }, [renderedPageWidth]);
+
+  const setPageCanvasRef = React.useCallback((canvas: HTMLCanvasElement | null) => {
+    if (canvas) {
+      canvasRef.current = canvas;
+      return;
+    }
+
+    const source = canvasRef.current;
+    const previous = previousCanvasRef.current;
+    canvasRef.current = null;
+    if (
+      !preserveCanvasOnZoomRef.current ||
+      previousRenderedWidthRef.current === renderedPageWidthRef.current ||
+      !source ||
+      !previous ||
+      !source.width ||
+      source.style.visibility === "hidden"
+    ) {
+      return;
+    }
+
+    const context = previous.getContext("2d");
+    if (!context) return;
+    previous.width = source.width;
+    previous.height = source.height;
+    context.drawImage(source, 0, 0);
+    previous.style.visibility = "visible";
+  }, []);
+
+  const finishPageRender = () => {
+    if (previousCanvasRef.current) previousCanvasRef.current.style.visibility = "hidden";
+    onPageSettled(pageNumber, devicePixelRatioLimit);
+  };
   const clearSearchHighlights = React.useCallback(() => {
     setSearchHighlights((currentHighlights) => (currentHighlights.length ? [] : currentHighlights));
   }, []);
@@ -518,6 +577,7 @@ function PDFViewerPage({
       {shouldRenderPage ? (
         <>
           <reactPdf.Page
+            canvasRef={setPageCanvasRef}
             pageNumber={pageNumber}
             width={renderedPageWidth}
             rotate={effectiveRotation}
@@ -534,16 +594,24 @@ function PDFViewerPage({
                 <Spinner className="size-4" />
               </div>
             }
-            onRenderSuccess={() => onPageSettled(pageNumber, devicePixelRatioLimit)}
+            onRenderSuccess={finishPageRender}
             onRenderTextLayerSuccess={updateSearchHighlights}
-            onRenderError={() => onPageSettled(pageNumber, devicePixelRatioLimit)}
+            onRenderError={finishPageRender}
           />
+          {preserveCanvasOnZoom ? (
+            <canvas
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-10 size-full"
+              ref={previousCanvasRef}
+              style={{ visibility: "hidden" }}
+            />
+          ) : null}
           {searchHighlights.length ? (
             <div className="pointer-events-none absolute inset-0 z-10">
               {searchHighlights.map((highlight) => (
                 <div
                   key={highlight.id}
-                  className="absolute rounded-[2px] bg-yellow-300/45 mix-blend-multiply ring-1 ring-yellow-500/20 dark:bg-yellow-300/35"
+                  className="absolute rounded-[2px] bg-amber/45 mix-blend-multiply ring-1 ring-amber-line"
                   style={{
                     left: highlight.left,
                     top: highlight.top,
@@ -576,16 +644,24 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     documentOptions,
     defaultThumbnailSidebarOpen = false,
     defaultZoom = DEFAULT_ZOOM,
+    enableModifierWheelZoom = false,
+    enableTouchPinchZoom = false,
+    fitWidthOnMobile = false,
     pageWidth = DEFAULT_PAGE_WIDTH,
     pageHeight = DEFAULT_PAGE_HEIGHT,
     pageNumbers,
     pageRenderBuffer = DEFAULT_PAGE_RENDER_BUFFER,
+    scrollFade = false,
     setRenderRange,
     downloadFileName,
     showDownload = true,
     showRotateControls = true,
+    showRotateControlsOnMobile = true,
+    showSearchOnMobile = true,
     showUpload = true,
+    showToolbar = true,
     toolbarActions,
+    toolbarContainer,
     pageClassName,
     renderPageOverlay,
     onActivePageChange,
@@ -640,8 +716,20 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     scrollTop: 0,
     timestamp: 0,
   });
+  const lastWheelZoomAtRef = React.useRef(-Infinity);
+  const zoomRef = React.useRef(zoom);
+  const initialFitAppliedRef = React.useRef(false);
+  const zoomAnchorRef = React.useRef<{
+    clientX: number;
+    clientY: number;
+    pageNumber: number;
+    xRatio: number;
+    yRatio: number;
+  } | null>(null);
+  zoomRef.current = zoom;
 
   React.useEffect(() => {
+    initialFitAppliedRef.current = false;
     setPdfFile(file ?? "");
     setLoadError(false);
     setIsDocumentLoading(Boolean(file));
@@ -662,7 +750,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   React.useEffect(() => {
     let mounted = true;
 
-    void import("react-pdf")
+    void loadReactPdf()
       .then((module) => {
         module.pdfjs.GlobalWorkerOptions.workerSrc = getPdfWorkerUrl(module.pdfjs.version);
 
@@ -706,6 +794,32 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     (pageNumber: number) => pageMetrics.get(pageNumber) ?? defaultPageMetrics,
     [defaultPageMetrics, pageMetrics],
   );
+  React.useLayoutEffect(() => {
+    if (
+      !fitWidthOnMobile ||
+      initialFitAppliedRef.current ||
+      !pdfDocument ||
+      !viewerShellWidth ||
+      !window.matchMedia("(max-width: 767px)").matches
+    ) {
+      return;
+    }
+
+    const metrics = pageMetrics.get(firstRenderedPage);
+    if (!metrics) return;
+
+    const viewportWidth = viewportRef.current?.clientWidth || viewerShellWidth;
+    const availableWidth = viewportWidth - PAGE_VIRTUALIZER_PADDING * 2;
+    const pageWidth = getPageDimensions(metrics, metrics.rotation).width;
+    if (availableWidth <= 0 || pageWidth <= 0) return;
+
+    const fittedZoom = Math.min(
+      ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
+      Math.floor((availableWidth / pageWidth) * 1000) / 1000,
+    );
+    initialFitAppliedRef.current = true;
+    setZoom(fittedZoom);
+  }, [firstRenderedPage, fitWidthOnMobile, pageMetrics, pdfDocument, viewerShellWidth]);
   const getEstimatedPageSize = React.useCallback(
     (index: number) => {
       const pageNumber = renderedPageNumbers[index] ?? firstRenderedPage;
@@ -841,6 +955,123 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   const hasPdfFile = Boolean(pdfFile);
   const controlsDisabled = !hasPdfFile || !reactPdf || !numPages;
   const downloadDisabled = controlsDisabled || isPreparingDownload;
+
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!enableModifierWheelZoom || controlsDisabled || !viewport) return;
+
+    const handleModifierWheel = (event: WheelEvent) => {
+      if ((!event.ctrlKey && !event.altKey) || event.deltaY === 0) return;
+
+      event.preventDefault();
+      const now = performance.now();
+      if (now - lastWheelZoomAtRef.current < 70) return;
+      lastWheelZoomAtRef.current = now;
+
+      const nextZoom = Math.max(
+        ZOOM_OPTIONS[0],
+        Math.min(
+          ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
+          Number(
+            (zoomRef.current + (event.deltaY < 0 ? WHEEL_ZOOM_STEP : -WHEEL_ZOOM_STEP)).toFixed(2),
+          ),
+        ),
+      );
+      if (nextZoom === zoomRef.current) return;
+
+      const pageElement =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>("[data-pdf-viewer-page]")
+          : null;
+      zoomAnchorRef.current = null;
+      if (pageElement?.dataset.pdfViewerPage) {
+        const rect = pageElement.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          zoomAnchorRef.current = {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            pageNumber: Number(pageElement.dataset.pdfViewerPage),
+            xRatio: (event.clientX - rect.left) / rect.width,
+            yRatio: (event.clientY - rect.top) / rect.height,
+          };
+        }
+      }
+      zoomRef.current = nextZoom;
+      setZoom(nextZoom);
+    };
+
+    viewport.addEventListener("wheel", handleModifierWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", handleModifierWheel);
+  }, [controlsDisabled, enableModifierWheelZoom]);
+
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!enableTouchPinchZoom || controlsDisabled || !viewport) return;
+    const content = viewport.firstElementChild;
+    if (!(content instanceof HTMLElement)) return;
+    const previousTransform = content.style.transform;
+    const previousTransformOrigin = content.style.transformOrigin;
+    let previewStarted = false;
+    return attachPdfPinchZoom(viewport, {
+      getZoom: () => zoomRef.current,
+      maxZoom: ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1],
+      minZoom: ZOOM_OPTIONS[0],
+      onPreview(scale, clientX, clientY) {
+        if (!previewStarted) {
+          const rect = content.getBoundingClientRect();
+          content.style.transformOrigin = `${clientX - rect.left}px ${clientY - rect.top}px`;
+          previewStarted = true;
+        }
+        content.style.transform = `scale(${scale})`;
+      },
+      onPreviewEnd() {
+        previewStarted = false;
+        content.style.transform = previousTransform;
+        content.style.transformOrigin = previousTransformOrigin;
+      },
+      onZoom(nextZoom, clientX, clientY) {
+        const pageElement = [
+          ...viewport.querySelectorAll<HTMLElement>("[data-pdf-viewer-page]"),
+        ].find((page) => {
+          const rect = page.getBoundingClientRect();
+          return (
+            clientX >= rect.left &&
+            clientX <= rect.right &&
+            clientY >= rect.top &&
+            clientY <= rect.bottom
+          );
+        });
+        zoomAnchorRef.current = null;
+        if (pageElement?.dataset.pdfViewerPage) {
+          const rect = pageElement.getBoundingClientRect();
+          zoomAnchorRef.current = {
+            clientX,
+            clientY,
+            pageNumber: Number(pageElement.dataset.pdfViewerPage),
+            xRatio: (clientX - rect.left) / rect.width,
+            yRatio: (clientY - rect.top) / rect.height,
+          };
+        }
+        zoomRef.current = nextZoom;
+        setZoom(nextZoom);
+      },
+    });
+  }, [controlsDisabled, enableTouchPinchZoom]);
+
+  React.useLayoutEffect(() => {
+    const anchor = zoomAnchorRef.current;
+    zoomAnchorRef.current = null;
+    const viewport = viewportRef.current;
+    if (!anchor || !viewport) return;
+
+    const pageElement = viewport.querySelector<HTMLElement>(
+      `[data-pdf-viewer-page="${anchor.pageNumber}"]`,
+    );
+    if (!pageElement) return;
+    const rect = pageElement.getBoundingClientRect();
+    viewport.scrollTop += rect.top + anchor.yRatio * rect.height - anchor.clientY;
+    viewport.scrollLeft += rect.left + anchor.xRatio * rect.width - anchor.clientX;
+  }, [zoom]);
   const isLoading = hasPdfFile && (!reactPdf || isDocumentLoading || isFirstPageRendering);
   const sidebarInline = useInlineThumbnailSidebar(viewerShellWidth);
   const thumbnailSidebarVisible = Boolean(sidebarOpen && !isLoading && !loadError);
@@ -1244,6 +1475,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
   }, [scrollActiveThumbnailIntoView, thumbnailSidebarVisible]);
 
   const handleLoadStart = React.useCallback(() => {
+    initialFitAppliedRef.current = false;
     setIsDocumentLoading(true);
     setIsFirstPageRendering(true);
     setLoadError(false);
@@ -1413,139 +1645,154 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
     [onPdfUpload],
   );
 
-  return (
+  const toolbar = (
     <div
-      data-slot="pdf-viewer"
       className={cn(
-        "flex h-full max-h-full min-h-0 w-full flex-col overflow-hidden bg-background",
-        className,
+        "flex flex-wrap items-center justify-between gap-2 bg-background",
+        toolbarContainer === undefined ? "min-h-12 border-b px-3 py-2" : "min-h-8",
       )}
     >
-      <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <TooltipProvider>
-            <ToolbarTooltip label="切换缩略图">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="切换缩略图"
-                disabled={controlsDisabled}
-                onClick={() => setSidebarOpen((open) => !open)}
-              >
-                <IconLayoutSidebarLeftCollapse className="size-4" />
-              </Button>
-            </ToolbarTooltip>
-          </TooltipProvider>
-          <div className="text-sm whitespace-nowrap text-primary">
-            第 {activePage} / {numPages || "-"} 页
-          </div>
-        </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <TooltipProvider>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-            {showRotateControls ? (
-              <>
-                <div className="flex flex-none items-center gap-1">
-                  <ToolbarTooltip label="逆时针旋转页面">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="逆时针旋转页面"
-                      disabled={controlsDisabled}
-                      onClick={() => rotateActivePage(-90)}
-                    >
-                      <IconRotateClockwise className="size-4 -scale-x-100" />
-                    </Button>
-                  </ToolbarTooltip>
-                  <ToolbarTooltip label="顺时针旋转页面">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="顺时针旋转页面"
-                      disabled={controlsDisabled}
-                      onClick={() => rotateActivePage(90)}
-                    >
-                      <IconRotateClockwise className="size-4" />
-                    </Button>
-                  </ToolbarTooltip>
-                </div>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-              </>
-            ) : null}
-            <div className="flex flex-none items-center gap-1">
-              <ToolbarTooltip label="缩小">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="缩小"
-                  disabled={controlsDisabled || zoom <= ZOOM_OPTIONS[0]}
-                  onClick={() => {
-                    const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
-                    setZoom(ZOOM_OPTIONS[Math.max(0, currentIndex - 1)] ?? zoom);
-                  }}
-                >
-                  <IconCircleMinus className="size-4" />
-                </Button>
-              </ToolbarTooltip>
-              <Select
-                value={String(zoom)}
-                onValueChange={(value) => setZoom(Number(value))}
-                disabled={controlsDisabled}
+          <ToolbarTooltip label="切换缩略图">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="切换缩略图"
+              disabled={controlsDisabled}
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              <IconLayoutSidebarLeftCollapse className="size-4" />
+            </Button>
+          </ToolbarTooltip>
+        </TooltipProvider>
+        <div className="text-sm whitespace-nowrap text-muted-foreground">
+          第 {activePage} / {numPages || "-"} 页
+        </div>
+      </div>
+      <TooltipProvider>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+          {showRotateControls ? (
+            <>
+              <div
+                className={cn(
+                  "flex flex-none items-center gap-1",
+                  !showRotateControlsOnMobile && "hidden md:flex",
+                )}
               >
-                <SelectTrigger size="sm" className="w-[84px] min-w-[84px]">
-                  <SelectValue placeholder="缩放">{Math.round(zoom * 100)}%</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {ZOOM_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {Math.round(option * 100)}%
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <ToolbarTooltip label="放大">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="放大"
-                  disabled={controlsDisabled || zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
-                  onClick={() => {
-                    const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
-                    setZoom(
-                      ZOOM_OPTIONS[Math.min(ZOOM_OPTIONS.length - 1, currentIndex + 1)] ?? zoom,
-                    );
-                  }}
-                >
-                  <IconCirclePlus className="size-4" />
-                </Button>
-              </ToolbarTooltip>
-            </div>
-            <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-            {showDownload ? (
-              <>
-                <ToolbarTooltip label="下载 PDF">
+                <ToolbarTooltip label="逆时针旋转页面">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="下载 PDF"
-                    disabled={downloadDisabled}
-                    onClick={handleDownload}
+                    aria-label="逆时针旋转页面"
+                    disabled={controlsDisabled}
+                    onClick={() => rotateActivePage(-90)}
                   >
-                    {isPreparingDownload ? (
-                      <Spinner className="size-4" />
-                    ) : (
-                      <IconDownload className="size-4" />
-                    )}
+                    <IconRotateClockwise className="size-4 -scale-x-100" />
                   </Button>
                 </ToolbarTooltip>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-              </>
-            ) : null}
+                <ToolbarTooltip label="顺时针旋转页面">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="顺时针旋转页面"
+                    disabled={controlsDisabled}
+                    onClick={() => rotateActivePage(90)}
+                  >
+                    <IconRotateClockwise className="size-4" />
+                  </Button>
+                </ToolbarTooltip>
+              </div>
+              <Separator
+                orientation="vertical"
+                className={cn(
+                  "mx-1 h-4 self-center",
+                  !showRotateControlsOnMobile && "hidden md:block",
+                )}
+              />
+            </>
+          ) : null}
+          <div className="flex flex-none items-center gap-1">
+            <ToolbarTooltip label="缩小">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="缩小"
+                disabled={controlsDisabled || zoom <= ZOOM_OPTIONS[0]}
+                onClick={() => {
+                  setZoom(ZOOM_OPTIONS.findLast((option) => option < zoom) ?? zoom);
+                }}
+              >
+                <IconCircleMinus className="size-4" />
+              </Button>
+            </ToolbarTooltip>
+            <Select
+              value={String(zoom)}
+              onValueChange={(value) => setZoom(Number(value))}
+              disabled={controlsDisabled}
+            >
+              <SelectTrigger size="sm" className="w-[84px] min-w-[84px]">
+                <SelectValue placeholder="缩放">{Math.round(zoom * 100)}%</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {!ZOOM_OPTIONS.includes(zoom) ? (
+                  <SelectItem value={String(zoom)}>{Math.round(zoom * 100)}%</SelectItem>
+                ) : null}
+                {ZOOM_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {Math.round(option * 100)}%
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ToolbarTooltip label="放大">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="放大"
+                disabled={controlsDisabled || zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
+                onClick={() => {
+                  setZoom(ZOOM_OPTIONS.find((option) => option > zoom) ?? zoom);
+                }}
+              >
+                <IconCirclePlus className="size-4" />
+              </Button>
+            </ToolbarTooltip>
+          </div>
+          <Separator
+            orientation="vertical"
+            className={cn(
+              "mx-1 h-4 self-center",
+              !showDownload && !showSearchOnMobile && "hidden md:block",
+            )}
+          />
+          {showDownload ? (
+            <>
+              <ToolbarTooltip label="下载 PDF">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="下载 PDF"
+                  disabled={downloadDisabled}
+                  onClick={handleDownload}
+                >
+                  {isPreparingDownload ? (
+                    <Spinner className="size-4" />
+                  ) : (
+                    <IconDownload className="size-4" />
+                  )}
+                </Button>
+              </ToolbarTooltip>
+              <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+            </>
+          ) : null}
+          <div className={cn(!showSearchOnMobile && "hidden md:block")}>
             <Popover>
               <ToolbarTooltip label="搜索文本">
                 <PopoverTrigger
@@ -1574,46 +1821,61 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                 />
               </PopoverContent>
             </Popover>
-            {toolbarActions ? (
-              <>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-                {toolbarActions}
-              </>
-            ) : null}
-            {showUpload ? (
-              <>
-                <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-                <ToolbarTooltip label="上传 PDF">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="上传 PDF"
-                    nativeButton={false}
-                    render={
-                      <label>
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          className="sr-only"
-                          onChange={(event) => {
-                            const nextFile = event.target.files?.[0];
-
-                            if (nextFile) {
-                              handleUpload(nextFile);
-                              event.currentTarget.value = "";
-                            }
-                          }}
-                        />
-                        <IconUpload className="size-4" />
-                      </label>
-                    }
-                  />
-                </ToolbarTooltip>
-              </>
-            ) : null}
           </div>
-        </TooltipProvider>
-      </div>
+          {toolbarActions ? (
+            <>
+              <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+              {toolbarActions}
+            </>
+          ) : null}
+          {showUpload ? (
+            <>
+              <Separator orientation="vertical" className="mx-1 h-4 self-center" />
+              <ToolbarTooltip label="上传 PDF">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="上传 PDF"
+                  nativeButton={false}
+                  render={
+                    <label>
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="sr-only"
+                        onChange={(event) => {
+                          const nextFile = event.target.files?.[0];
+
+                          if (nextFile) {
+                            handleUpload(nextFile);
+                            event.currentTarget.value = "";
+                          }
+                        }}
+                      />
+                      <IconUpload className="size-4" />
+                    </label>
+                  }
+                />
+              </ToolbarTooltip>
+            </>
+          ) : null}
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+
+  return (
+    <div
+      data-slot="pdf-viewer"
+      className={cn(
+        "flex h-full max-h-full min-h-0 w-full flex-col overflow-hidden bg-background",
+        className,
+      )}
+    >
+      {showToolbar &&
+        (toolbarContainer === undefined
+          ? toolbar
+          : toolbarContainer && createPortal(toolbar, toolbarContainer))}
       <div
         ref={viewerShellRef}
         className="relative flex min-h-0 flex-1 overflow-hidden bg-muted/30"
@@ -1652,7 +1914,10 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             <div className="flex h-full max-h-full min-h-0 w-full flex-1 overflow-hidden">
               <DocumentViewerThumbnailSidebar inline={sidebarInline} open={thumbnailSidebarVisible}>
                 {thumbnailSidebarVisible ? (
-                  <div className="h-full overflow-auto" ref={thumbnailViewportRef}>
+                  <div
+                    className={cn("h-full overflow-auto", scrollFade && "scroll-fade")}
+                    ref={thumbnailViewportRef}
+                  >
                     <div
                       className="relative"
                       style={{ height: thumbnailVirtualizer.getTotalSize() }}
@@ -1714,6 +1979,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
               <div
                 className={cn(
                   "h-full max-h-full min-h-0 min-w-0 flex-1 overflow-auto",
+                  scrollFade && "scroll-fade",
                   isFirstPageRendering && !loadError && "invisible",
                 )}
                 ref={viewportRef}
@@ -1773,6 +2039,9 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                           pageClassName={pageClassName}
                           renderPageOverlay={renderPageOverlay}
                           onPageSettled={handlePageSettled}
+                          preserveCanvasOnZoom={
+                            enableModifierWheelZoom && visiblePageNumbers.has(pageNumber)
+                          }
                           onPagePointerDown={onPagePointerDown}
                           onPagePointerMove={onPagePointerMove}
                           onPagePointerUp={onPagePointerUp}

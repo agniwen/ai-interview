@@ -45,6 +45,9 @@ function escapeHtml(value: string): string {
 }
 
 function actionLabel(input: NotificationPresentationInput): string {
+  if (input.type.startsWith("offer_approval_")) {
+    return "进入系统审批";
+  }
   if (input.type === "background_check_submitted") {
     return "查看并确认背调结果";
   }
@@ -118,6 +121,9 @@ function notificationTitle(input: NotificationPresentationInput): string {
     human_invitation_declined: "候选人已拒绝",
     human_invitation_exception: "候选人面试接受异常",
     offer_accepted: "候选人已接受 Offer",
+    offer_approval_cancelled: "Offer 审批已结束",
+    offer_approval_pending: "Offer 待审批",
+    offer_approval_result: "Offer 审批结果",
     offer_declined: "候选人已拒绝 Offer",
   } satisfies Partial<Record<InterviewNotificationEventType, string>>;
   return notificationCopy(titles, input.type) ?? input.renderedSubject?.trim() ?? "面试通知";
@@ -151,6 +157,9 @@ function notificationStatus(type: InterviewNotificationEventType): string | null
 }
 
 function notificationSummary(input: NotificationPresentationInput): string {
+  if (input.type.startsWith("offer_approval_")) {
+    return input.renderedContent;
+  }
   if (input.type === "ai_interview_completed" && input.payload.completionNotice) {
     return input.payload.completionNotice;
   }

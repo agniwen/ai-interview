@@ -56,7 +56,7 @@ export function getSettings(): DesktopSettings {
   return cache;
 }
 
-export function subscribeSettings(listener: () => void): () => void {
+function subscribeSettings(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);

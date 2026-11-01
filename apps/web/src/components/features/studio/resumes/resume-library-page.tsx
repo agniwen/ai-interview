@@ -71,14 +71,10 @@ export function ResumeLibraryPage() {
     jobDescriptions,
     loadedResumeRecords,
     loadedResumeRowsById,
-    metricsChartKey,
     metricsQuery,
-    metricsScope,
-    metricsSwitching,
     resumeLibraryListQuery,
     resumeLibraryTotal,
     retryParseMutation,
-    setMetricsScope,
     skillSuggestions,
     slug,
     workspaceMembers,
@@ -149,16 +145,6 @@ export function ResumeLibraryPage() {
         fixedRecruitingGroup={firstSearchValue(routeSearch.boardPreset)}
         grid={grid}
         metrics={metricsQuery.data}
-        metricsChartKey={metricsChartKey}
-        metricsError={metricsQuery.error}
-        metricsFetching={metricsQuery.isFetching}
-        metricsScope={metricsScope}
-        metricsSwitching={metricsSwitching}
-        onMetricsRetry={async () => {
-          await metricsQuery.refetch();
-        }}
-        onMetricsScopeChange={setMetricsScope}
-        slug={slug}
       >
         <ResumeLibraryCardList
           canCreateInterview={canCreateInterview}
@@ -174,7 +160,16 @@ export function ResumeLibraryPage() {
             <ResumeLibraryPageEmptyState
               canUploadResumeLibrary={canUploadResumeLibrary}
               hrHandling={grid.filters.hrHandling === "true"}
-              onOpenUploadEntry={() => setUploadEntryOpen(true)}
+              onOpenUploadEntry={() => {
+                if (
+                  bulk.state.canRetry ||
+                  ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+                ) {
+                  setProgressOpen(true);
+                } else {
+                  setUploadEntryOpen(true);
+                }
+              }}
               stageFilter={grid.filters.stage}
               uploadEntryDisabled={uploadEntryDisabled}
             />
@@ -200,7 +195,16 @@ export function ResumeLibraryPage() {
           onLaunchInterview={startAiInterview}
           onOpenBatchList={() => setBatchListOpen(true)}
           onOpenDetail={onOpenDetail}
-          onOpenUploadEntry={() => setUploadEntryOpen(true)}
+          onOpenUploadEntry={() => {
+            if (
+              bulk.state.canRetry ||
+              ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+            ) {
+              setProgressOpen(true);
+            } else {
+              setUploadEntryOpen(true);
+            }
+          }}
           onPreviewResume={setPreviewRecord}
           onRetry={() => {
             void resumeLibraryListQuery.refetch();

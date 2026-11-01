@@ -195,5 +195,5 @@ export const meetingTranscriptionEvalDatasetSchema = z
     }
   });
 
-export type MeetingTranscriptionEvalDataset = z.infer<typeof meetingTranscriptionEvalDatasetSchema>;
+type MeetingTranscriptionEvalDataset = z.infer<typeof meetingTranscriptionEvalDatasetSchema>;
 export type MeetingTranscriptionEvalCase = MeetingTranscriptionEvalDataset["cases"][number];

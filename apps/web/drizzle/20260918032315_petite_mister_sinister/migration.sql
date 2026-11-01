@@ -1,0 +1,1 @@
+ALTER TABLE "human_transcription_run" ADD COLUMN "recognition_hints" jsonb;

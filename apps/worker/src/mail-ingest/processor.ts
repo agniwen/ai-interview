@@ -4,7 +4,7 @@ import type { ParsedMail } from "mailparser";
 import { z } from "zod";
 import type { MailIngestDao, WorkerMailIngestAccount } from "@app/resume-processing/mail-ingest";
 import type { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import type { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
+import type { enqueueResumeParseJobs } from "@app/job-queues/resume-parse";
 import { getResumeDocumentExtension } from "@app/shared/resume-documents";
 import { sha256HexOfBytes } from "@app/shared/file-hash";
 import type { MailIngestJdBindStatus } from "@app/db-schema/schema";
@@ -51,6 +51,7 @@ export interface MailIngestDependencies {
   enqueueResumeParseJobs: typeof enqueueResumeParseJobs;
   fetchPublishedJobDescriptionsByCodes: MailIngestDao["fetchPublishedJobDescriptionsByCodes"];
   finishMailIngestAccountRun: MailIngestDao["finishAccountRun"];
+  isActiveRecruitingJobDescription: MailIngestDao["isActiveRecruitingJobDescription"];
   insertBatchWithItems(input: {
     dedupPolicy: WorkerMailIngestAccount["dedupPolicy"];
     files: {
@@ -229,6 +230,15 @@ async function resolveMailJobBinding(
         codes,
         jobIds: [...matchedJobIds],
       });
+    }
+    if (
+      account.jobDescriptionId &&
+      !(await dependencies.isActiveRecruitingJobDescription(
+        account.organizationId,
+        account.jobDescriptionId,
+      ))
+    ) {
+      throw new Error("邮箱监听绑定的岗位已暂停或停止招聘，不能继续导入候选人。");
     }
     return {
       binding: defaultBinding,

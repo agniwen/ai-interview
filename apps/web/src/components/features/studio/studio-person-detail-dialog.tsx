@@ -1,5 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import {
+  DetailTitleSkeleton,
+  DetailHeaderSkeleton,
+  DetailBodySkeleton,
+  InterviewResultFramesSkeleton,
+} from "./studio-person-detail-skeletons";
+
 // 弹窗形态的候选人详情入口。所有业务渲染都在 StudioPersonDetailPanel 里;
 // 这里只把 panel 的 5 个 slot 喂给 <Modal>,保持现有调用方 API 不变。
 //
@@ -8,9 +16,10 @@
 // component's external API is unchanged for existing call sites.
 
 import { Modal } from "@/components/ui/modal";
+import { cn } from "@app/shared/utils";
 import {
   LazyStudioPersonDetailPanel as StudioPersonDetailPanel,
-  StudioPersonDetailPanelFallback,
+  preloadStudioPersonDetailPanel,
 } from "./lazy-studio-person-detail-panel";
 import type { StudioPersonDetailMode, StudioPersonDetailTab } from "./studio-person-detail-panel";
 
@@ -70,6 +79,25 @@ export function StudioPersonDetailDialog({
    */
   defaultTab?: StudioPersonDetailTab;
 }) {
+  // Panel 以 recordId/roundId 作为 key 重建会话；关闭时调用方会清空 id，这里保留
+  // 最后一次打开的 id，让同一个 Modal 实例播完退场动画而不是被立即卸载。
+  // / The panel keys its session by ids. Callers clear the ids on close, so keep the
+  // last opened ids while closed and let the same Modal instance play its exit animation.
+  // 预取详情 chunk，避免首次打开时骨架 Modal 与正式 Modal 先后各播一次入场动画。
+  // / Preload the detail chunk so the first open does not animate the skeleton and real modal twice.
+  useEffect(() => {
+    void preloadStudioPersonDetailPanel();
+  }, []);
+
+  const [displayedIds, setDisplayedIds] = useState({ recordId, roundId });
+  // AI 初面详情从右侧滑出固定宽度侧栏，列表保持可见，方便逐个翻看候选人；简历详情仍居中。
+  // AI interview details slide in as a fixed-width side panel so the list stays visible;
+  // resume details stay centered.
+  const isSidePanel = mode === "interview";
+  if (open && (displayedIds.recordId !== recordId || displayedIds.roundId !== roundId)) {
+    setDisplayedIds({ recordId, roundId });
+  }
+
   return (
     <StudioPersonDetailPanel
       defaultTab={defaultTab}
@@ -80,10 +108,25 @@ export function StudioPersonDetailDialog({
             onOpenChange={onOpenChange}
             onOpenChangeComplete={onOpenChangeComplete}
             open
-            size={mode === "resume" ? "2xl" : "full"}
-            title={mode === "resume" ? "候选人详情" : "AI初面详情"}
+            placement={isSidePanel ? "right" : "center"}
+            size={isSidePanel ? "lg" : "3xl"}
+            className={isSidePanel ? undefined : "sm:rounded-2xl"}
+            headerClassName="pb-0"
+            headerExtra={<DetailHeaderSkeleton mode={mode} />}
+            title={
+              <>
+                <span className="sr-only">候选人详情正在加载</span>
+                <DetailTitleSkeleton />
+              </>
+            }
           >
-            <StudioPersonDetailPanelFallback />
+            <output aria-busy="true" aria-label="候选人详情正在加载" className="block">
+              {mode === "interview" ? (
+                <InterviewResultFramesSkeleton />
+              ) : (
+                <DetailBodySkeleton mode={mode} />
+              )}
+            </output>
           </Modal>
         ) : null
       }
@@ -94,8 +137,8 @@ export function StudioPersonDetailDialog({
       onRequestClose={onRequestClose}
       onRequestReactivate={onRequestReactivate}
       onUpdated={onUpdated}
-      recordId={recordId}
-      roundId={roundId}
+      recordId={displayedIds.recordId}
+      roundId={displayedIds.roundId}
       shell={({
         body,
         bodyClassName,
@@ -104,18 +147,23 @@ export function StudioPersonDetailDialog({
         headerExtra,
         modalClassName,
         modalSize,
+        overlay,
         title,
       }) => (
         <Modal
-          bodyClassName={bodyClassName}
-          className={modalClassName}
+          // 侧栏里子页签吸顶，滚动渐隐会盖住它，因此关闭。The side panel pins its sub-tabs, so no fade.
+          bodyClassName={cn(bodyClassName, isSidePanel && "scroll-fade-none pt-0")}
+          className={isSidePanel ? undefined : modalClassName}
           description={description}
           footer={mode === "resume" ? footer : undefined}
           headerExtra={headerExtra}
+          headerClassName="pb-0"
           onOpenChange={onOpenChange}
           onOpenChangeComplete={onOpenChangeComplete}
           open={open}
-          size={modalSize ?? (mode === "resume" ? "2xl" : "full")}
+          overlay={overlay}
+          placement={isSidePanel ? "right" : "center"}
+          size={isSidePanel ? "lg" : (modalSize ?? "2xl")}
           title={title}
         >
           {body}

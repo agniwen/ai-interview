@@ -84,7 +84,7 @@ const hardFilterSchema = z.object({
 });
 type HardFilterCriteria = z.infer<typeof hardFilterSchema>;
 
-export interface HardFilterViolation {
+interface HardFilterViolation {
   field: string;
   description: string;
   impact: string;
@@ -209,7 +209,7 @@ export function buildHardFilterRejectReview(
   return { review, structuredReview };
 }
 
-export interface HardFilterResult {
+interface HardFilterResult {
   violations: HardFilterViolation[];
   semanticRequirements: string[] | null;
 }

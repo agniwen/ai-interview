@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   getResumeReviewBaseScore,
   getResumeReviewDimension,
@@ -140,7 +140,7 @@ export async function loadResumeReviewEvalRows(
   organizationId: string,
 ): Promise<ResumeReviewEvalRow[]> {
   const [{ db }, { asc, eq }] = await Promise.all([
-    import("../../lib/server/db/index"),
+    import("../../infrastructure/db/index"),
     import("drizzle-orm"),
   ]);
   return db

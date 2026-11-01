@@ -1,5 +1,6 @@
-import type { PaginatedStudioInterviewRoundsResult } from "@app/shared/studio-interview-rounds";
+import type { PaginatedStudioInterviewRecordsResult } from "@app/shared/studio-interview-rounds";
 import { useQueryClient } from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -51,11 +52,18 @@ export function useEvaluationDocumentGenerationPoll(queryKey: readonly unknown[]
             if (!mounted.current) {
               return;
             }
-            const latestPage =
-              queryClient.getQueryData<PaginatedStudioInterviewRoundsResult>(queryKey);
+            // 面试记录按批无限加载，评价表可能落在任意已加载的批次里。
+            // The list loads in batches, so the round may sit in any loaded page.
+            const latest =
+              queryClient.getQueryData<InfiniteData<PaginatedStudioInterviewRecordsResult>>(
+                queryKey,
+              );
             if (
-              latestPage?.records.some(
-                (record) => record.id === roundId && record.feishuDocumentUrl,
+              latest?.pages.some((page) =>
+                page.records.some(
+                  (record) =>
+                    record.kind === "ai" && record.id === roundId && record.feishuDocumentUrl,
+                ),
               )
             ) {
               finish("候选人评价表已生成", true);

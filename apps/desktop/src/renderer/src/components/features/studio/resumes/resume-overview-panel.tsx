@@ -12,8 +12,6 @@ import { ResumeProfileView } from "@/components/features/resume/resume-profile-v
 import { ResumeOverviewAiScoreSection } from "./resume-overview-ai-score-section";
 import { ResumeOverviewCandidateInfoSection } from "./resume-overview-candidate-info-section";
 
-export { ResumeReviewStructuredView } from "./resume-review-structured-view";
-
 export function ResumeOverviewPanel({
   canEdit = false,
   detail,

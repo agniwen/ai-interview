@@ -11,7 +11,6 @@ import type {
   MeetingLiveSummaryTemplate,
 } from "@app/shared/meeting-live-summary";
 import type { MeetingLiveTranscriptDraft } from "@app/shared/meeting-transcription";
-import { requestMeetingLiveSummary } from "@/lib/client/meetings";
 import {
   buildMeetingLiveSummaryTurns,
   meetingLiveSummaryTurnFingerprint,
@@ -97,34 +96,4 @@ export async function finalizeSavedMeetingSummary(
     }
     throw new MeetingSummaryPendingError(`录音已保存，总结待补齐：${message}`, { cause: error });
   }
-}
-
-/** Completes local metadata before creating the workspace upload plan. */
-export async function finalizeWorkspaceRecordingSummary(captureId: string, workspaceSlug: string) {
-  const api = window.api.meetingCapture;
-  const sessions = await api.listLocalSessions();
-  const session = sessions.find((item) => item.id === captureId);
-  if (!session) {
-    throw new MeetingSummaryPendingError("本地录音记录不存在，无法补齐总结");
-  }
-  return finalizeSavedMeetingSummary(
-    {
-      captureId,
-      checkpoint: session.liveSummaryCheckpoint,
-      draft: session.liveTranscriptDraft,
-      startedAt: session.startedAt,
-      summary: session.liveSummary ?? null,
-      template:
-        session.liveSummary?.template ??
-        (session.recruitingRecordId ? "recruiting-interview" : "general"),
-    },
-    {
-      persist: async (liveSummary, liveSummaryCheckpoint) => {
-        await api.updateLocalSession(captureId, { liveSummary, liveSummaryCheckpoint });
-      },
-      provider: {
-        summarize: (request, signal) => requestMeetingLiveSummary(workspaceSlug, request, signal),
-      },
-    },
-  );
 }

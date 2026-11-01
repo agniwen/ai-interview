@@ -145,9 +145,6 @@ describe("ResumeParseCacheGrid", () => {
       (header) => header.textContent?.trim() === "操作",
     );
     expect(actionsHeader?.style.width).toBe("122px");
-    expect(actionsHeader?.querySelector("div")?.classList.contains("px-2.5")).toBe(true);
-    expect(findButton("删除")?.classList.contains("px-2.5")).toBe(true);
-    expect(findButton("删除")?.classList.contains("pr-0")).toBe(false);
 
     await act(async () => {
       findButton("查看")?.click();

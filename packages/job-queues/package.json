@@ -1,0 +1,25 @@
+{
+  "name": "@app/job-queues",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Redis/BullMQ queue contracts and producers shared by server, web, and worker: resume parsing, review generation, semantic indexing, mail-ingest triggers, meeting transcription, playback, intelligence, answers, purge, human interview recording and evaluation, and initial interview evaluation",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/shared": "workspace:*",
+    "bullmq": "^5.66.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,4 +1,4 @@
-"""Qwen Audio 3.0 Realtime transport for LiveKit Agents 1.7.
+"""Qwen Audio Realtime transport for LiveKit Agents 1.7.
 
 Protocol: https://help.aliyun.com/zh/model-studio/fun-audiochat-client-events
 Events: https://help.aliyun.com/zh/model-studio/qwen-audio-realtime-server-events
@@ -15,8 +15,10 @@ import asyncio
 import base64
 import contextlib
 import json
+import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
@@ -28,10 +30,23 @@ from livekit.agents.metrics.base import Metadata
 from livekit.agents.types import NOT_GIVEN, NotGivenOr
 from yarl import URL
 
+from debug_trace import trace
+
+logger = logging.getLogger(__name__)
+
 INPUT_SAMPLE_RATE = 16000
 OUTPUT_SAMPLE_RATE = 24000
-DEFAULT_MODEL = "qwen-audio-3.0-realtime-plus"
+DEFAULT_MODEL = "qwen-audio-3.1-realtime-plus"
 DEFAULT_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
+# Turn and transcription lifecycle events, recorded only when tracing is on.
+_TRACED_EVENTS = (
+    "input_audio_buffer.speech",
+    "input_audio_buffer.committed",
+    "conversation.item.",
+    "response.created",
+    "response.done",
+    "error",
+)
 
 
 def _inline_schema_refs(schema: dict[str, Any]) -> dict[str, Any]:
@@ -76,9 +91,30 @@ def _tool_schema(tool: llm.Tool) -> dict[str, Any]:
     else:
         raise ValueError("Qwen Realtime only supports function tools")
     if "parameters" in result["function"]:
-        result["function"]["parameters"] = _inline_schema_refs(
-            result["function"]["parameters"]
+        result["function"]["parameters"] = _drop_titles(
+            _inline_schema_refs(result["function"]["parameters"])
         )
+    return result
+
+
+def _drop_titles(schema: Any) -> Any:
+    """Remove generated schema titles, which repeat the property names.
+
+    Tool schemas are sent with every response. Only the "title" keyword of a
+    schema is dropped; keys under "properties" are parameter names and stay.
+    """
+    if isinstance(schema, list):
+        return [_drop_titles(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    result = {}
+    for key, value in schema.items():
+        if key == "title" and isinstance(value, str):
+            continue
+        if key == "properties" and isinstance(value, dict):
+            result[key] = {name: _drop_titles(item) for name, item in value.items()}
+        else:
+            result[key] = _drop_titles(value)
     return result
 
 
@@ -166,6 +202,10 @@ class _IdleTimeoutError(Exception):
     """The provider expired an idle connection with no unfinished work."""
 
 
+class _ProviderRecoveryError(llm.RealtimeError):
+    """A provider failure that can be retried from confirmed history."""
+
+
 class RealtimeModel(llm.RealtimeModel):
     def __init__(
         self,
@@ -180,6 +220,7 @@ class RealtimeModel(llm.RealtimeModel):
         max_history_turns: int = 20,
         request_timeout: float = 15.0,
         response_timeout: float = 120.0,
+        transcript_wait: float = 3.0,
         http_session: aiohttp.ClientSession | None = None,
     ) -> None:
         if not (api_key or os.environ.get("DASHSCOPE_API_KEY")):
@@ -190,7 +231,7 @@ class RealtimeModel(llm.RealtimeModel):
             raise ValueError("Invalid Qwen turn_detection")
         if not 1 <= max_history_turns <= 50 or not 200 <= silence_duration_ms <= 6000:
             raise ValueError("Invalid Qwen history or silence limit")
-        if request_timeout <= 0 or response_timeout <= 0:
+        if request_timeout <= 0 or response_timeout <= 0 or transcript_wait <= 0:
             raise ValueError("Qwen timeouts must be positive")
         super().__init__(
             capabilities=llm.RealtimeCapabilities(
@@ -216,8 +257,10 @@ class RealtimeModel(llm.RealtimeModel):
         self._history_turns = max_history_turns
         self._timeout = request_timeout
         self._response_timeout = response_timeout
+        self._transcript_wait = transcript_wait
         self._http = http_session
         self._sessions: set[RealtimeSession] = set()
+        self.on_connection_state_changed: Callable[[str], None] | None = None
 
     @classmethod
     def from_env(cls) -> RealtimeModel:
@@ -258,6 +301,7 @@ class RealtimeSession(llm.RealtimeSession):
         self._manual = manual
         self._instructions = ""
         self._restoring = False
+        self._recovery_notified = False
         self._recovery_prompt: str | None = None
         self._chat = llm.ChatContext.empty()
         self._tools = llm.ToolContext.empty()
@@ -285,8 +329,20 @@ class RealtimeSession(llm.RealtimeSession):
         self._recovery_instructions_active = False
         self._bootstrap_item: str | None = None
         self._speech_started: dict[str, float] = {}
+        # Committed turns, oldest first, whose final transcription has not
+        # arrived yet. Replies requested by the client wait briefly for it so
+        # the reply and reconciliation see what the candidate just said.
+        self._untranscribed: dict[str, None] = {}
+        self._transcribed = asyncio.Event()
+        self._transcribed.set()
         self._transcripts: dict[str, str] = {}
         self._invalid_turns: set[str] = set()
+        # Transcribed candidate turns still held as audio. Audio history is
+        # re-billed on every response at several times the text price, so a
+        # turn the model has already answered is kept as its transcript.
+        self._audio_turns: dict[str, str] = {}
+        self._textifying: set[str] = set()
+        self._text_history_task: asyncio.Task | None = None
         self._resampler: rtc.AudioResampler | None = None
         self._input_rate: int | None = None
         self._input_buffer = utils.audio.AudioByteStream(
@@ -371,11 +427,13 @@ class RealtimeSession(llm.RealtimeSession):
                     break
                 except (
                     _IdleTimeoutError,
+                    _ProviderRecoveryError,
                     aiohttp.ClientConnectionError,
                     asyncio.TimeoutError,
-                ):
+                ) as error:
                     if not self._ready.done() or not self._can_restore_connection():
                         raise
+                    restore_failed = self._restoring
                     self._prepare_recovery()
                     if time.monotonic() - connected_at > 60:
                         attempts = 0
@@ -384,7 +442,21 @@ class RealtimeSession(llm.RealtimeSession):
                         raise llm.RealtimeError(
                             "Qwen Realtime reconnect attempts exhausted"
                         ) from None
+                    logger.warning(
+                        "Qwen Realtime reconnecting: attempt=%d reason=%s",
+                        attempts,
+                        type(error).__name__,
+                    )
                     # Restore acknowledged history only; never execute tools again.
+                    # An idle session can rotate silently. Alert only when a turn
+                    # was interrupted, transport failed, or the silent restore failed.
+                    if (
+                        not isinstance(error, _IdleTimeoutError)
+                        or self._recovery_prompt is not None
+                        or restore_failed
+                    ) and not self._recovery_notified:
+                        self._recovery_notified = True
+                        self._notify_connection_state("reconnecting")
                     await asyncio.sleep(0.2 * 2 ** (attempts - 1))
         except asyncio.CancelledError:
             pass
@@ -413,6 +485,8 @@ class RealtimeSession(llm.RealtimeSession):
                 "Qwen Realtime history restore disconnected"
             )
         response = json.loads(message.data)
+        if response.get("type") == "error":
+            self._handle_event(response)
         if response.get("type") != ack or (
             ack == "conversation.item.created"
             and response.get("item", {}).get("id") != event["item"]["id"]
@@ -512,6 +586,9 @@ class RealtimeSession(llm.RealtimeSession):
                 self._idle.clear()
                 self._recovery_prompt = None
             self._restoring = False
+            if restoring and self._recovery_notified:
+                self._notify_connection_state("reconnected")
+            self._recovery_notified = False
             self._report_connection_acquired(time.monotonic() - started)
             self._connection_timeout = asyncio.get_running_loop().create_future()
             tasks = [
@@ -527,6 +604,13 @@ class RealtimeSession(llm.RealtimeSession):
             self._connection_timeout = None
             if socket is not None:
                 await socket.close()
+
+    def _notify_connection_state(self, state: str) -> None:
+        if self._model.on_connection_state_changed is not None:
+            try:
+                self._model.on_connection_state_changed(state)
+            except Exception:
+                logger.exception("Connection status notification failed")
 
     def _can_restore_connection(self) -> bool:
         completed = {
@@ -565,8 +649,16 @@ class RealtimeSession(llm.RealtimeSession):
                 "input_speech_stopped",
                 llm.InputSpeechStoppedEvent(user_transcription_enabled=False),
             )
+        # Empty provider placeholders are not restored to the new socket.
+        # Keeping them locally makes the next context update reference a
+        # previous_item_id that does not exist on the restored connection.
+        self._chat.items[:] = [
+            item for item in self._chat.items if _wire_item(item) is not None
+        ]
         self._speech_started.clear()
         self._transcripts.clear()
+        self._untranscribed.clear()
+        self._transcribed.set()
         self._input_buffer = utils.audio.AudioByteStream(
             sample_rate=INPUT_SAMPLE_RATE, num_channels=1, samples_per_channel=320
         )
@@ -817,6 +909,21 @@ class RealtimeSession(llm.RealtimeSession):
         async with self._reply_lock:
             try:
                 await asyncio.wait_for(self._idle.wait(), self._model._timeout)
+                if self._untranscribed:
+                    try:
+                        await asyncio.wait_for(
+                            self._transcribed.wait(), self._model._transcript_wait
+                        )
+                    except TimeoutError:
+                        # A transcription that has not arrived by now is lost;
+                        # keep whatever partial text Qwen streamed for it and
+                        # never make every later reply wait for it again.
+                        for item_id in list(self._untranscribed):
+                            partial = self._transcripts.get(item_id, "")
+                            if partial:
+                                self._finalize_transcript(item_id, partial)
+                        self._untranscribed.clear()
+                        self._transcribed.set()
                 if self._failure:
                     raise self._failure
                 self.update_options(tool_choice=tool_choice)
@@ -920,15 +1027,140 @@ class RealtimeSession(llm.RealtimeSession):
             id=item.get("id") or item["item_id"],
             call_id=item["call_id"],
             name=item["name"],
-            arguments=item["arguments"],
+            arguments=self._decode_nested_arguments(item["name"], item["arguments"]),
         )
         response.calls.add(call.call_id)
         self._store_item(call)
         response.functions.send_nowait(call)
 
+    def _decode_nested_arguments(self, name: str, arguments: str) -> str:
+        """Decode array/object parameters that Qwen sent as JSON strings.
+
+        Only a top-level parameter the tool schema declares as an array or
+        object is decoded, and only when the decoded value has that type, so a
+        string parameter that merely looks like JSON keeps its text.
+        """
+        tool = next((t for t in self._tools.flatten() if t.info.name == name), None)
+        try:
+            values = json.loads(arguments)
+        except ValueError:
+            return arguments
+        if tool is None or not isinstance(values, dict):
+            return arguments
+        properties = (
+            _tool_schema(tool)["function"].get("parameters", {}).get("properties", {})
+        )
+        expected = {"array": list, "object": dict}
+        changed = False
+        for key, value in values.items():
+            kind = expected.get(properties.get(key, {}).get("type"))
+            if kind is None or not isinstance(value, str):
+                continue
+            try:
+                decoded = json.loads(value)
+            except ValueError:
+                continue
+            if isinstance(decoded, kind):
+                values[key] = decoded
+                changed = True
+        return json.dumps(values, ensure_ascii=False) if changed else arguments
+
+    def _schedule_text_history(self) -> None:
+        # The candidate has started the next turn, so every earlier turn has
+        # been heard. Never rewrite history under a response that is playing;
+        # the next turn retries.
+        if (
+            self._response is None
+            and self._audio_turns
+            and (self._text_history_task is None or self._text_history_task.done())
+        ):
+            self._text_history_task = asyncio.create_task(self._replace_audio_turns())
+
+    async def _replace_audio_turns(self) -> None:
+        async with self._chat_lock:
+            for item_id, transcript in list(self._audio_turns.items()):
+                if self._response is not None:
+                    return
+                ids = [item.id for item in self._chat.items]
+                del self._audio_turns[item_id]
+                if item_id not in ids or ids.index(item_id) == 0:
+                    # Qwen cannot insert at the start of the conversation.
+                    continue
+                previous = ids[ids.index(item_id) - 1]
+                self._textifying.add(item_id)
+                try:
+                    await self._request(
+                        {"type": "conversation.item.delete", "item_id": item_id},
+                        "conversation.item.deleted",
+                        item_id,
+                    )
+                    await self._request(
+                        {
+                            "type": "conversation.item.create",
+                            "previous_item_id": previous,
+                            "item": {
+                                "id": item_id,
+                                "type": "message",
+                                "role": "user",
+                                "content": [{"type": "input_text", "text": transcript}],
+                            },
+                        },
+                        "conversation.item.created",
+                        item_id,
+                    )
+                finally:
+                    self._textifying.discard(item_id)
+
+    def _settle_transcript(self, item_id: str) -> None:
+        self._untranscribed.pop(item_id, None)
+        if not self._untranscribed:
+            self._transcribed.set()
+
+    def _finalize_transcript(self, item_id: str, transcript: str) -> None:
+        self._settle_transcript(item_id)
+        started = self._speech_started.pop(item_id, None)
+        self._transcripts.pop(item_id, None)
+        if transcript:
+            self._audio_turns[item_id] = transcript
+            self._store_item(
+                llm.ChatMessage(
+                    id=item_id,
+                    role="user",
+                    content=[transcript],
+                    created_at=started or time.time(),
+                )
+            )
+        self.emit(
+            "input_audio_transcription_completed",
+            llm.InputTranscriptionCompleted(
+                item_id=item_id,
+                transcript=transcript,
+                is_final=True,
+                turn_started_at=started,
+            ),
+        )
+
     def _handle_event(self, event: dict[str, Any]) -> None:
         kind = event["type"]
         item_id = event.get("item_id", "")
+        if kind.startswith(_TRACED_EVENTS):
+            trace(
+                "provider_event",
+                type=kind,
+                item_id=item_id,
+                **{
+                    key: event[key]
+                    for key in (
+                        "reason",
+                        "transcript",
+                        "text",
+                        "stash",
+                        "error",
+                        "status",
+                    )
+                    if key in event
+                },
+            )
         if kind == "error":
             detail = event.get("error", {})
             code = str(detail.get("code", "unknown"))
@@ -947,8 +1179,44 @@ class RealtimeSession(llm.RealtimeSession):
                 and self._can_restore_connection()
             ):
                 raise _IdleTimeoutError
-            # Without a reliable request correlation ID, continuing could apply
-            # a tool result or configuration to the wrong request.
+            # Never log free-form provider messages: they may contain candidate
+            # speech. Only recognize protocol values; unknown values stay opaque.
+            param = detail.get("param")
+            operation = (
+                param
+                if param
+                in {
+                    "response.create",
+                    "response.cancel",
+                    "session.update",
+                    "conversation.item.create",
+                    "conversation.item.delete",
+                    "conversation.item.truncate",
+                    "input_audio_buffer.commit",
+                }
+                else "unknown"
+            )
+            retryable = (
+                detail.get("type") == "server_error"
+                or code
+                in {
+                    "server_error",
+                    "internal_error",
+                    "service_unavailable",
+                }
+                or (
+                    code == "invalid_value"
+                    and param in (None, "", "response.create", "response.cancel")
+                )
+            )
+            if retryable:
+                logger.warning(
+                    "Qwen provider error: operation=%s retryable=true", operation
+                )
+                raise _ProviderRecoveryError(
+                    "Qwen Realtime retryable provider error", code=code
+                )
+            # Unconfirmed mutations cannot be replayed safely.
             raise llm.RealtimeError(
                 f"Qwen Realtime rejected request ({code})", code=code
             )
@@ -995,7 +1263,8 @@ class RealtimeSession(llm.RealtimeSession):
                 )
             if item is not None:
                 self._store_item(item, event.get("previous_item_id"))
-                if existing is None:
+                # A turn re-created as text is not new to LiveKit.
+                if existing is None and wire["id"] not in self._textifying:
                     self.emit(
                         "remote_item_added",
                         llm.RemoteItemAddedEvent(
@@ -1005,6 +1274,7 @@ class RealtimeSession(llm.RealtimeSession):
             self._ack(kind, wire["id"])
         elif kind == "input_audio_buffer.speech_started":
             self._speech_started[item_id] = time.time()
+            self._schedule_text_history()
             if self._model._turn_detection == "smart_turn":
                 self._idle.clear()
             self.emit("input_speech_started", llm.InputSpeechStartedEvent())
@@ -1012,49 +1282,52 @@ class RealtimeSession(llm.RealtimeSession):
             invalid = event.get("reason") == "turn_invalid"
             if invalid:
                 self._invalid_turns.add(item_id)
+                self._settle_transcript(item_id)
                 self._speech_started.pop(item_id, None)
                 self._idle.set()
             self.emit(
                 "input_speech_stopped",
                 llm.InputSpeechStoppedEvent(user_transcription_enabled=not invalid),
             )
+        elif kind == "input_audio_buffer.committed":
+            if item_id and item_id not in self._invalid_turns:
+                self._untranscribed[item_id] = None
+                self._transcribed.clear()
+        elif kind == "conversation.item.ambient_audio_transcription.completed":
+            # Qwen sometimes finalizes a committed turn as ambient audio under
+            # a new item id, while its partial text streamed under the turn's
+            # own id. Without a pending turn it is background speech.
+            if self._untranscribed:
+                self._finalize_transcript(
+                    next(iter(self._untranscribed)), event.get("transcript", "")
+                )
         elif kind.startswith("conversation.item.input_audio_transcription."):
             if item_id in self._invalid_turns:
                 return
-            final = kind.endswith((".completed", ".failed"))
             if kind.endswith(".failed"):
-                transcript = ""
-            elif final:
-                transcript = event.get("transcript", "")
+                self._finalize_transcript(item_id, "")
+            elif kind.endswith(".completed"):
+                self._finalize_transcript(item_id, event.get("transcript", ""))
             else:
                 transcript = event.get("text", "") + event.get("stash", "")
-            started = self._speech_started.get(item_id)
-            if final:
-                self._speech_started.pop(item_id, None)
-                self._transcripts.pop(item_id, None)
-                if transcript:
-                    self._store_item(
-                        llm.ChatMessage(
-                            id=item_id,
-                            role="user",
-                            content=[transcript],
-                            created_at=started or time.time(),
-                        )
-                    )
-            else:
                 self._transcripts[item_id] = transcript
-            self.emit(
-                "input_audio_transcription_completed",
-                llm.InputTranscriptionCompleted(
-                    item_id=item_id,
-                    transcript=transcript,
-                    is_final=final,
-                    turn_started_at=started,
-                ),
-            )
+                self.emit(
+                    "input_audio_transcription_completed",
+                    llm.InputTranscriptionCompleted(
+                        item_id=item_id,
+                        transcript=transcript,
+                        is_final=False,
+                        turn_started_at=self._speech_started.get(item_id),
+                    ),
+                )
         elif kind == "response.created":
             if self._response is not None:
-                raise llm.RealtimeError("Qwen emitted overlapping responses")
+                if not self._response.cancelled:
+                    raise llm.RealtimeError("Qwen emitted overlapping responses")
+                # response.cancel is asynchronous. A replacement may arrive
+                # before the cancelled response.done; late events are isolated
+                # by response ID below, and must not kill the new response.
+                self._response.close()
             self._idle.clear()
             response = self._response = _Response(event["response"]["id"])
             response.watchdog = self._spawn(self._watch_response(response))
@@ -1241,6 +1514,7 @@ class RealtimeSession(llm.RealtimeSession):
                 input_token_details=RealtimeModelMetrics.InputTokenDetails(
                     text_tokens=input_details.get("text_tokens", 0),
                     audio_tokens=input_details.get("audio_tokens", 0),
+                    cached_tokens=input_details.get("cached_tokens", 0),
                 ),
                 output_token_details=RealtimeModelMetrics.OutputTokenDetails(
                     text_tokens=output_details.get("text_tokens", 0),

@@ -1,6 +1,3 @@
-import { hasEchoProcessing } from "@/lib/client/echo-processing";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import type { MeetingAccessRole } from "@app/shared/meeting-recording";
@@ -14,20 +11,6 @@ import type {
   FinalMeetingTranscriptTurn,
 } from "@app/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FrameHeading,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
-import {
-  desktopMeetingKeys,
-  fetchMeetingIntelligence,
-  fetchMeetingTranscriptRevision,
-  regenerateMeetingIntelligence,
-} from "@/lib/client/meetings";
 
 const meetingIntelligenceTemplateSchema = z.enum(["general", "recruiting-interview"]);
 
@@ -35,7 +18,7 @@ export function canRegenerateMeetingIntelligence(role: MeetingAccessRole): boole
   return role === "administrator" || role === "owner";
 }
 
-export function intelligenceTemplateLabel(template: MeetingIntelligenceTemplate): string {
+function intelligenceTemplateLabel(template: MeetingIntelligenceTemplate): string {
   return template === "recruiting-interview" ? "招聘面试" : "通用会议";
 }
 
@@ -302,141 +285,5 @@ export function MeetingIntelligenceView({
       ) : null}
       {body}
     </div>
-  );
-}
-
-function intelligenceRefetchInterval(result: MeetingIntelligenceResult | undefined) {
-  return result?.state === "pending" || result?.state === "processing" ? 5000 : false;
-}
-
-/**
- * 展示版本化 Intelligence，并为所选历史版本加载其绑定的 transcript revision 以保证证据跳转一致。
- * Renders versioned intelligence and loads the transcript revision bound to the selected history item for stable evidence links.
- */
-export function MeetingIntelligencePanel({
-  accessRole,
-  meetingId,
-  onSeek,
-  slug,
-}: {
-  accessRole: MeetingAccessRole;
-  meetingId: string;
-  onSeek: (seconds: number) => void;
-  slug: string;
-}) {
-  const queryClient = useQueryClient();
-  const intelligenceKey = desktopMeetingKeys.intelligence(slug, meetingId);
-  const intelligenceQuery = useQuery({
-    enabled: Boolean(slug),
-    queryFn: () => fetchMeetingIntelligence(slug, meetingId),
-    queryKey: intelligenceKey,
-    refetchInterval: (query) => intelligenceRefetchInterval(query.state.data),
-  });
-  const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<MeetingIntelligenceTemplate>("general");
-  const displayedRevision = useMemo(
-    () =>
-      selectedRevisionId
-        ? (intelligenceQuery.data?.history.find((item) => item.id === selectedRevisionId) ?? null)
-        : (intelligenceQuery.data?.current ?? null),
-    [intelligenceQuery.data, selectedRevisionId],
-  );
-  const suggestedTemplate = intelligenceQuery.data?.suggestedTemplate;
-  useEffect(() => {
-    if (suggestedTemplate) {
-      setSelectedTemplate(suggestedTemplate);
-    }
-  }, [suggestedTemplate]);
-  const transcriptQuery = useQuery({
-    enabled: Boolean(displayedRevision),
-    queryFn: () =>
-      fetchMeetingTranscriptRevision(
-        slug,
-        meetingId,
-        displayedRevision?.transcriptRevisionId ?? "",
-      ),
-    queryKey: desktopMeetingKeys.transcriptRevision(
-      slug,
-      meetingId,
-      displayedRevision?.transcriptRevisionId ?? "",
-    ),
-  });
-  const regenerateMutation = useMutation({
-    mutationFn: () => regenerateMeetingIntelligence(slug, meetingId, selectedTemplate),
-    onSuccess: async () => {
-      setSelectedRevisionId(null);
-      await queryClient.invalidateQueries({ queryKey: intelligenceKey });
-    },
-  });
-  if (intelligenceQuery.isPending) {
-    return null;
-  }
-  return (
-    <Frame>
-      <FrameHeader>
-        <FrameHeading>
-          <FrameTitle>会议洞察</FrameTitle>
-          <FrameDescription>
-            每个版本绑定精确的转录修订、模板和模型；证据可跳回录音。
-          </FrameDescription>
-        </FrameHeading>
-      </FrameHeader>
-      <FramePanel className="flex flex-col gap-4">
-        {intelligenceQuery.error ? (
-          <p className="text-destructive text-sm">
-            {intelligenceQuery.error instanceof Error
-              ? intelligenceQuery.error.message
-              : "加载会议洞察失败"}
-          </p>
-        ) : null}
-        {regenerateMutation.error ? (
-          <p className="text-destructive text-sm">
-            {regenerateMutation.error instanceof Error
-              ? regenerateMutation.error.message
-              : "重新生成失败"}
-          </p>
-        ) : null}
-        {intelligenceQuery.data ? (
-          <MeetingIntelligenceView
-            onRegenerate={() => regenerateMutation.mutate()}
-            onSeek={onSeek}
-            onTemplateChange={setSelectedTemplate}
-            regenerating={regenerateMutation.isPending}
-            result={{
-              ...intelligenceQuery.data,
-              canRegenerate:
-                hasEchoProcessing() &&
-                intelligenceQuery.data.canRegenerate &&
-                canRegenerateMeetingIntelligence(accessRole),
-              current: displayedRevision,
-            }}
-            selectedTemplate={selectedTemplate}
-            transcript={transcriptQuery.data ?? null}
-          />
-        ) : null}
-      </FramePanel>
-      {(intelligenceQuery.data?.history.length ?? 0) > 0 ? (
-        <FramePanel>
-          <p className="mb-3 font-medium text-sm">版本历史</p>
-          <div className="flex flex-wrap gap-2">
-            {intelligenceQuery.data?.history.map((revision) => (
-              <Button
-                key={revision.id}
-                onClick={() =>
-                  setSelectedRevisionId(
-                    revision.id === intelligenceQuery.data?.current?.id ? null : revision.id,
-                  )
-                }
-                size="sm"
-                type="button"
-                variant={revision.id === displayedRevision?.id ? "default" : "outline"}
-              >
-                版本 {revision.revision} · {intelligenceTemplateLabel(revision.template)}
-              </Button>
-            ))}
-          </div>
-        </FramePanel>
-      ) : null}
-    </Frame>
   );
 }

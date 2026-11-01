@@ -10,6 +10,20 @@ export interface WorkerLifecycle {
   readonly close: (exit?: Exit.Exit<unknown, unknown>) => Promise<void>;
 }
 
+export function trackWorkerRecoveryRun(
+  activeRuns: Set<Promise<void>>,
+  run: () => Promise<void>,
+): Promise<void> {
+  const active = run();
+  activeRuns.add(active);
+  const remove = () => {
+    activeRuns.delete(active);
+  };
+  // oxlint-disable-next-line promise/prefer-await-to-then -- observe both outcomes without creating an unhandled rejected cleanup Promise.
+  void active.then(remove, remove);
+  return active;
+}
+
 // Owns process resources in one Effect Scope. Scope closes finalizers in reverse acquisition order
 // and still runs later finalizers when an earlier cleanup fails.
 export function createWorkerLifecycle(

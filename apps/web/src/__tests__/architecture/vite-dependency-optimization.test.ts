@@ -42,7 +42,8 @@ describe("Vite dependency optimization", () => {
   it("uses the stable dev cache from the default workspace target", () => {
     const makefile = readFileSync(path.join(appRoot, "../../Makefile"), "utf-8");
 
-    expect(makefile).toMatch(/web-dev:.*\n\tbun run --filter @app\/web dev\n/);
+    // Extra CLI flags (such as --host) are fine; the default target must not use dev:fresh.
+    expect(makefile).toMatch(/web-dev:.*\n\tbun run --filter @app\/web dev(?: [^\n]*)?\n/);
   });
 
   it("keeps the development build marker stable across restarts", () => {

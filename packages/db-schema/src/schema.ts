@@ -1,6 +1,18 @@
+import type { HumanInterviewEvaluationReviewFinding } from "./human-interview-evaluation-review";
+import type { HumanTranscriptionEventRecord } from "./human-transcription-types";
+import type { IncomeProofType } from "./recruiting-materials";
+import type {
+  OfferApprovalSnapshot,
+  OfferApprovalStepSourceSnapshot,
+  OfferApprovalStepSourceType,
+  OfferApprovalStatus,
+  OfferApprovalStepStatus,
+  OfferApprovalTemplateNode,
+} from "./offer-approval";
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { ArcMessage, ArcMessageRole } from "./ai-message";
+import type { ChatSubjectKind, ChatThreadRunState } from "./chat-subject-threads";
 import type {
   BackgroundCheckCollectionStatus,
   BackgroundCheckDraftInput,
@@ -55,6 +67,7 @@ import type {
 } from "./human-interview-recording";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
+import type { JobRecruitingStatus } from "./job-recruiting-status";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationMode,
@@ -72,6 +85,7 @@ import type {
   FeishuHumanInterviewSyncStatus,
   HumanInterviewEvaluation,
   HumanInterviewEvaluationDraft,
+  HumanInterviewGeneratedEvaluation,
   HumanInterviewEvaluationSnapshotSource,
   HumanInterviewEvaluationStatus,
   HumanInterviewFormat,
@@ -358,7 +372,7 @@ export const meetingSession = pgTable(
     intelligenceStatus: text("intelligence_status").default("pending").notNull(),
     liveSummary: jsonb("live_summary").$type<unknown>(),
     liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
-    manifestSha256: text("manifest_sha256").notNull(),
+    manifestSha256: text("manifest_sha256"),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -379,8 +393,18 @@ export const meetingSession = pgTable(
       withTimezone: true,
     }),
     purgeLeaseExpiresAt: timestamp("purge_lease_expires_at", { withTimezone: true }),
+    // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+    realtimeRunId: text("realtime_run_id").references((): AnyPgColumn => humanTranscriptionRun.id, {
+      onDelete: "restrict",
+    }),
     recoveryCopyDeleteAfter: timestamp("recovery_copy_delete_after", { withTimezone: true }),
+    reviewTranscriptRevisionId: text("review_transcript_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves circular references lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+    sourceKind: text("source_kind").notNull().default("recording"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     status: text("status").default("uploading").notNull(),
     title: text("title").notNull(),
@@ -402,6 +426,16 @@ export const meetingSession = pgTable(
     visibility: text("visibility").default("restricted").notNull(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.realtimeRunId, table.organizationId],
+      // oxlint-disable-next-line no-use-before-define -- Drizzle evaluates cross-table references lazily.
+      foreignColumns: [humanTranscriptionRun.id, humanTranscriptionRun.organizationId],
+      name: "meeting_session_realtime_run_org_fk",
+    }).onDelete("restrict"),
+    check(
+      "meeting_session_source_check",
+      sql`(${table.sourceKind} = 'recording' and ${table.manifestSha256} is not null and ${table.realtimeRunId} is null) or (${table.sourceKind} = 'livekit_realtime' and ${table.realtimeRunId} is not null)`,
+    ),
     check(
       "meeting_session_processing_owner_check",
       sql`${table.processingOwner} in ('worker', 'device')`,
@@ -490,7 +524,7 @@ export const meetingLiveTranscriptLease = pgTable(
 export const meetingPurgeTombstone = pgTable(
   "meeting_purge_tombstone",
   {
-    manifestSha256: text("manifest_sha256").notNull(),
+    manifestSha256: text("manifest_sha256"),
     meetingId: text("meeting_id").primaryKey(),
     organizationId: text("organization_id")
       .notNull()
@@ -723,16 +757,46 @@ export const meetingTranscriptRevision = pgTable(
       onDelete: "restrict",
     }),
     provider: text("provider").notNull(),
+    quality: text("quality").notNull().default("legacy"),
+    // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+    realtimeRunId: text("realtime_run_id").references((): AnyPgColumn => humanTranscriptionRun.id, {
+      onDelete: "restrict",
+    }),
     region: text("region").notNull(),
     revision: integer("revision").notNull(),
-    sourceManifestSha256: text("source_manifest_sha256").notNull(),
+    sourceManifestSha256: text("source_manifest_sha256"),
+    sourceSnapshot: jsonb("source_snapshot").$type<{
+      runId: string;
+      generation: number;
+      cursor: number;
+      sha256: string;
+      gaps: unknown[];
+    }>(),
   },
   (table) => [
-    check("meeting_transcript_revision_kind_check", sql`${table.kind} in ('final', 'human')`),
+    foreignKey({
+      columns: [table.realtimeRunId, table.organizationId],
+      // oxlint-disable-next-line no-use-before-define -- Drizzle evaluates cross-table references lazily.
+      foreignColumns: [humanTranscriptionRun.id, humanTranscriptionRun.organizationId],
+      name: "meeting_transcript_realtime_run_org_fk",
+    }).onDelete("restrict"),
+    check(
+      "meeting_transcript_snapshot_binding_check",
+      sql`${table.sourceSnapshot} is null or (${table.sourceSnapshot}->>'runId' = ${table.realtimeRunId} and ${table.sourceSnapshot}->>'sha256' ~ '^[a-f0-9]{64}$')`,
+    ),
+    check(
+      "meeting_transcript_revision_quality_check",
+      sql`${table.quality} in ('legacy', 'eligible', 'needs_review')`,
+    ),
+    check(
+      "meeting_transcript_revision_kind_check",
+      sql`${table.kind} in ('final', 'human', 'realtime')`,
+    ),
     check(
       "meeting_transcript_revision_source_check",
-      sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null)
-        or (${table.kind} = 'human' and ${table.processingRunId} is null)`,
+      sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null and ${table.sourceManifestSha256} is not null and ${table.realtimeRunId} is null and ${table.sourceSnapshot} is null)
+        or (${table.kind} = 'realtime' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is null and ${table.sourceManifestSha256} is null and ${table.realtimeRunId} is not null and ${table.sourceSnapshot} is not null)
+        or (${table.kind} = 'human' and ${table.processingRunId} is null and ((${table.sourceManifestSha256} is not null and ${table.sourceSnapshot} is null and ${table.realtimeRunId} is null) or (${table.sourceManifestSha256} is null and ${table.sourceSnapshot} is not null and ${table.realtimeRunId} is not null)))`,
     ),
     check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
     uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
@@ -1228,6 +1292,84 @@ export const organizationRole = pgTable(
   ],
 );
 
+// 工作区成员的汇报设置（ADR-0043）：每人最多一个直属上级，构成森林；上级可见全部下级的招聘数据。
+// 勾选共享给同级后，同一直属上级下的同级（顶层成员彼此为同级）也能看到该成员本人创建的数据。
+// Per-member reporting settings: at most one direct manager (managers see all transitive
+// reports) plus an opt-in to share the member's own recruiting data with peers.
+export const workspaceMemberReporting = pgTable(
+  "workspace_member_reporting",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    managerUserId: text("manager_user_id"),
+    organizationId: text("organization_id").notNull(),
+    shareWithPeers: boolean("share_with_peers").default(false).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.userId] }),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_reporting_member_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.managerUserId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_reporting_manager_fk",
+    }).onDelete("cascade"),
+    index("workspace_member_reporting_org_manager_idx").on(
+      table.organizationId,
+      table.managerUserId,
+    ),
+    check(
+      "workspace_member_reporting_not_self_check",
+      sql`${table.userId} <> ${table.managerUserId}`,
+    ),
+  ],
+);
+
+// 虚线汇报上级（ADR-0043）：不改变成员树和同级关系，只让这些上级也能看到该成员及其全部下级的招聘数据。
+// Dotted-line managers: grant extra visibility over a member and their reports without changing
+// the reporting tree or peer groups.
+export const workspaceMemberDottedManager = pgTable(
+  "workspace_member_dotted_manager",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    managerUserId: text("manager_user_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.userId, table.managerUserId] }),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_dotted_manager_member_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.managerUserId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "workspace_member_dotted_manager_manager_fk",
+    }).onDelete("cascade"),
+    index("workspace_member_dotted_manager_org_manager_idx").on(
+      table.organizationId,
+      table.managerUserId,
+    ),
+    check(
+      "workspace_member_dotted_manager_not_self_check",
+      sql`${table.userId} <> ${table.managerUserId}`,
+    ),
+  ],
+);
+
+// 已停用：招聘组功能已移除（ADR-0043），表保留待确认后再删除，运行时代码不再读写。
+// Retired: recruiting groups were removed (ADR-0043); kept until dropping is confirmed.
 export const recruitingGroup = pgTable(
   "recruiting_group",
   {
@@ -1253,6 +1395,7 @@ export const recruitingGroup = pgTable(
   ],
 );
 
+// 已停用（ADR-0043）。Retired (ADR-0043).
 export const recruitingGroupMember = pgTable(
   "recruiting_group_member",
   {
@@ -1753,6 +1896,10 @@ export const jobDescription = pgTable(
     prompt: text("prompt").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedDate: date("published_date"),
+    recruitingStatus: text("recruiting_status")
+      .$type<JobRecruitingStatus>()
+      .notNull()
+      .default("active"),
     referralChannels: text("referral_channels"),
     reportingManagerUserId: text("reporting_manager_user_id").references(() => user.id, {
       onDelete: "set null",
@@ -1792,6 +1939,10 @@ export const jobDescription = pgTable(
     check(
       "job_description_priority_check",
       sql`${table.priority} IS NULL OR ${table.priority} IN ('high', 'medium', 'low')`,
+    ),
+    check(
+      "job_description_recruiting_status_check",
+      sql`${table.recruitingStatus} IN ('active', 'paused', 'stopped')`,
     ),
     check(
       "job_description_evaluation_lifecycle_check",
@@ -2530,7 +2681,8 @@ export type ResumePoolEventType =
   | "imported"
   | "bound"
   | "archived"
-  | "restored";
+  | "restored"
+  | "profile_edited";
 
 export const resumePoolItem = pgTable(
   "resume_pool_item",
@@ -2636,7 +2788,7 @@ export const resumePoolItem = pgTable(
         AND ${table.qualitativeRecommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')
         AND ${table.qualitativeResumeSummary} IS NOT NULL
         AND ${table.qualitativeJobDescriptionVersionId} IS NOT NULL
-        AND ${table.resumeEvaluationContractVersion} = 'qualitative-v2'
+        AND ${table.resumeEvaluationContractVersion} IN ('qualitative-v2', 'qualitative-v3')
         AND ${table.resumeEvaluationGeneratedAt} IS NOT NULL
         AND ${table.resumeEvaluationInputHash} IS NOT NULL
       )`,
@@ -3239,7 +3391,15 @@ export const interviewConversationTurn = pgTable(
 export const chatConversation = pgTable(
   "chat_conversation",
   {
+    // 实体会话的归档时间；为空表示活动会话（ADR-0045）。
+    // Archive time of a Subject Thread; null means the thread is active (ADR-0045).
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    // 实体会话的创建人，仅用于展示；成员删除后保留会话。
+    // Subject Thread creator for display only; the thread outlives the member.
+    createdByUserId: text("created_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     id: text("id").primaryKey(),
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
     jobDescription: text("job_description").default("").notNull(),
@@ -3250,25 +3410,47 @@ export const chatConversation = pgTable(
         onDelete: "cascade",
       }),
     resumeImports: jsonb("resume_imports").$type<Record<string, string>>().default({}).notNull(),
+    runState: jsonb("run_state").$type<ChatThreadRunState>(),
+    subjectId: text("subject_id"),
+    subjectKind: text("subject_kind").$type<ChatSubjectKind>(),
     title: text("title").default("").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    // 个人会话的所有者；实体会话为空，避免成员账号删除时级联删除团队历史。
+    // Personal-chat owner; null for Subject Threads so deleting a member keeps team history.
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("chat_conversation_user_id_idx").on(table.userId),
     index("chat_conversation_user_updated_idx").on(table.userId, table.updatedAt),
     index("chat_conversation_organization_idx").on(table.organizationId),
+    index("chat_conversation_subject_idx").on(
+      table.organizationId,
+      table.subjectKind,
+      table.subjectId,
+    ),
+    uniqueIndex("chat_conversation_active_subject_uq")
+      .on(table.organizationId, table.subjectKind, table.subjectId)
+      .where(sql`${table.subjectKind} IS NOT NULL AND ${table.archivedAt} IS NULL`),
+    check(
+      "chat_conversation_subject_pair_check",
+      sql`(${table.subjectKind} IS NULL) = (${table.subjectId} IS NULL)`,
+    ),
+    check(
+      "chat_conversation_owner_check",
+      sql`(${table.subjectKind} IS NULL) = (${table.userId} IS NOT NULL)`,
+    ),
   ],
 );
 
 export const chatMessage = pgTable(
   "chat_message",
   {
+    // 用户消息的发送人；助手与系统消息为空（ADR-0045）。
+    // Author of a user message; null for assistant and system messages (ADR-0045).
+    authorUserId: text("author_user_id").references(() => user.id, { onDelete: "set null" }),
     content: jsonb("content").$type<ArcMessage>().notNull(),
     conversationId: text("conversation_id")
       .notNull()
@@ -3324,6 +3506,32 @@ export const chatAttachment = pgTable(
     index("chat_attachment_organization_idx").on(table.organizationId),
   ],
 );
+
+// detected：已裁出头像；not_detected：识别完成但没有可信头像；failed：识别调用失败，error_message 记录原因。
+// detected: avatar stored; not_detected: the model answered without a confident headshot;
+// failed: the extraction itself failed and error_message holds the reason.
+export type ResumeCandidateAvatarStatus = "detected" | "not_detected" | "failed";
+
+// 简历首页候选人头像，按简历文件内容哈希（sha256）记录，人才库与招聘台记录通过各自的 content_hash 关联读取。
+// 识别失败同样落库，便于直接查询失败原因并在下次解析时重试。
+// Candidate headshot cropped from a resume's first page, keyed by the file's sha256 content hash.
+// Failed attempts are recorded too so their cause is queryable and later parses can retry.
+export const resumeCandidateAvatar = pgTable("resume_candidate_avatar", {
+  attempts: integer("attempts").notNull().default(1),
+  boxConfidence: doublePrecision("box_confidence"),
+  contentHash: text("content_hash").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+  model: text("model"),
+  photoProbability: doublePrecision("photo_probability"),
+  status: text("status").$type<ResumeCandidateAvatarStatus>().notNull(),
+  storageKey: text("storage_key"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
 
 /** @deprecated 已由 recruitingEvent 等新招聘表替代；仅保留迁移和历史核对，业务代码不得读写。 */
 export const interviewAuditLog = pgTable(
@@ -4204,6 +4412,7 @@ export const recruitingRecord = pgTable(
     id: text("id").primaryKey(),
     jobDescriptionId: text("job_description_id"),
     notes: text("notes"),
+    offerApprovalRequiredAt: timestamp("offer_approval_required_at", { withTimezone: true }),
     organizationId: text("organization_id").notNull(),
     outcome: text("outcome").$type<CandidateOutcome>().notNull().default("in_pipeline"),
     ownerId: text("owner_id"),
@@ -4556,7 +4765,9 @@ export const recruitingMaterial = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     fileName: text("file_name").notNull(),
     id: text("id").primaryKey(),
+    incomeType: text("income_type").$type<IncomeProofType>(),
     kind: text("kind").$type<"income_proof" | "background_report" | "offer_document">().notNull(),
+    notes: text("notes").notNull().default(""),
     organizationId: text("organization_id").notNull(),
     recruitingRecordId: text("recruiting_record_id").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
@@ -5021,6 +5232,8 @@ export const humanInterviewRound = pgTable(
       table.outcome,
     ),
     index("human_interview_round_sort_idx").on(table.recruitingRecordId, table.sortOrder),
+    // 面试记录列表按工作区 + 创建时间排序分页。/ Interview records list pages by workspace + creation time.
+    index("human_interview_round_org_created_at_idx").on(table.organizationId, table.createdAt),
     index("human_interview_round_status_idx").on(table.status),
     index("human_interview_round_evaluation_status_idx").on(table.evaluationStatus),
     check(
@@ -5031,16 +5244,56 @@ export const humanInterviewRound = pgTable(
 );
 
 // 真人评价快照：保留 AI 草稿及人工提交的原始评价，回退不覆盖历史。
+// Each interviewer owns a separate draft/submission; null authors preserve unattributed legacy feedback.
+export const humanInterviewReviewerEvaluation = pgTable(
+  "human_interview_reviewer_evaluation",
+  {
+    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluationDraft>().notNull(),
+    id: text("id").primaryKey(),
+    legacy: boolean("legacy").notNull().default(false),
+    organizationId: text("organization_id").notNull(),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    reviewerId: text("reviewer_id"),
+    roundId: text("round_id").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    version: integer("version").notNull().default(1),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.roundId, table.organizationId],
+      foreignColumns: [humanInterviewRound.id, humanInterviewRound.organizationId],
+      name: "human_interview_reviewer_evaluation_round_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.reviewerId],
+      foreignColumns: [user.id],
+      name: "human_interview_reviewer_evaluation_reviewer_fk",
+    }).onDelete("set null"),
+    uniqueIndex("human_interview_reviewer_evaluation_round_reviewer_uq").on(
+      table.roundId,
+      table.reviewerId,
+    ),
+    check("human_interview_reviewer_evaluation_version_check", sql`${table.version} > 0`),
+    check(
+      "human_interview_reviewer_evaluation_outcome_check",
+      sql`${table.outcome} in ('pass', 'fail', 'inconclusive')`,
+    ),
+  ],
+);
+
 export const humanInterviewEvaluationSnapshot = pgTable(
   "human_interview_evaluation_snapshot",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by"),
-    evaluation: jsonb("evaluation").$type<HumanInterviewEvaluation>().notNull(),
+    evaluation: jsonb("evaluation").$type<HumanInterviewGeneratedEvaluation>().notNull(),
     id: text("id").primaryKey(),
     meetingSessionId: text("meeting_session_id"),
     organizationId: text("organization_id").notNull(),
     outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    // AI 证据复核仍未通过的问题；仅 ai_generated 快照可能有值。
+    reviewFindings: jsonb("review_findings").$type<HumanInterviewEvaluationReviewFinding[]>(),
     roundId: text("round_id").notNull(),
     source: text("source").$type<HumanInterviewEvaluationSnapshotSource>().notNull(),
     transcriptRevisionId: text("transcript_revision_id"),
@@ -5180,6 +5433,7 @@ export const humanInterviewMeeting = pgTable(
     recordingEgressId: text("recording_egress_id"),
     recordingError: text("recording_error"),
     recordingFileKey: text("recording_file_key"),
+    recordingIngestedAt: timestamp("recording_ingested_at", { withTimezone: true }),
     recordingSizeBytes: integer("recording_size_bytes"),
     recordingStatus: text("recording_status")
       .$type<HumanInterviewRecordingStatus>()
@@ -5191,6 +5445,7 @@ export const humanInterviewMeeting = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
     title: text("title").notNull(),
+    transcriptionMode: text("transcription_mode").notNull().default("legacy"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -5274,6 +5529,32 @@ export const humanInterviewMeetingEvent = pgTable(
     uniqueIndex("human_interview_meeting_event_provider_event_idx").on(
       table.provider,
       table.providerEventId,
+    ),
+  ],
+);
+
+// 真人会议聊天记录：由邀请身份写入，LiveKit 仅负责在线实时通知。
+export const humanInterviewMeetingChatMessage = pgTable(
+  "human_interview_meeting_chat_message",
+  {
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    participantIdentity: text("participant_identity").notNull(),
+    senderName: text("sender_name").notNull(),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_interview_meeting_chat_message_meeting_id_org_fk",
+    }).onDelete("cascade"),
+    index("human_interview_meeting_chat_message_meeting_idx").on(table.meetingId, table.createdAt),
+    check(
+      "human_interview_meeting_chat_message_content_check",
+      sql`length(trim(${table.content})) > 0 AND length(${table.content}) <= 2000`,
     ),
   ],
 );
@@ -5423,8 +5704,10 @@ export const recruitingOffer = pgTable(
     baseSalary: integer("base_salary").notNull(),
     bonus: integer("bonus"),
     candidateCounter: text("candidate_counter"),
+    contentRevision: integer("content_revision").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     currency: text("currency").notNull().default("CNY"),
+    currentApprovalId: text("current_approval_id"),
     declineReason: text("decline_reason"),
     emailRecipient: text("email_recipient"),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
@@ -5436,8 +5719,10 @@ export const recruitingOffer = pgTable(
     organizationId: text("organization_id").notNull(),
     position: text("position").notNull(),
     publicToken: text("public_token"),
+    publishedApprovalId: text("published_approval_id"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedBy: text("published_by"),
+    publishedSnapshot: jsonb("published_snapshot").$type<OfferApprovalSnapshot>(),
     recruitingRecordId: text("recruiting_record_id").notNull(),
     responseAt: timestamp("response_at", { withTimezone: true }),
     responseBy: text("response_by"),
@@ -6198,7 +6483,7 @@ export const recruitingNotificationEvent = pgTable(
     check(
       "recruiting_notification_event_scope_check",
       sql`(
-        (${table.scopeType} = 'interview_record' AND ${table.recruitingRecordId} IS NOT NULL)
+        (${table.scopeType} = 'offer_approval' AND ${table.recruitingRecordId} IS NOT NULL) OR (${table.scopeType} = 'interview_record' AND ${table.recruitingRecordId} IS NOT NULL)
         OR (${table.scopeType} = 'ai_round' AND ${table.aiRoundId} IS NOT NULL)
         OR (${table.scopeType} = 'human_meeting' AND ${table.humanMeetingId} IS NOT NULL)
       )`,
@@ -6787,5 +7072,487 @@ export const aiInterviewReportReceipt = pgTable(
       "ai_report_receipt_status_check",
       sql`${table.status} in ('pending', 'applied', 'processed', 'archived')`,
     ),
+  ],
+);
+
+// OAuth/JWT tables generated with auth@1.7.2; keep aligned with the official provider schema.
+export const jwks = pgTable("jwks", {
+  alg: text("alg"),
+  createdAt: timestamp("created_at").notNull(),
+  crv: text("crv"),
+  expiresAt: timestamp("expires_at"),
+  id: text("id").primaryKey(),
+  privateKey: text("private_key").notNull(),
+  publicKey: text("public_key").notNull(),
+});
+
+export const oauthClient = pgTable(
+  "oauth_client",
+  {
+    applicationType: text("application_type"),
+    backchannelLogoutSessionRequired: boolean("backchannel_logout_session_required"),
+    backchannelLogoutUri: text("backchannel_logout_uri"),
+    clientCredentialsScopes: text("client_credentials_scopes").array().default([]),
+    clientDiscoveryId: text("client_discovery_id"),
+    clientId: text("client_id").notNull().unique(),
+    clientSecret: text("client_secret"),
+    contacts: text("contacts").array(),
+    createdAt: timestamp("created_at"),
+    disabled: boolean("disabled").default(false),
+    dpopBoundAccessTokens: boolean("dpop_bound_access_tokens").default(false),
+    enableEndSession: boolean("enable_end_session"),
+    grantTypes: text("grant_types").array(),
+    icon: text("icon"),
+    id: text("id").primaryKey(),
+    jwks: text("jwks"),
+    jwksUri: text("jwks_uri"),
+    metadata: jsonb("metadata"),
+    name: text("name"),
+    policy: text("policy"),
+    postLogoutRedirectUris: text("post_logout_redirect_uris").array(),
+    redirectUris: text("redirect_uris").array().notNull(),
+    referenceId: text("reference_id"),
+    requirePKCE: boolean("require_pkce"),
+    responseTypes: text("response_types").array(),
+    scopes: text("scopes").array(),
+    skipConsent: boolean("skip_consent"),
+    softwareId: text("software_id"),
+    softwareStatement: text("software_statement"),
+    softwareVersion: text("software_version"),
+    subjectType: text("subject_type"),
+    tokenEndpointAuthMethod: text("token_endpoint_auth_method"),
+    tos: text("tos"),
+    updatedAt: timestamp("updated_at"),
+    uri: text("uri"),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("oauthClient_userId_idx").on(table.userId)],
+);
+
+export const oauthResource = pgTable("oauth_resource", {
+  accessTokenTtl: integer("access_token_ttl"),
+  allowedScopes: text("allowed_scopes").array(),
+  createdAt: timestamp("created_at"),
+  customClaims: jsonb("custom_claims"),
+  disabled: boolean("disabled").default(false),
+  dpopBoundAccessTokensRequired: boolean("dpop_bound_access_tokens_required").default(false),
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull().unique(),
+  metadata: jsonb("metadata"),
+  name: text("name").notNull(),
+  policyVersion: integer("policy_version").default(1),
+  refreshTokenTtl: integer("refresh_token_ttl"),
+  signingAlgorithm: text("signing_algorithm"),
+  signingKeyId: text("signing_key_id"),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const oauthClientResource = pgTable(
+  "oauth_client_resource",
+  {
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at"),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata"),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => oauthResource.identifier, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("oauthClientResource_clientId_resourceId_uidx").on(
+      table.clientId,
+      table.resourceId,
+    ),
+    index("oauthClientResource_clientId_idx").on(table.clientId),
+    index("oauthClientResource_resourceId_idx").on(table.resourceId),
+  ],
+);
+
+export const oauthRefreshToken = pgTable(
+  "oauth_refresh_token",
+  {
+    authTime: timestamp("auth_time"),
+    authorizationCodeId: text("authorization_code_id"),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    confirmation: jsonb("confirmation"),
+    createdAt: timestamp("created_at").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    referenceId: text("reference_id"),
+    requestedUserInfoClaims: text("requested_user_info_claims").array(),
+    resources: text("resources").array(),
+    revoked: timestamp("revoked"),
+    rotatedAt: timestamp("rotated_at"),
+    rotationReplayExpiresAt: timestamp("rotation_replay_expires_at"),
+    rotationReplayResponse: text("rotation_replay_response"),
+    scopes: text("scopes").array().notNull(),
+    sessionId: text("session_id").references(() => session.id, {
+      onDelete: "set null",
+    }),
+    token: text("token").notNull().unique(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("oauthRefreshToken_clientId_idx").on(table.clientId),
+    index("oauthRefreshToken_sessionId_idx").on(table.sessionId),
+    index("oauthRefreshToken_userId_idx").on(table.userId),
+    index("oauthRefreshToken_authorizationCodeId_idx").on(table.authorizationCodeId),
+  ],
+);
+
+export const oauthAccessToken = pgTable(
+  "oauth_access_token",
+  {
+    authorizationCodeId: text("authorization_code_id"),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    confirmation: jsonb("confirmation"),
+    createdAt: timestamp("created_at").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    referenceId: text("reference_id"),
+    refreshId: text("refresh_id").references(() => oauthRefreshToken.id, {
+      onDelete: "cascade",
+    }),
+    requestedUserInfoClaims: text("requested_user_info_claims").array(),
+    resources: text("resources").array(),
+    revoked: timestamp("revoked"),
+    scopes: text("scopes").array().notNull(),
+    sessionId: text("session_id").references(() => session.id, {
+      onDelete: "set null",
+    }),
+    token: text("token").notNull().unique(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("oauthAccessToken_clientId_idx").on(table.clientId),
+    index("oauthAccessToken_sessionId_idx").on(table.sessionId),
+    index("oauthAccessToken_userId_idx").on(table.userId),
+    index("oauthAccessToken_authorizationCodeId_idx").on(table.authorizationCodeId),
+    index("oauthAccessToken_refreshId_idx").on(table.refreshId),
+  ],
+);
+
+export const oauthConsent = pgTable(
+  "oauth_consent",
+  {
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull(),
+    id: text("id").primaryKey(),
+    referenceId: text("reference_id"),
+    requestedUserInfoClaims: text("requested_user_info_claims").array(),
+    resources: text("resources").array(),
+    scopes: text("scopes").array().notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("oauthConsent_clientId_idx").on(table.clientId),
+    index("oauthConsent_userId_idx").on(table.userId),
+  ],
+);
+
+export const oauthClientAssertion = pgTable("oauth_client_assertion", {
+  expiresAt: timestamp("expires_at").notNull(),
+  id: text("id").primaryKey(),
+});
+
+// Each external OAuth grant is bound to one immutable workspace selection.
+export const mcpGrant = pgTable(
+  "mcp_grant",
+  {
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    scopes: text("scopes").array().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("mcp_grant_user_idx").on(table.userId)],
+);
+
+export const humanTranscriptionRun = pgTable(
+  "human_transcription_run",
+  {
+    cleanupAt: timestamp("cleanup_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    cutoffAt: timestamp("cutoff_at", { withTimezone: true }),
+    dispatchId: text("dispatch_id"),
+    downstreamRequestedAt: timestamp("downstream_requested_at", { withTimezone: true }),
+    drainedAt: timestamp("drained_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    error: text("error"),
+    eventSeq: integer("event_seq").notNull().default(0),
+    executionId: text("execution_id"),
+    generation: integer("generation").notNull().default(1),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => humanInterviewMeeting.id, { onDelete: "cascade" }),
+    mode: text("mode").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    participants: jsonb("participants")
+      .$type<Record<string, { role: "candidate" | "interviewer"; displayName: string }>>()
+      .notNull(),
+    recognitionHints: jsonb("recognition_hints").$type<{
+      context: string[];
+      vocabulary: Record<string, number>;
+    }>(),
+    roomName: text("room_name").notNull(),
+    sourceSnapshot: jsonb("source_snapshot").$type<unknown>(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    status: text("status").notNull().default("pending"),
+  },
+  (table) => [
+    uniqueIndex("human_transcription_run_id_org_uq").on(table.id, table.organizationId),
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [humanInterviewMeeting.id, humanInterviewMeeting.organizationId],
+      name: "human_transcription_run_meeting_org_fk",
+    }).onDelete("cascade"),
+    check(
+      "human_transcription_run_mode_check",
+      sql`${table.mode} in ('shadow', 'server_realtime')`,
+    ),
+    check("human_transcription_run_generation_check", sql`${table.generation} > 0`),
+    check(
+      "human_transcription_run_status_check",
+      sql`${table.status} in ('pending','starting','capturing','finalizing','ready','recovering','needs_review','failed')`,
+    ),
+    uniqueIndex("human_transcription_run_meeting_active_uq")
+      .on(table.meetingId)
+      .where(sql`${table.status} in ('pending','starting','capturing','finalizing','recovering')`),
+    index("human_transcription_run_reconcile_idx").on(table.status, table.heartbeatAt),
+  ],
+);
+
+export const humanTranscriptionEvent = pgTable(
+  "human_transcription_event",
+  {
+    eventId: text("event_id").notNull(),
+    eventSeq: integer("event_seq").notNull(),
+    generation: integer("generation").notNull(),
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<HumanTranscriptionEventRecord>().notNull(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => humanTranscriptionRun.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("human_transcription_event_identity_uq").on(
+      table.runId,
+      table.generation,
+      table.eventId,
+    ),
+    uniqueIndex("human_transcription_event_sentence_revision_uq")
+      .on(
+        table.runId,
+        table.generation,
+        sql`(${table.payload}->>'streamEpoch')`,
+        sql`(${table.payload}->>'providerTaskId')`,
+        sql`(${table.payload}->>'itemId')`,
+        sql`(${table.payload}->>'revision')`,
+      )
+      .where(sql`${table.payload}->>'kind' = 'final'`),
+    uniqueIndex("human_transcription_event_cursor_uq").on(table.runId, table.eventSeq),
+  ],
+);
+
+export const humanTranscriptionEventAlias = pgTable(
+  "human_transcription_event_alias",
+  {
+    canonicalEventId: text("canonical_event_id").notNull(),
+    eventId: text("event_id").notNull(),
+    generation: integer("generation").notNull(),
+    runId: text("run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.generation, table.eventId] }),
+    foreignKey({
+      columns: [table.runId, table.generation, table.canonicalEventId],
+      foreignColumns: [
+        humanTranscriptionEvent.runId,
+        humanTranscriptionEvent.generation,
+        humanTranscriptionEvent.eventId,
+      ],
+      name: "human_transcription_event_alias_canonical_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+// Templates are submission-time helpers. Approval instances copy their resolved nodes and never
+// depend on the template row after submission, so deleting a template is safe.
+export const offerApprovalTemplate = pgTable(
+  "offer_approval_template",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    enabled: boolean("enabled").notNull().default(true),
+    id: text("id").primaryKey(),
+    isDefault: boolean("is_default").notNull().default(false),
+    name: text("name").notNull(),
+    nodes: jsonb("nodes").$type<OfferApprovalTemplateNode[]>().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    check("offer_approval_template_name_ck", sql`length(trim(${t.name})) > 0`),
+    check("offer_approval_template_nodes_ck", sql`jsonb_array_length(${t.nodes}) between 1 and 5`),
+    check("offer_approval_template_default_enabled_ck", sql`not ${t.isDefault} or ${t.enabled}`),
+    uniqueIndex("offer_approval_template_org_name_uq").on(t.organizationId, t.name),
+    uniqueIndex("offer_approval_template_default_uq")
+      .on(t.organizationId)
+      .where(sql`${t.isDefault} = true`),
+    index("offer_approval_template_org_updated_idx").on(t.organizationId, t.updatedAt),
+  ],
+);
+
+// History is retained; record and Offer deletion must use the lifecycle commands.
+export const recruitingOfferApproval = pgTable(
+  "recruiting_offer_approval",
+  {
+    applicantId: text("applicant_id").notNull(),
+    applicantName: text("applicant_name").notNull(),
+    attemptNumber: integer("attempt_number").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    contentRevision: integer("content_revision").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    currentStep: integer("current_step").notNull().default(0),
+    id: text("id").primaryKey(),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    invalidationReason: text("invalidation_reason"),
+    lastRemindedAt: timestamp("last_reminded_at", { withTimezone: true }),
+    offerId: text("offer_id").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    previousApprovalId: text("previous_approval_id"),
+    reason: text("reason").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    snapshot: jsonb("snapshot").$type<OfferApprovalSnapshot>().notNull(),
+    snapshotHash: text("snapshot_hash").notNull(),
+    status: text("status").$type<OfferApprovalStatus>().notNull().default("pending"),
+    templateId: text("template_id"),
+    templateName: text("template_name"),
+    withdrawalReason: text("withdrawal_reason"),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    check(
+      "offer_approval_status_ck",
+      sql`${t.status} IN ('pending','approved','rejected','withdrawn','cancelled')`,
+    ),
+    check(
+      "offer_approval_numbers_ck",
+      sql`${t.attemptNumber} > 0 AND ${t.contentRevision} > 0 AND ${t.currentStep} >= 0`,
+    ),
+    uniqueIndex("offer_approval_owner_uq").on(t.id, t.recruitingRecordId, t.organizationId),
+    uniqueIndex("offer_approval_attempt_uq").on(t.recruitingRecordId, t.attemptNumber),
+    uniqueIndex("offer_approval_pending_uq")
+      .on(t.recruitingRecordId)
+      .where(sql`${t.status} = 'pending'`),
+    foreignKey({
+      columns: [t.offerId, t.recruitingRecordId, t.organizationId],
+      foreignColumns: [
+        recruitingOffer.id,
+        recruitingOffer.recruitingRecordId,
+        recruitingOffer.organizationId,
+      ],
+      name: "offer_approval_offer_owner_fk",
+    }),
+    index("offer_approval_org_created_idx").on(t.organizationId, t.createdAt),
+  ],
+);
+
+export const recruitingOfferApprovalStep = pgTable(
+  "recruiting_offer_approval_step",
+  {
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    approvalId: text("approval_id").notNull(),
+    approverId: text("approver_id").notNull(),
+    approverName: text("approver_name").notNull(),
+    comment: text("comment"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    recruitingRecordId: text("recruiting_record_id").notNull(),
+    sourceLabel: text("source_label").notNull().default("手动选择"),
+    sourceSnapshot: jsonb("source_snapshot").$type<OfferApprovalStepSourceSnapshot>(),
+    sourceType: text("source_type")
+      .$type<OfferApprovalStepSourceType>()
+      .notNull()
+      .default("manual"),
+    status: text("status").$type<OfferApprovalStepStatus>().notNull().default("waiting"),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    check(
+      "offer_approval_step_status_ck",
+      sql`${t.status} IN ('waiting','pending','approved','rejected','cancelled')`,
+    ),
+    check(
+      "offer_approval_step_source_type_ck",
+      sql`${t.sourceType} IN ('fixed_member','job_reporting_manager','recruiting_owner','manual')`,
+    ),
+    uniqueIndex("offer_approval_step_position_uq").on(t.approvalId, t.position),
+    uniqueIndex("offer_approval_step_pending_uq")
+      .on(t.approvalId)
+      .where(sql`${t.status} = 'pending'`),
+    foreignKey({
+      columns: [t.approvalId, t.recruitingRecordId, t.organizationId],
+      foreignColumns: [
+        recruitingOfferApproval.id,
+        recruitingOfferApproval.recruitingRecordId,
+        recruitingOfferApproval.organizationId,
+      ],
+      name: "offer_approval_step_owner_fk",
+    }),
+  ],
+);
+
+// Actor + request id scope includes every command; retries cannot silently change command or payload.
+export const recruitingOfferApprovalReceipt = pgTable(
+  "recruiting_offer_approval_receipt",
+  {
+    actorId: text("actor_id").notNull(),
+    approvalId: text("approval_id")
+      .notNull()
+      .references(() => recruitingOfferApproval.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    requestHash: text("request_hash").notNull(),
+    requestId: text("request_id").notNull(),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    uniqueIndex("offer_approval_receipt_key_uq").on(t.organizationId, t.actorId, t.requestId),
   ],
 );

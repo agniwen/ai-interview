@@ -27,22 +27,24 @@ function Toaster({ ...props }: ToasterProps) {
       }}
       style={
         {
-          "--border-radius": "18px",
-          "--normal-bg": "color-mix(in oklab, white 78%, transparent)",
-          "--normal-border": "color-mix(in oklab, white 52%, var(--border))",
-          "--normal-text": "oklch(0.24 0.02 248)",
+          "--border-radius": "12px",
+          "--normal-bg": "var(--popover)",
+          "--normal-border": "transparent",
+          "--normal-text": "var(--popover-foreground)",
         } as React.CSSProperties
       }
+      // Sonner styles toasts through [data-styled] attribute selectors, so overrides need `!`.
       toastOptions={{
         classNames: {
-          actionButton: "bg-white/80 text-foreground hover:bg-white",
-          cancelButton: "bg-black/5 text-foreground hover:bg-black/10",
+          actionButton:
+            "h-7! rounded-lg! bg-primary! px-2.5! text-primary-foreground! hover:bg-primary/90!",
+          cancelButton:
+            "h-7! rounded-lg! bg-component! px-2.5! text-foreground! hover:bg-component-hover!",
           closeButton:
-            "border-white/50 bg-white/70 text-foreground/70 hover:bg-white hover:text-foreground",
-          description: "text-foreground/75",
+            "border-transparent! bg-popover! text-muted-foreground! shadow-default! hover:text-foreground!",
+          description: "text-muted-foreground!",
           title: "font-medium text-foreground",
-          toast:
-            "border border-border/60 bg-background/90 text-foreground shadow-sm backdrop-blur-xl",
+          toast: "gap-2! px-3.5! py-3! shadow-large!",
         },
       }}
       position="top-center"

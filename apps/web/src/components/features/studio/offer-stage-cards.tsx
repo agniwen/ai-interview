@@ -1,26 +1,36 @@
 "use client";
 
 import { IconCircleCheck, IconCopy, IconMail, IconPencil } from "@tabler/icons-react";
-/* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
+/* oxlint-disable complexity, max-lines, no-nested-ternary, no-use-before-define -- One card coordinates Offer content, approval status, and delivery actions; helpers remain below the public component. */
 // Offer 接受后完成协商，后续继续背调与入职。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@app/db-schema/studio-interviews";
+import { offerApprovalLabels } from "@app/shared/offer-approval";
 import type { OfferDraftRecord } from "@app/shared/studio-pipeline-stages";
 import {
   deleteOfferDraft,
+  voidOfferDraft,
   fetchStudioResume,
-  getOfferEmailPreview,
+  getOfferApprovalPolicy,
   getOfferPublicLink,
   patchOfferDraft,
-  sendOfferEmail,
   sendOfferDraft,
   updateCandidateExpectations,
+  rpcFetch,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
+import { SubmitOfferApprovalDialog } from "@/components/features/offer-approval/submit-dialog";
+import {
+  approvalApi,
+  approvalDetailOptions,
+  approvalKeys,
+} from "@/components/features/offer-approval/queries";
 import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
@@ -37,6 +47,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   OfferDraftFormFields,
   buildOfferDraftPayload,
@@ -46,6 +57,7 @@ import {
   offerFormStateFromDraft,
 } from "./offer-stage-form";
 import type { OfferFormState } from "./offer-stage-form";
+import { OfferEmailDialog } from "./offer-email-dialog";
 
 export function CandidateExpectationsBlock({
   candidateId,
@@ -113,9 +125,7 @@ export function CandidateExpectationsBlock({
         <FramePanel>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="exp-salary">
-                期望月薪
-              </Label>
+              <Label htmlFor="exp-salary">期望月薪</Label>
               <Input
                 id="exp-salary"
                 inputMode="numeric"
@@ -127,9 +137,7 @@ export function CandidateExpectationsBlock({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="cur-salary">
-                当前月薪
-              </Label>
+              <Label htmlFor="cur-salary">当前月薪</Label>
               <Input
                 id="cur-salary"
                 inputMode="numeric"
@@ -141,9 +149,7 @@ export function CandidateExpectationsBlock({
               />
             </div>
             <div className="grid gap-1.5 sm:col-span-2">
-              <Label className="text-sm" htmlFor="exp-joining">
-                最早入职日
-              </Label>
+              <Label htmlFor="exp-joining">最早入职日</Label>
               <DatePicker
                 id="exp-joining"
                 onValueChange={setEarliestJoiningDate}
@@ -151,9 +157,7 @@ export function CandidateExpectationsBlock({
               />
             </div>
             <div className="grid gap-1.5 sm:col-span-2">
-              <Label className="text-sm" htmlFor="exp-notes">
-                备注
-              </Label>
+              <Label htmlFor="exp-notes">备注</Label>
               <Textarea
                 id="exp-notes"
                 maxLength={1000}
@@ -205,8 +209,16 @@ export function CandidateExpectationsBlock({
             value={meta?.currentSalary ? `¥ ${meta.currentSalary.toLocaleString()}` : null}
           />
           <ExpectationField
-            label="谈定 Base 月薪"
+            label="转正工资"
             value={meta?.agreedBaseSalary ? `¥ ${meta.agreedBaseSalary.toLocaleString()}` : null}
+          />
+          <ExpectationField
+            label="试用期工资"
+            value={meta?.probationSalary ? `¥ ${meta.probationSalary.toLocaleString()}` : null}
+          />
+          <ExpectationField
+            label="出国工资"
+            value={meta?.overseasSalary ? `¥ ${meta.overseasSalary.toLocaleString()}` : null}
           />
           <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
           <ExpectationField label="备注" value={meta?.notes ?? null} />
@@ -276,6 +288,53 @@ export function OfferCardView({
   const [editing, setEditing] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawalReason, setWithdrawalReason] = useState("");
+  const [invalidateApprovedApproval, setInvalidateApprovedApproval] = useState(false);
+  const queryClient = useQueryClient();
+  const canCreateApproval =
+    useHasPermission("page", "offerApprovals") && useHasPermission("offerApproval", "create");
+  const canReadApproval =
+    useHasPermission("page", "offerApprovals") && useHasPermission("offerApproval", "read");
+  const approvalPolicy = useQuery({
+    enabled: draft.status === "draft" && canUpdate,
+    queryFn: () => getOfferApprovalPolicy(slug, candidateId),
+    queryKey: approvalKeys.policy(slug),
+  });
+  const approval = useQuery({
+    ...approvalDetailOptions(slug, draft.currentApprovalId ?? ""),
+    enabled: Boolean(draft.currentApprovalId && canReadApproval),
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
+  });
+  const approvedApproval = approval.data?.status === "approved" && !approval.data.invalidatedAt;
+  const currentApprovalPending = Boolean(
+    draft.currentApprovalId &&
+    (!canReadApproval ||
+      approval.isPending ||
+      !approval.data ||
+      (approval.data.status === "pending" && !approval.data.invalidatedAt)),
+  );
+  const approvalRequired = Boolean(approvalPolicy.data?.approvalRequired || currentApprovalPending);
+  const publishBlockReason = approvalPolicy.isPending
+    ? "正在确认审批配置…"
+    : approvalPolicy.isError
+      ? "审批配置暂不可用，请刷新后重试。"
+      : approvalRequired && !approvedApproval
+        ? "请先提交并完成审批，审批通过后才能发布。"
+        : null;
+  const canSubmitApproval =
+    canCreateApproval &&
+    (!draft.currentApprovalId ||
+      (canReadApproval &&
+        Boolean(
+          approval.data &&
+          (approval.data.invalidatedAt ||
+            ["cancelled", "rejected", "withdrawn"].includes(approval.data.status)),
+        )));
+  const approvalStatusLabel = approval.data
+    ? getApprovalStatusLabel(approval.data.status, Boolean(approval.data.invalidatedAt))
+    : null;
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
 
@@ -289,15 +348,23 @@ export function OfferCardView({
     },
   });
   const cancelMutation = useMutation({
-    mutationFn: () => deleteOfferDraft(slug, candidateId, draft.id),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "删除失败"),
+    mutationFn: () =>
+      draft.currentApprovalId
+        ? voidOfferDraft(slug, candidateId, draft.id)
+        : deleteOfferDraft(slug, candidateId, draft.id),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "移除草稿失败"),
     onSuccess: () => {
-      toast.success("已删除 Offer");
+      toast.success(draft.currentApprovalId ? "已作废 Offer，审批历史已保留" : "已删除 Offer");
       onCancelled();
     },
   });
   const saveMutation = useMutation({
-    mutationFn: () => patchOfferDraft(slug, candidateId, draft.id, buildOfferDraftPayload(form)),
+    mutationFn: () =>
+      patchOfferDraft(slug, candidateId, draft.id, {
+        ...buildOfferDraftPayload(form),
+        expectedContentRevision: draft.contentRevision,
+        invalidateApproval: invalidateApprovedApproval,
+      }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "保存失败"),
     onSuccess: () => {
       toast.success("已更新草稿");
@@ -305,14 +372,45 @@ export function OfferCardView({
       onSaved();
     },
   });
+  const withdrawMutation = useMutation({
+    mutationFn: () => {
+      if (!draft.currentApprovalId) {
+        throw new Error("当前没有可撤回的审批");
+      }
+      return rpcFetch(
+        approvalApi[":approvalId"].withdraw.$post({
+          json: { reason: withdrawalReason, requestId: crypto.randomUUID() },
+          param: { approvalId: draft.currentApprovalId, slug },
+        }),
+        "撤回审批失败",
+      );
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "撤回审批失败"),
+    onSuccess: async () => {
+      setWithdrawOpen(false);
+      setWithdrawalReason("");
+      if (draft.currentApprovalId) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: approvalKeys.detail(slug, draft.currentApprovalId),
+          }),
+          queryClient.invalidateQueries({ queryKey: approvalKeys.all(slug) }),
+        ]);
+      }
+      onSaved();
+      toast.success("审批已撤回，可调整 Offer 后重新提交");
+    },
+  });
 
   function cancelEditing() {
     setForm(offerFormStateFromDraft(draft));
+    setInvalidateApprovedApproval(false);
     setEditing(false);
   }
 
   function startEditing() {
     setForm(offerFormStateFromDraft(draft));
+    setInvalidateApprovedApproval(false);
     setEditing(true);
   }
 
@@ -345,6 +443,19 @@ export function OfferCardView({
             onFieldChange={setFormField}
           />
 
+          {approvedApproval ? (
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-line bg-amber-tint/50 p-3 text-sm">
+              <Checkbox
+                aria-label="确认修改会使已通过审批失效"
+                checked={invalidateApprovedApproval}
+                onCheckedChange={(checked) => setInvalidateApprovedApproval(checked === true)}
+              />
+              <span>
+                我确认修改已通过的 Offer 会使当前审批失效，保存后必须重新提交审批才能发布。
+              </span>
+            </div>
+          ) : null}
+
           <div className="mt-3 flex justify-end gap-2">
             <Button
               disabled={saveMutation.isPending}
@@ -355,7 +466,12 @@ export function OfferCardView({
               取消
             </Button>
             <Button
-              disabled={saveMutation.isPending || !form.position.trim() || !form.baseSalary}
+              disabled={
+                saveMutation.isPending ||
+                !form.position.trim() ||
+                !form.baseSalary ||
+                (approvedApproval && !invalidateApprovedApproval)
+              }
               onClick={() => saveMutation.mutate()}
               size="sm"
             >
@@ -373,7 +489,17 @@ export function OfferCardView({
         <div className="space-y-4">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="font-medium text-sm">{draft.position}</span>
-            <Badge variant={meta.tone}>{meta.label}</Badge>
+            {draft.status === "draft" && approvalStatusLabel ? (
+              <Badge variant={approval.data?.status === "rejected" ? "destructive" : "outline"}>
+                {approvalStatusLabel}
+              </Badge>
+            ) : (
+              <Badge variant={meta.tone}>
+                {draft.status === "draft" && draft.currentApprovalId && canReadApproval
+                  ? "读取审批状态…"
+                  : meta.label}
+              </Badge>
+            )}
           </div>
 
           <PublishOfferConfirmDialog
@@ -392,7 +518,97 @@ export function OfferCardView({
             open={emailOpen && !disabled && canUpdate}
             slug={slug}
           />
+          {approvalOpen ? (
+            <SubmitOfferApprovalDialog
+              offerId={draft.id}
+              onClose={() => setApprovalOpen(false)}
+              onSaved={onSaved}
+              recordId={candidateId}
+              slug={slug}
+            />
+          ) : null}
+          <Dialog
+            onOpenChange={(open) => {
+              setWithdrawOpen(open);
+              if (!open) {
+                setWithdrawalReason("");
+              }
+            }}
+            open={withdrawOpen}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>撤回本轮审批</DialogTitle>
+                <DialogDescription>
+                  撤回后，本轮审批会结束并保留在历史记录中。调整 Offer 后可重新提交审批。
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-1.5">
+                <Label htmlFor={`withdrawal-reason-${draft.id}`}>撤回原因</Label>
+                <Textarea
+                  id={`withdrawal-reason-${draft.id}`}
+                  maxLength={2000}
+                  onChange={(event) => setWithdrawalReason(event.target.value)}
+                  placeholder="请说明撤回原因"
+                  rows={3}
+                  value={withdrawalReason}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={withdrawMutation.isPending}
+                  onClick={() => setWithdrawOpen(false)}
+                  variant="outline"
+                >
+                  取消
+                </Button>
+                <Button
+                  disabled={withdrawMutation.isPending || !withdrawalReason.trim()}
+                  onClick={() => withdrawMutation.mutate()}
+                  variant="destructive"
+                >
+                  {withdrawMutation.isPending ? "撤回中…" : "确认撤回"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <OfferDraftReadonlyFields draft={draft} />
+          {draft.currentApprovalId && canReadApproval ? (
+            <div className="text-sm">
+              {approval.isPending ? (
+                <span className="text-muted-foreground">正在读取审批状态…</span>
+              ) : approval.data ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-muted-foreground">当前审批</span>
+                  <Badge variant="outline">
+                    {offerApprovalLabels[approval.data.status]}
+                    {approval.data.invalidatedAt ? " · 已不适用" : ""}
+                  </Badge>
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <Link
+                      className="text-primary underline underline-offset-4"
+                      params={{ approvalId: draft.currentApprovalId, slug }}
+                      to="/w/$slug/studio/offer-approvals/$approvalId"
+                    >
+                      查看审批历史
+                    </Link>
+                    {!disabled && approval.data.canManage && approval.data.status === "pending" ? (
+                      <Button
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setWithdrawOpen(true)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        撤回本轮审批
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-destructive">审批状态暂不可用，请刷新后重试。</span>
+              )}
+            </div>
+          ) : null}
 
           {disabled ? null : (
             <div className="border-border/60 border-t pt-3">
@@ -405,7 +621,10 @@ export function OfferCardView({
                 onPublish={() => setPublishOpen(true)}
                 onCopyLink={copyOfferLink}
                 onEdit={startEditing}
+                onSubmitApproval={() => setApprovalOpen(true)}
                 onRespond={onRespond}
+                canSubmitApproval={canSubmitApproval}
+                publishBlockReason={publishBlockReason}
               />
             </div>
           )}
@@ -415,25 +634,44 @@ export function OfferCardView({
   );
 }
 
+function getApprovalStatusLabel(status: string, invalidated: boolean) {
+  if (invalidated) {
+    return "审批已失效";
+  }
+  return {
+    approved: "审批通过",
+    cancelled: "审批已取消",
+    pending: "审批中",
+    rejected: "审批已驳回",
+    withdrawn: "审批已撤回",
+  }[status];
+}
+
 function OfferCardActions({
   draft,
   canDelete,
   canUpdate,
   onEdit,
+  onSubmitApproval,
   onPublish,
   onEmail,
   onCopyLink,
   onRespond,
+  canSubmitApproval,
+  publishBlockReason,
   cancelMutation,
 }: {
   draft: OfferDraftRecord;
   canDelete: boolean;
   canUpdate: boolean;
   onEdit: () => void;
+  onSubmitApproval: () => void;
   onPublish: () => void;
   onEmail: () => void;
   onCopyLink: () => void;
   onRespond: () => void;
+  canSubmitApproval: boolean;
+  publishBlockReason: string | null;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
@@ -446,15 +684,32 @@ function OfferCardActions({
             size="sm"
             variant="outline"
           >
-            删除 Offer
+            {draft.currentApprovalId ? "作废 Offer 草稿" : "删除 Offer"}
           </Button>
         )}
         {canUpdate && (
           <>
-            <Button disabled={cancelMutation.isPending} onClick={onPublish} size="sm">
+            {canSubmitApproval ? (
+              <Button
+                disabled={cancelMutation.isPending}
+                onClick={onSubmitApproval}
+                size="sm"
+                variant="outline"
+              >
+                提交审批
+              </Button>
+            ) : null}
+            <Button
+              disabled={cancelMutation.isPending || Boolean(publishBlockReason)}
+              onClick={onPublish}
+              size="sm"
+            >
               <IconCircleCheck className="size-4" />
               确认并发布
             </Button>
+            {publishBlockReason ? (
+              <p className="w-full text-xs text-muted-foreground">{publishBlockReason}</p>
+            ) : null}
             <Button disabled={cancelMutation.isPending} onClick={onEdit} size="sm" variant="ghost">
               <IconPencil className="size-4" />
               编辑
@@ -485,7 +740,7 @@ function OfferCardActions({
   return null;
 }
 
-function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
+export function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
   return (
     <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm lg:grid-cols-4">
       <ReadonlyOfferField label="职位" value={draft.position} />
@@ -554,7 +809,7 @@ function ReadonlyOfferField({
   );
 }
 
-export function PublishOfferConfirmDialog({
+function PublishOfferConfirmDialog({
   isPending,
   onConfirm,
   onOpenChange,
@@ -587,153 +842,6 @@ export function PublishOfferConfirmDialog({
     </Dialog>
   );
 }
-
-function OfferEmailDialog({
-  candidateEmail,
-  candidateId,
-  candidateName,
-  draft,
-  onOpenChange,
-  onSent,
-  open,
-  slug,
-}: {
-  candidateEmail: string | null;
-  candidateId: string;
-  candidateName: string;
-  draft: OfferDraftRecord;
-  onOpenChange: (open: boolean) => void;
-  onSent: () => void;
-  open: boolean;
-  slug: string;
-}) {
-  const [to, setTo] = useState(candidateEmail ?? "");
-  const [subject, setSubject] = useState(`Offer 通知｜${draft.position}`);
-  const [content, setContent] = useState(
-    `${candidateName}，您好：\n\n我们诚挚邀请您加入，以下是本次 Offer 的确认链接：\n{{offerLink}}\n\n请在有效期内查看并选择接受或拒绝。`,
-  );
-  const previewQuery = useQuery({
-    enabled: open,
-    queryFn: () => getOfferEmailPreview(slug, candidateId, draft.id),
-    queryKey: ["offer-email-preview", slug, candidateId, draft.id],
-    staleTime: 0,
-  });
-  useEffect(() => {
-    if (!open || !previewQuery.data) {
-      return;
-    }
-    // oxlint-disable-next-line react/set-state-in-effect -- Server defaults reflect current company and linked-job configuration each time the dialog opens.
-    setTo(previewQuery.data.to);
-    setSubject(previewQuery.data.subject);
-    setContent(previewQuery.data.content);
-  }, [open, previewQuery.data]);
-  const expectedOfferUrl = previewQuery.data?.offerUrl;
-  const exactOfferLinkCount = expectedOfferUrl ? content.split(expectedOfferUrl).length - 1 : 0;
-  const offerPathCount = content.match(/\/offer\/[A-Za-z0-9_-]+/g)?.length ?? 0;
-  const offerLinkValid = exactOfferLinkCount === 1 && offerPathCount === 1;
-  let offerLinkHint = "Offer 链接由系统生成，请勿修改。";
-  let offerLinkHintClassName = "text-muted-foreground text-xs";
-  if (previewQuery.isError) {
-    offerLinkHint = "无法加载系统 Offer 链接，请关闭后重试。";
-    offerLinkHintClassName = "text-destructive text-xs";
-  } else if (!previewQuery.isPending && !offerLinkValid) {
-    offerLinkHint = "Offer 链接缺失或已被修改，请关闭后重新打开弹窗恢复。";
-    offerLinkHintClassName = "text-destructive text-xs";
-  }
-  const mutation = useMutation({
-    mutationFn: () => sendOfferEmail(slug, candidateId, draft.id, { content, subject, to }),
-    onError: (error) => toast.error(error instanceof Error ? error.message : "邮件发送失败"),
-    onSuccess: () => {
-      toast.success("Offer 邮件已发送");
-      onOpenChange(false);
-      onSent();
-    },
-  });
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>发送 Offer 邮件</DialogTitle>
-          <DialogDescription>邮件发送成功后会标记为已发送，并保留活动记录。</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor={`offer-email-to-${draft.id}`}>
-              接收邮箱{" "}
-              <span aria-hidden="true" className="text-destructive">
-                *
-              </span>
-            </Label>
-            <Input
-              aria-required="true"
-              id={`offer-email-to-${draft.id}`}
-              onChange={(event) => setTo(event.target.value)}
-              type="email"
-              required
-              value={to}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor={`offer-email-subject-${draft.id}`}>
-              邮件主题{" "}
-              <span aria-hidden="true" className="text-destructive">
-                *
-              </span>
-            </Label>
-            <Input
-              aria-required="true"
-              id={`offer-email-subject-${draft.id}`}
-              onChange={(event) => setSubject(event.target.value)}
-              required
-              value={subject}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor={`offer-email-content-${draft.id}`}>
-              邮件内容{" "}
-              <span aria-hidden="true" className="text-destructive">
-                *
-              </span>
-            </Label>
-            <Textarea
-              aria-invalid={!previewQuery.isPending && !offerLinkValid}
-              aria-required="true"
-              id={`offer-email-content-${draft.id}`}
-              onChange={(event) => setContent(event.target.value)}
-              rows={9}
-              required
-              value={content}
-            />
-            <p className={offerLinkHintClassName}>{offerLinkHint}</p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={mutation.isPending}
-            onClick={() => onOpenChange(false)}
-            variant="outline"
-          >
-            取消
-          </Button>
-          <Button
-            disabled={
-              mutation.isPending ||
-              previewQuery.isPending ||
-              !offerLinkValid ||
-              !to.trim() ||
-              !subject.trim() ||
-              !content.trim()
-            }
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? "发送中…" : "发送邮件"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function OfferCard(props: Omit<Parameters<typeof OfferCardView>[0], "dependencies">) {
   return <OfferCardView {...props} dependencies={{ slug: useWorkspaceSlug() }} />;
 }

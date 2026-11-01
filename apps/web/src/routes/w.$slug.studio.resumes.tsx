@@ -11,6 +11,7 @@ import {
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
 import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 const studioResumesRouteApi = getRouteApi("/w/$slug/studio/resumes");
 
@@ -47,7 +48,8 @@ function StudioResumesRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
   validateSearch: coerceSearchParams,
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "resumes");
     const { loadStudioResumesState } = await import("@/lib/start/studio/resumes.functions");
     const state = await loadStudioResumesState({
       data: { slug: params.slug },

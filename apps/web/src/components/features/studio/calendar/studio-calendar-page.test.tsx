@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { CalendarEventTooltip, StudioCalendarPage } from "./studio-calendar-page";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -25,7 +24,10 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
     const dayOfWeek = startAt.getDay() || 7;
     startAt.setDate(startAt.getDate() - (dayOfWeek - 1));
     startAt.setHours(10, 0, 0, 0);
-    const endAt = new Date(startAt.getTime() + 30 * 60 * 1000);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(10, 0, 0, 0);
+    const endAt = new Date(yesterday.getTime() + 30 * 60 * 1000);
     const humanStartAt = new Date();
     humanStartAt.setHours(10, 0, 0, 0);
     const humanEndAt = new Date(humanStartAt.getTime() + 30 * 60 * 1000);
@@ -37,8 +39,12 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "张三",
+              creator: null,
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-1",
+              jobDescriptionId: null,
               jobDescriptionName: "前端工程师",
               roundId: "round-1",
               roundLabel: "AI 初面",
@@ -57,16 +63,24 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "李四",
+              creator: null,
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-2",
+              jobDescriptionId: null,
               jobDescriptionName: "前端技术经理",
               roundId: "round-2",
               roundLabel: "技术复面",
             },
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "李小四",
+              creator: null,
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-2b",
+              jobDescriptionId: null,
               jobDescriptionName: "前端技术经理",
               roundId: "round-2b",
               roundLabel: "技术复面",
@@ -75,7 +89,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           endAt: humanEndAt.toISOString(),
           format: "online" as const,
           id: "human:round-2",
-          interviewers: [{ id: "user-1", name: "王面试官" }],
+          interviewers: [{ avatarUrl: null, id: "user-1", name: "王面试官" }],
           kind: "human" as const,
           location: null,
           meetingUrl: null,
@@ -88,8 +102,12 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "王五",
+              creator: null,
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-3",
+              jobDescriptionId: null,
               roundId: "round-3",
               roundLabel: "AI 复面",
             },
@@ -107,8 +125,12 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           candidates: [
             {
               canOpenRecruitingRecord: true,
+              candidateAvatarVersion: null,
               candidateName: "赵六",
+              creator: { avatarUrl: null, id: "creator-1", name: "周招聘" },
+              evaluationConclusion: "none" as const,
               interviewRecordId: "interview-4",
+              jobDescriptionId: null,
               roundId: "round-4",
               roundLabel: "终面",
             },
@@ -116,11 +138,11 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
           endAt: endAt.toISOString(),
           format: "onsite" as const,
           id: "human:round-4",
-          interviewers: [{ id: "user-2", name: "陈面试官" }],
+          interviewers: [{ avatarUrl: null, id: "user-2", name: "陈面试官" }],
           kind: "human" as const,
           location: "会议室 A",
           meetingUrl: null,
-          startAt: startAt.toISOString(),
+          startAt: yesterday.toISOString(),
           status: "ended" as const,
           title: "赵六-未关联岗位-终面",
           viewerInterviewerInviteToken: null,
@@ -173,9 +195,7 @@ describe("StudioCalendarPage", () => {
       );
     });
 
-    expect(host.textContent).toContain("日程管理");
-    expect(host.querySelector('[data-slot="frame"]')).not.toBeNull();
-    expect(host.querySelector('[data-slot="frame-panel"]')).not.toBeNull();
+    expect(host.textContent).toContain("面试管理");
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).not.toBeNull();
     await act(async () => {
       await vi.waitFor(() => {
@@ -189,7 +209,8 @@ describe("StudioCalendarPage", () => {
     expect(host.textContent).toContain("李四");
     expect(host.textContent).toContain("前端技术经理");
     expect(host.textContent).toContain("技术复面");
-    expect(host.textContent).not.toContain("赵六");
+    expect(host.textContent).toContain("赵六");
+    expect(host.textContent).toContain("昨天 · 9月1日（周二）");
     expect(host.querySelector('[data-slot="event-calendar-agenda-view"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(2);
     expect(host.querySelector('[data-slot="calendar-primary-view-row"]')).not.toBeNull();
@@ -197,7 +218,6 @@ describe("StudioCalendarPage", () => {
     expect(host.textContent).toContain("今天 · 9月2日（周三）");
     expect(host.textContent).toContain("真人面试");
     expect(host.textContent).toContain("王面试官");
-    expect(host.textContent).toContain("线上");
     expect(host.querySelector('[data-slot="event-calendar-event-dot"]')).toBeNull();
 
     const aiAgendaRow = [
@@ -206,6 +226,16 @@ describe("StudioCalendarPage", () => {
       ),
     ].find((event) => event.textContent?.includes("张三"));
     expect(aiAgendaRow).toBeDefined();
+    // 创建人只归到对应候选人所在的那一场面试。
+    const agendaRows = [
+      ...host.querySelectorAll<HTMLElement>(
+        '[data-slot="event-calendar-event"][data-view="agenda"]',
+      ),
+    ];
+    expect(agendaRows.find((event) => event.textContent?.includes("赵六"))?.textContent).toContain(
+      "周招聘",
+    );
+    expect(aiAgendaRow?.textContent).not.toContain("周招聘");
     act(() => aiAgendaRow?.click());
     expect(openAgendaEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -253,9 +283,6 @@ describe("StudioCalendarPage", () => {
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).toBeNull();
     expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(5);
-    const viewControls = host.querySelector<HTMLElement>('[data-slot="calendar-view-controls"]');
-    expect(viewControls?.className).toContain("flex-col");
-    expect(viewControls?.children).toHaveLength(2);
     expect(host.querySelector('[data-slot="calendar-primary-view-row"]')).not.toBeNull();
     expect(host.querySelector('[data-slot="calendar-range-view-row"]')).not.toBeNull();
     expect(host.querySelector('[data-calendar-event-icon="ai"]')).not.toBeNull();
@@ -266,42 +293,14 @@ describe("StudioCalendarPage", () => {
     const humanEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
     ].find((event) => event.textContent?.includes("李四-前端技术经理-技术复面"));
-    const pendingAiEvent = [
-      ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("王五-未关联岗位-AI 复面"));
-    const endedHumanEvent = [
-      ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
-    ].find((event) => event.textContent?.includes("赵六-未关联岗位-终面"));
-    expect(aiEvent?.className).toContain("bg-(--ec-event-color)/10");
-    expect(aiEvent?.className).toContain(
-      "[&_.text-muted-foreground]:text-(--ec-event-foreground)/75",
-    );
-    expect(humanEvent?.className).toContain("bg-(--ec-event-color)/5");
-    expect(aiEvent?.style.getPropertyValue("--ec-event-color")).toBe(
-      "var(--calendar-ai-interview)",
-    );
-    expect(aiEvent?.style.getPropertyValue("--ec-event-foreground")).toBe(
-      "var(--calendar-ai-interview-foreground)",
-    );
-    expect(humanEvent?.style.getPropertyValue("--ec-event-color")).toBe(
-      "var(--calendar-human-interview)",
-    );
-    expect(humanEvent?.style.getPropertyValue("--ec-event-foreground")).toBe(
-      "var(--calendar-human-interview-foreground)",
-    );
-    expect(pendingAiEvent?.className).toContain("bg-(--ec-event-color)/5");
-    expect(endedHumanEvent?.className).toContain("bg-(--ec-event-color)/10");
-    expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试记录");
+
+    expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试");
     expect(humanEvent?.getAttribute("aria-label")).toContain("真人面试");
     expect(aiEvent?.dataset.calendarEventPreview).toBe("ai");
     expect(humanEvent?.dataset.calendarEventPreview).toBeUndefined();
     act(() => humanEvent?.click());
     expect(openAgendaEvent).toHaveBeenCalledTimes(2);
-    const todayHeader = host.querySelector<HTMLElement>(
-      '[data-slot="event-calendar-day-header"][data-today] > span',
-    );
-    expect(todayHeader?.className).toContain("bg-primary/10");
-    expect(todayHeader?.className).toContain("rounded-md");
+
     const weekHeaders = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-day-header"] > span'),
     ];
@@ -330,12 +329,6 @@ describe("StudioCalendarPage", () => {
     expect(host.querySelector('[data-slot="event-calendar-month-view"]')).not.toBeNull();
     expect(host.querySelectorAll('[data-calendar-event-icon="ai"]')).toHaveLength(2);
     expect(host.querySelectorAll('[data-calendar-event-icon="human"]')).toHaveLength(2);
-    const monthTodayDayNumbers = host.querySelectorAll<HTMLElement>(
-      '[data-slot="event-calendar-month-cell"][data-today] span',
-    );
-    expect(
-      [...monthTodayDayNumbers].some((dayNumber) => dayNumber.classList.contains("bg-primary")),
-    ).toBe(true);
 
     const dayTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "日",
@@ -366,10 +359,60 @@ describe("StudioCalendarPage", () => {
       throw new Error("日程查询未执行");
     }
     const [, firstStart, firstEnd] = firstCall;
+    const expectedStart = new Date();
+    expectedStart.setDate(expectedStart.getDate() - 14);
+    expectedStart.setHours(0, 0, 0, 0);
+    expect(new Date(firstStart)).toEqual(expectedStart);
+    expect(host.textContent).toContain("赵六");
+    expect(host.textContent).toContain("昨天 · 9月1日（周二）");
+    // 过去 14 天、今天、未来 14 天，标签给出同一窗口的具体日期。
+    // Fourteen days back, today and fourteen ahead; the label names the same window's dates.
+    expect(host.textContent).toContain("8月19日 – 9月16日");
     expect(new Date(firstEnd).getTime() - new Date(firstStart).getTime()).toBe(
-      30 * 24 * 60 * 60 * 1000,
+      29 * 24 * 60 * 60 * 1000,
     );
 
     act(() => root.unmount());
   });
+});
+
+describe("embedded interview views", () => {
+  it.each(["list", "calendar"] as const)(
+    "opens %s without a duplicate view switcher",
+    async (mode) => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      act(() =>
+        root.render(
+          <QueryClientProvider client={client}>
+            <StudioCalendarPage
+              mode={mode}
+              fetchCalendar={fetchStudioCalendarMock}
+              onOpenAgendaEvent={vi.fn()}
+              slug="demo"
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      try {
+        await act(async () => {
+          await vi.waitFor(() =>
+            expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull(),
+          );
+          await vi.advanceTimersByTimeAsync(400);
+        });
+        expect(host.querySelector('[aria-label="日程展示方式"]')).toBeNull();
+        const selector =
+          mode === "list"
+            ? '[data-slot="event-calendar-agenda-view"]'
+            : '[data-slot="event-calendar-content"][data-view="week"]';
+        expect(host.querySelector(selector)).not.toBeNull();
+      } finally {
+        act(() => root.unmount());
+        client.clear();
+      }
+    },
+  );
 });

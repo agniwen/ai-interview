@@ -15,7 +15,7 @@ import { cn } from "@app/shared/utils";
 
 dayjs.extend(customParseFormat);
 
-export interface ExperiencePositionItemType {
+interface ExperiencePositionItemType {
   /** Unique identifier for the position. */
   id: string;
   /** The job title or position name. */
@@ -79,7 +79,7 @@ export function WorkExperience({ className, experiences }: WorkExperienceProps) 
   );
 }
 
-export interface ExperienceItemProps {
+interface ExperienceItemProps {
   experience: ExperienceItemType;
 }
 
@@ -137,7 +137,7 @@ function ExperienceItem({ experience }: ExperienceItemProps) {
   );
 }
 
-export interface ExperiencePositionItemProps {
+interface ExperiencePositionItemProps {
   position: ExperiencePositionItemType;
 }
 
@@ -246,7 +246,7 @@ function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
   );
 }
 
-export function formatWorkExperienceDuration(start: string, end?: string): string {
+function formatWorkExperienceDuration(start: string, end?: string): string {
   const startHasMonth = start.includes(".");
   const endHasMonth = end ? end.includes(".") : true;
 

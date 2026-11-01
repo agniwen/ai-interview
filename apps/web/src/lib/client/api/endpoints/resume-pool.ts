@@ -8,13 +8,12 @@ import type {
   ResumePoolImportInput,
   ResumePoolImportResult,
   ResumePoolJobMatchResult,
-  ResumePoolListRecord,
   ResumePoolUploaderOption,
 } from "@app/shared/resume-pool";
 import type { ResumePoolScope } from "@app/db-schema/schema";
+import type { ResumeProfileEditInput } from "@app/shared/resume-profile-edit";
 import { rpc } from "@/lib/client/rpc";
 import type { DedupMatchRecord } from "./studio-interviews";
-import { apiFetch } from "../client";
 import { rpcFetch } from "../rpc-fetch";
 
 export function fetchResumePoolItems(
@@ -56,16 +55,6 @@ export function fetchResumePoolUploaders(slug: string): Promise<ResumePoolUpload
   ).then((result) => result.records);
 }
 
-export function createResumePoolItem(
-  slug: string,
-  formData: FormData,
-): Promise<ResumePoolListRecord> {
-  return apiFetch<ResumePoolListRecord>(`/api/w/${slug}/studio/resume-pool`, {
-    body: formData,
-    method: "POST",
-  });
-}
-
 export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoolDetail | null> {
   return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].$get({
@@ -92,6 +81,21 @@ export function fetchResumePoolItemReview(
     }),
     "加载简历详情失败",
     { allow404: true },
+  );
+}
+
+/** 上传者修正人才库简历的 AI 解析信息。Uploader corrects the pool item's parsed profile. */
+export function updateResumePoolItemProfile(
+  slug: string,
+  id: string,
+  resumeProfile: ResumeProfileEditInput,
+): Promise<ResumePoolDetail> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].profile.$patch({
+      json: { resumeProfile },
+      param: { id, slug },
+    }),
+    "保存简历信息失败",
   );
 }
 
@@ -154,15 +158,6 @@ export function fetchResumePoolDuplicateMatches(
       param: { id, slug },
     }),
     "加载疑似重复简历失败",
-  );
-}
-
-export function publishResumePoolItem(slug: string, id: string): Promise<ResumePoolListRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].publish.$post({
-      param: { id, slug },
-    }),
-    "推送到公共简历池失败",
   );
 }
 

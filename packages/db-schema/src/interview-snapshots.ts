@@ -55,6 +55,8 @@ export interface InterviewContextSnapshotQuestionTemplate {
 }
 
 export interface InterviewContextSnapshotPayload {
+  /** Absent on legacy snapshots; candidate entry resolves their binding boundary. */
+  bindings?: { forms: boolean; questions: boolean };
   candidate: InterviewContextSnapshotCandidate;
   createdAt: string;
   forms: InterviewContextSnapshotForm[];

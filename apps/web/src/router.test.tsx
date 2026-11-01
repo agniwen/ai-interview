@@ -11,7 +11,7 @@ describe("router candidate detail navigation", () => {
     expect(routerSource).toContain('to: "/w/$slug/studio/resume-pool/$recordId"');
     expect(routerSource).toContain("unmaskOnReload: true");
     expect(routerSource).toMatch(
-      /routeMasks:\s*\[\s*recruiterResumeOverlayMask,\s*resumePoolOverlayMask,\s*humanInterviewDetailOverlayMask,?\s*\]/,
+      /routeMasks:\s*\[\s*recruiterResumeOverlayMask,\s*resumePoolOverlayMask,\s*humanInterviewDetailOverlayMask,\s*jobDescriptionEditorMask,\s*interviewQuestionEditorMask,\s*candidateFormEditorMask,?\s*\]/,
     );
   });
 

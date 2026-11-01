@@ -3,7 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@app/shared/utils";
 
-const markdownComponents = {
+export const markdownComponents = {
   table({ children, className, ...props }: ComponentProps<"table">) {
     return (
       <div className="my-3 max-w-full overflow-x-auto rounded-md border" data-not-typeset>

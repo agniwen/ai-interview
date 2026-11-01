@@ -10,13 +10,7 @@ import type {
 import { MEETING_LIVE_TRANSCRIPT_PROVIDER_CAPABILITIES } from "@app/shared/meeting-transcription";
 import type { LiveTranscriptDraftSnapshot } from "./live-transcript-draft";
 
-export type MeetingLiveSummaryStatus =
-  | "disabled"
-  | "idle"
-  | "waiting"
-  | "updating"
-  | "ready"
-  | "degraded";
+type MeetingLiveSummaryStatus = "disabled" | "idle" | "waiting" | "updating" | "ready" | "degraded";
 
 export interface MeetingLiveSummaryControllerSnapshot {
   captureId: string | null;
@@ -364,5 +358,3 @@ export function createMeetingLiveSummaryController(
     },
   };
 }
-
-export type MeetingLiveSummaryController = ReturnType<typeof createMeetingLiveSummaryController>;

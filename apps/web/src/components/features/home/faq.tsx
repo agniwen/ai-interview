@@ -23,15 +23,20 @@ export function Faq() {
   ];
 
   return (
-    <Section width="wide">
-      <SectionTitle className="mt-0">{m.home_faq_title()}</SectionTitle>
-      <Accordion className="mt-10 w-full" defaultValue={defaultExpandedFaqs} multiple>
+    <Section
+      className="grid gap-8 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-16"
+      id="faq"
+    >
+      <SectionTitle className="lg:sticky lg:top-16 lg:self-start">
+        {m.home_faq_title()}
+      </SectionTitle>
+      <Accordion className="w-full" defaultValue={defaultExpandedFaqs} multiple>
         {faqs.map((item, index) => (
-          <AccordionItem className="border-border/60" key={item.question} value={`faq-${index}`}>
-            <AccordionTrigger className="text-balance text-left text-base sm:text-lg">
+          <AccordionItem className="border-border" key={item.question} value={`faq-${index}`}>
+            <AccordionTrigger className="py-4 text-pretty text-left text-base leading-relaxed tracking-tight sm:text-lg">
               {item.question}
             </AccordionTrigger>
-            <AccordionContent className="text-muted-foreground text-sm leading-normal dark:text-white/80 sm:text-base">
+            <AccordionContent className="pb-5 text-muted-foreground text-sm leading-[1.8]">
               {item.answer}
             </AccordionContent>
           </AccordionItem>

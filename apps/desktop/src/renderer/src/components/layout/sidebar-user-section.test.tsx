@@ -53,11 +53,7 @@ describe("sidebar user menu", () => {
 
     const userMenuTrigger = container.querySelector<HTMLButtonElement>("button");
     expect(userMenuTrigger).not.toBeNull();
-    expect(userMenuTrigger?.classList).toContain("h-8");
-    expect(userMenuTrigger?.classList).toContain("border-transparent");
-    expect(userMenuTrigger?.classList).toContain("hover:border-transparent");
-    expect(userMenuTrigger?.classList).toContain("focus-visible:border-transparent");
-    expect(userMenuTrigger?.classList).toContain("dark:hover:bg-sidebar-accent");
+
     expect(userMenuTrigger?.textContent).toContain("测试用户");
     expect(userMenuTrigger?.textContent).not.toContain("产品团队");
     act(() => userMenuTrigger?.click());

@@ -27,11 +27,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { EmailAttachmentField } from "./email-attachment-field";
 
 const leavingReasonLabels = {
   contract_ended: "劳动合同终止",
@@ -209,6 +210,7 @@ function BackgroundCheckEmailDialog({
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const previewQuery = useQuery({
     enabled: open,
     queryFn: () => getBackgroundCheckEmailPreview(slug, candidateId),
@@ -229,10 +231,12 @@ function BackgroundCheckEmailDialog({
   const pathCount = content.match(/\/background-check\/[A-Za-z0-9_-]+/g)?.length ?? 0;
   const linkValid = exactLinkCount === 1 && pathCount === 1;
   const mutation = useMutation({
-    mutationFn: () => sendBackgroundCheckEmail(slug, candidateId, { content, subject, to }),
+    mutationFn: () =>
+      sendBackgroundCheckEmail(slug, candidateId, { attachments, content, subject, to }),
     onError: (error) => toast.error(error instanceof Error ? error.message : "邮件发送失败"),
     onSuccess: async () => {
       toast.success("背调信息采集邮件已发送");
+      setAttachments([]);
       onOpenChange(false);
       await onSent();
     },
@@ -243,33 +247,39 @@ function BackgroundCheckEmailDialog({
   } else if (!previewQuery.isPending && !linkValid) {
     linkHint = "背调链接缺失或已被修改，请关闭后重新打开弹窗恢复。";
   }
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setAttachments([]);
+    }
+    onOpenChange(nextOpen);
+  }
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+    <Dialog onOpenChange={handleOpenChange} open={open}>
+      <DialogContent className="sm:max-h-[90dvh] sm:max-w-3xl sm:overflow-y-auto">
         <DialogHeader>
           <DialogTitle>发送背调信息采集邮件</DialogTitle>
           <DialogDescription>候选人提交后，系统会提醒 HR 核对并记录背调结果。</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="background-check-email-to">接收邮箱</Label>
+        <FieldGroup className="gap-4 py-2">
+          <Field>
+            <FieldLabel htmlFor="background-check-email-to">接收邮箱</FieldLabel>
             <Input
               id="background-check-email-to"
               type="email"
               value={to}
               onChange={(event) => setTo(event.target.value)}
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="background-check-email-subject">邮件主题</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="background-check-email-subject">邮件主题</FieldLabel>
             <Input
               id="background-check-email-subject"
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="background-check-email-content">邮件内容</Label>
+          </Field>
+          <Field data-invalid={!previewQuery.isPending && !linkValid}>
+            <FieldLabel htmlFor="background-check-email-content">邮件内容</FieldLabel>
             <Textarea
               aria-invalid={!previewQuery.isPending && !linkValid}
               id="background-check-email-content"
@@ -277,21 +287,23 @@ function BackgroundCheckEmailDialog({
               value={content}
               onChange={(event) => setContent(event.target.value)}
             />
-            <p
-              className={
-                !previewQuery.isPending && !linkValid
-                  ? "text-destructive text-xs"
-                  : "text-muted-foreground text-xs"
-              }
-            >
-              {linkHint}
-            </p>
-          </div>
-        </div>
+            {!previewQuery.isPending && !linkValid ? (
+              <FieldError>{linkHint}</FieldError>
+            ) : (
+              <FieldDescription>{linkHint}</FieldDescription>
+            )}
+          </Field>
+          <EmailAttachmentField
+            disabled={mutation.isPending}
+            files={attachments}
+            id="background-check-email-attachments"
+            onFilesChange={setAttachments}
+          />
+        </FieldGroup>
         <DialogFooter>
           <Button
             disabled={mutation.isPending}
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             variant="outline"
           >
             取消

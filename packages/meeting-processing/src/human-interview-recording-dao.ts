@@ -1,18 +1,24 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, eq, isNotNull, isNull, notLike, or } from "drizzle-orm";
 import {
   meetingRecordingAsset,
   recruitingMeetingContext,
   meetingSession,
   humanInterviewMeeting,
+  humanTranscriptionRun,
   humanInterviewMeetingInterviewer,
   humanInterviewMeetingRound,
   humanInterviewRound,
+  user,
 } from "@app/db-schema/schema";
-import type { HumanInterviewRecordingJobData } from "@app/meeting-processing-queue/human-interview-recording";
+import type { HumanInterviewRecordingJobData } from "@app/job-queues/human-interview-recording";
 
 import type { Database } from "@app/database";
 import type { RecordingIdentity } from "@app/db-schema/human-interview-recording";
+import {
+  publishLiveTranscriptRevisionTx,
+  selectLiveTranscriptSource,
+} from "./human-interview-live-transcript-promotion";
 
 export interface VerifiedHumanRecordingAsset {
   assetSha256: string;
@@ -38,7 +44,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
         and(
           isNotNull(humanInterviewMeeting.recordingTracks),
           eq(humanInterviewMeeting.status, "ended"),
-          isNull(humanInterviewMeeting.processingMeetingSessionId),
+          isNull(humanInterviewMeeting.recordingIngestedAt),
           or(
             isNull(humanInterviewMeeting.recordingError),
             notLike(
@@ -160,6 +166,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
         and(
           eq(meetingSession.id, input.meetingSessionId),
           eq(meetingSession.organizationId, input.organizationId),
+          isNull(meetingSession.activeTranscriptRevisionId),
         ),
       );
   }
@@ -185,7 +192,11 @@ export function createHumanInterviewRecordingDao(db: Database) {
       fileKey: string;
       sizeBytes: number;
     };
-  }): Promise<{ meetingSessionId: string; organizationId: string }> {
+  }): Promise<{
+    liveTranscriptPublished: boolean;
+    meetingSessionId: string;
+    organizationId: string;
+  }> {
     // oxlint-disable-next-line complexity -- legacy and identity-aware admission share one atomic meeting creation boundary.
     return await db.transaction(async (tx) => {
       const [meeting] = await tx
@@ -202,6 +213,7 @@ export function createHumanInterviewRecordingDao(db: Database) {
           scheduledAt: humanInterviewMeeting.scheduledAt,
           startedAt: humanInterviewMeeting.startedAt,
           title: humanInterviewMeeting.title,
+          transcriptionMode: humanInterviewMeeting.transcriptionMode,
         })
         .from(humanInterviewMeeting)
         .where(
@@ -214,12 +226,6 @@ export function createHumanInterviewRecordingDao(db: Database) {
         .limit(1);
       if (!meeting) {
         throw new Error("真人复面会议不存在");
-      }
-      if (meeting.processingMeetingSessionId) {
-        return {
-          meetingSessionId: meeting.processingMeetingSessionId,
-          organizationId: input.organizationId,
-        };
       }
       if (
         !input.assets &&
@@ -243,43 +249,131 @@ export function createHumanInterviewRecordingDao(db: Database) {
       ) {
         throw new Error("真人复面分轨清单已变化");
       }
-      const [round, interviewers] = await Promise.all([
-        tx
-          .select({
-            candidateName: recruitingRecordReadModel.candidateName,
-            interviewRecordId: humanInterviewRound.recruitingRecordId,
-          })
-          .from(humanInterviewMeetingRound)
-          .innerJoin(
-            humanInterviewRound,
-            eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
-          )
-          .innerJoin(
-            recruitingRecordReadModel,
-            eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
-          )
-          .where(eq(humanInterviewMeetingRound.meetingId, input.meetingId))
-          .limit(1),
-        tx
-          .select({
-            liveTranscriptDraft: humanInterviewMeetingInterviewer.liveTranscriptDraft,
-            role: humanInterviewMeetingInterviewer.role,
-            userId: humanInterviewMeetingInterviewer.userId,
-          })
-          .from(humanInterviewMeetingInterviewer)
-          .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId))
-          .orderBy(asc(humanInterviewMeetingInterviewer.role)),
-      ]);
+      const [round] = await tx
+        .select({
+          candidateName: recruitingRecordReadModel.candidateName,
+          interviewRecordId: humanInterviewRound.recruitingRecordId,
+          roundId: humanInterviewRound.id,
+        })
+        .from(humanInterviewMeetingRound)
+        .innerJoin(
+          humanInterviewRound,
+          eq(humanInterviewMeetingRound.roundId, humanInterviewRound.id),
+        )
+        .innerJoin(
+          recruitingRecordReadModel,
+          eq(humanInterviewRound.recruitingRecordId, recruitingRecordReadModel.id),
+        )
+        .where(eq(humanInterviewMeetingRound.meetingId, input.meetingId))
+        .limit(1);
+      const assets: VerifiedHumanRecordingAsset[] = input.assets ?? [
+        ...(input.room ? [{ ...input.room, speakerDisplayName: null, track: "mixed" }] : []),
+        ...(input.candidate
+          ? [
+              {
+                ...input.candidate,
+                speakerDisplayName: round ? `候选人 · ${round.candidateName}` : "候选人",
+                track: "candidate",
+              },
+            ]
+          : []),
+      ];
+      // 字幕已在会议结束时发布为正式转录：录音只作为归档挂到同一场会议。
+      if (meeting.processingMeetingSessionId) {
+        const [session] = await tx
+          .select()
+          .from(meetingSession)
+          .where(eq(meetingSession.id, meeting.processingMeetingSessionId))
+          .for("update");
+        if (!session) {
+          throw new Error("会议材料不存在");
+        }
+        const existing = await tx
+          .select({ key: meetingRecordingAsset.storageKey })
+          .from(meetingRecordingAsset)
+          .where(eq(meetingRecordingAsset.meetingId, session.id));
+        const fresh = assets.filter((asset) => !existing.some((row) => row.key === asset.fileKey));
+        if (fresh.length) {
+          await tx.insert(meetingRecordingAsset).values(
+            fresh.map((asset) => ({
+              contentType: asset.contentType,
+              durationMs: asset.durationMs,
+              fragmentCount: 1,
+              id: crypto.randomUUID(),
+              meetingId: session.id,
+              recordingIdentity: asset.recordingIdentity
+                ? {
+                    ...asset.recordingIdentity,
+                    offsetMs:
+                      asset.recordingIdentity.offsetMs +
+                      (input.startedAtMs ?? session.startedAt.getTime()) -
+                      session.startedAt.getTime(),
+                  }
+                : undefined,
+              sha256: asset.assetSha256,
+              sizeBytes: asset.sizeBytes,
+              speakerDisplayName: asset.speakerDisplayName,
+              status: "ready",
+              storageKey: asset.fileKey,
+              track: asset.track,
+              uploadMode: "single",
+              verifiedAt: new Date(),
+            })),
+          );
+        }
+        const sessionPatch: Partial<typeof meetingSession.$inferInsert> = {
+          manifestSha256: input.manifestSha256,
+        };
+        if (!session.activeTranscriptRevisionId) {
+          Object.assign(sessionPatch, { transcriptionError: null, transcriptionStatus: "pending" });
+        }
+        await tx.update(meetingSession).set(sessionPatch).where(eq(meetingSession.id, session.id));
+        await tx
+          .update(humanInterviewMeeting)
+          .set({ recordingError: input.warning ?? null, recordingIngestedAt: new Date() })
+          .where(eq(humanInterviewMeeting.id, input.meetingId));
+        return {
+          liveTranscriptPublished: false,
+          meetingSessionId: session.id,
+          organizationId: input.organizationId,
+        };
+      }
+      if (meeting.transcriptionMode === "server_realtime") {
+        const [run] = await tx
+          .select()
+          .from(humanTranscriptionRun)
+          .where(eq(humanTranscriptionRun.meetingId, input.meetingId));
+        if (run && !["failed", "needs_review"].includes(run.status)) {
+          throw new Error("等待实时转录完成收尾后附加录音");
+        }
+      }
+      const interviewers = await tx
+        .select({
+          liveTranscriptDraft: humanInterviewMeetingInterviewer.liveTranscriptDraft,
+          name: user.name,
+          role: humanInterviewMeetingInterviewer.role,
+          userId: humanInterviewMeetingInterviewer.userId,
+        })
+        .from(humanInterviewMeetingInterviewer)
+        .innerJoin(user, eq(user.id, humanInterviewMeetingInterviewer.userId))
+        .where(eq(humanInterviewMeetingInterviewer.meetingId, input.meetingId))
+        .orderBy(asc(humanInterviewMeetingInterviewer.role));
       const ownerId =
         meeting.createdBy ??
         interviewers.find((interviewer) => interviewer.role === "host")?.userId ??
         interviewers[0]?.userId;
-      if (!(round[0] && ownerId)) {
+      if (!(round && ownerId)) {
         throw new Error("真人复面缺少候选人轮次或会议负责人");
       }
       const meetingSessionId = crypto.randomUUID();
       const now = new Date();
+      // 实时转录模式由服务端采集负责；其余模式以面试官字幕作为正式转录，无字幕才转写录音。
+      const liveTranscriptSource =
+        meeting.transcriptionMode === "server_realtime"
+          ? null
+          : selectLiveTranscriptSource(interviewers, null);
       const liveTranscriptDraft =
+        liveTranscriptSource?.draft ??
         interviewers.find(
           (interviewer) => interviewer.role === "host" && interviewer.liveTranscriptDraft,
         )?.liveTranscriptDraft ??
@@ -303,23 +397,11 @@ export function createHumanInterviewRecordingDao(db: Database) {
         verifiedAt: now,
         visibility: "restricted",
       });
-      const assets = input.assets ?? [
-        ...(input.room ? [{ ...input.room, speakerDisplayName: null, track: "mixed" }] : []),
-        ...(input.candidate
-          ? [
-              {
-                ...input.candidate,
-                speakerDisplayName: `候选人 · ${round[0].candidateName}`,
-                track: "candidate",
-              },
-            ]
-          : []),
-      ];
       if (!assets.length) {
         throw new Error("没有可用录音，可手动提交评价");
       }
       await tx.insert(meetingRecordingAsset).values(
-        assets.map((asset: VerifiedHumanRecordingAsset) => ({
+        assets.map((asset) => ({
           contentType: asset.contentType,
           durationMs: asset.durationMs,
           fragmentCount: 1,
@@ -341,17 +423,32 @@ export function createHumanInterviewRecordingDao(db: Database) {
         linkedBy: ownerId,
         meetingId: meetingSessionId,
         organizationId: input.organizationId,
-        recruitingRecordId: round[0].interviewRecordId,
+        recruitingRecordId: round.interviewRecordId,
       });
+      if (liveTranscriptSource) {
+        await publishLiveTranscriptRevisionTx(tx, {
+          actorId: ownerId,
+          candidateName: round.candidateName,
+          meetingSessionId,
+          organizationId: input.organizationId,
+          roundId: round.roundId,
+          source: liveTranscriptSource,
+        });
+      }
       await tx
         .update(humanInterviewMeeting)
         .set({
           processingMeetingSessionId: meetingSessionId,
           recordingError: input.warning ?? null,
+          recordingIngestedAt: now,
           updatedAt: now,
         })
         .where(eq(humanInterviewMeeting.id, input.meetingId));
-      return { meetingSessionId, organizationId: input.organizationId };
+      return {
+        liveTranscriptPublished: liveTranscriptSource !== null,
+        meetingSessionId,
+        organizationId: input.organizationId,
+      };
     });
   }
 

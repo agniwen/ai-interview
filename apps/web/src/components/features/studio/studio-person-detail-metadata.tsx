@@ -201,7 +201,7 @@ function InterviewReportMetadataSessionSection({ metadata }: { metadata: ReportS
   );
 }
 
-export function joinTextLines(lines: (string | null | undefined)[]) {
+function joinTextLines(lines: (string | null | undefined)[]) {
   return lines
     .flatMap((line) => {
       const trimmed = line?.trim();
@@ -210,7 +210,7 @@ export function joinTextLines(lines: (string | null | undefined)[]) {
     .join("\n");
 }
 
-export function joinTextBlocks(blocks: string[]) {
+function joinTextBlocks(blocks: string[]) {
   return blocks
     .flatMap((block) => {
       const trimmed = block.trim();
@@ -219,7 +219,7 @@ export function joinTextBlocks(blocks: string[]) {
     .join("\n\n");
 }
 
-export function formatCandidateFullTextInput(input: ReportFullTextInput) {
+function formatCandidateFullTextInput(input: ReportFullTextInput) {
   return joinTextLines([
     `候选人：${input.candidate.candidateName ?? "暂无"}`,
     `邮箱：${input.candidate.candidateEmail ?? "暂无"}`,
@@ -231,7 +231,7 @@ export function formatCandidateFullTextInput(input: ReportFullTextInput) {
   ]);
 }
 
-export function formatJobFullTextInput(input: ReportFullTextInput) {
+function formatJobFullTextInput(input: ReportFullTextInput) {
   return joinTextLines([
     input.jobDescription ? `JD：${input.jobDescription.name}` : "JD：未绑定",
     input.jobDescription?.prompt ? `JD 原文：\n${input.jobDescription.prompt}` : "JD 原文：暂无",
@@ -247,7 +247,7 @@ export function formatJobFullTextInput(input: ReportFullTextInput) {
   ]);
 }
 
-export function formatInterviewersFullTextInput(input: ReportFullTextInput) {
+function formatInterviewersFullTextInput(input: ReportFullTextInput) {
   return joinTextBlocks(
     input.interviewers.map((interviewer, index) =>
       joinTextLines([
@@ -259,7 +259,7 @@ export function formatInterviewersFullTextInput(input: ReportFullTextInput) {
   );
 }
 
-export function formatFormsFullTextInput(input: ReportFullTextInput) {
+function formatFormsFullTextInput(input: ReportFullTextInput) {
   const templates = input.forms.map((form) =>
     joinTextLines([
       `表单：${form.title} v${form.version}`,
@@ -287,7 +287,7 @@ export function formatFormsFullTextInput(input: ReportFullTextInput) {
   return joinTextBlocks([...templates, ...submissions]);
 }
 
-export function formatQuestionsFullTextInput(input: ReportFullTextInput) {
+function formatQuestionsFullTextInput(input: ReportFullTextInput) {
   const templates = input.questionTemplates.map((template) =>
     joinTextLines([
       `题库模板：${template.title} v${template.version}`,
@@ -309,7 +309,7 @@ export function formatQuestionsFullTextInput(input: ReportFullTextInput) {
   return joinTextBlocks([...templates, personalized]);
 }
 
-export function formatTranscriptFullTextInput(input: ReportFullTextInput) {
+function formatTranscriptFullTextInput(input: ReportFullTextInput) {
   return input.transcript
     .map((turn, index) => {
       const timeLabel =

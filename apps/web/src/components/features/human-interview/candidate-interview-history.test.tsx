@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CandidateInterviewHistory } from "./candidate-interview-history";
+
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", () => ({ addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+});
 
 // SAFETY: React's test-only act flag is intentionally attached to the test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -13,10 +17,11 @@ afterEach(() => {
     act(() => root.unmount());
   }
   document.body.innerHTML = "";
+  vi.unstubAllGlobals();
 });
 
 describe("candidate interview history", () => {
-  it("shows explicit empty states rather than invented evaluation fields", async () => {
+  it("shows only the available AI evaluation when interview history is empty", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -24,16 +29,20 @@ describe("candidate interview history", () => {
     await act(() =>
       root.render(
         <CandidateInterviewHistory
+          aiEvaluation={<p>简历 AI 评价内容</p>}
+          aiEvaluationGeneratedAt="2026-09-01T10:00:00Z"
           data={{ hrInitialInformation: null, previousEvaluations: [] }}
         />,
       ),
     );
-    expect(container.textContent).toContain("暂无 HR 初面信息");
-    expect(container.textContent).toContain("暂无已提交的业务面评价");
+    expect(container.textContent).toContain("简历 AI 评价内容");
+    expect(container.querySelector("button[aria-expanded]")?.textContent).toContain("2026");
+    expect(container.textContent).not.toContain("暂无已提交的业务面评价");
+    expect(container.textContent).not.toContain("HR 初面");
     expect(container.textContent).not.toContain("评级（A/B/C/D）");
-    expect(container.querySelector("button[aria-expanded]")?.getAttribute("aria-expanded")).toBe(
-      "true",
-    );
+    expect(
+      container.querySelector("button[aria-expanded=true]")?.getAttribute("aria-expanded"),
+    ).toBe("true");
   });
 
   it("shows a business evaluation even without HR information and preserves a failed outcome", async () => {
@@ -44,6 +53,7 @@ describe("candidate interview history", () => {
     await act(() =>
       root.render(
         <CandidateInterviewHistory
+          aiEvaluation={<p>简历 AI 评价内容</p>}
           data={{
             hrInitialInformation: null,
             previousEvaluations: [
@@ -53,7 +63,9 @@ describe("candidate interview history", () => {
                 roundLabel: "业务一面",
                 submittedAt: null,
                 submittedBy: null,
+                submittedByImage: null,
                 values: {
+                  overallEvaluation: "",
                   professionalSkill: "中",
                   rating: "C",
                   risks: "经验不足",
@@ -70,11 +82,16 @@ describe("candidate interview history", () => {
     );
     expect(container.textContent).toContain("不通过");
     expect(container.textContent).toContain("基础扎实");
-    expect(container.textContent).toContain("未提供");
+    const overall = [...container.querySelectorAll("section")].find(
+      (section) => section.querySelector("h3")?.textContent === "整体评价",
+    );
+    expect(overall).toBeUndefined();
+    expect(container.textContent).not.toContain("未提供");
+    expect(container.textContent).not.toContain("薪资建议");
     expect(container.textContent).not.toContain("暂无已提交的业务面评价");
   });
 
-  it("keeps HR information and shows submitted business evaluations with the latest round expanded", async () => {
+  it("keeps HR information and shows submitted business evaluations with all evaluations expanded by default", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -82,6 +99,7 @@ describe("candidate interview history", () => {
     await act(() =>
       root.render(
         <CandidateInterviewHistory
+          aiEvaluation={<p>简历 AI 评价内容</p>}
           data={{
             hrInitialInformation: {
               conversationId: "hr-1",
@@ -103,7 +121,9 @@ describe("candidate interview history", () => {
               roundLabel,
               submittedAt: "2026-09-02T10:00:00Z",
               submittedBy: "张面试官",
+              submittedByImage: null,
               values: {
+                overallEvaluation: "**整体符合岗位要求**\n\n- 技术扎实\n- 沟通清晰\n\n1. 继续面试",
                 professionalSkill: "良",
                 rating: "B",
                 risks: "缺少大规模团队经验",
@@ -118,23 +138,47 @@ describe("candidate interview history", () => {
       ),
     );
 
+    expect(
+      [...container.querySelectorAll('[data-evaluation-id="round-0"] section > h3')]
+        .slice(0, 3)
+        .map((heading) => heading.textContent),
+    ).toEqual(["评级（A/B/C/D）", "整体评价", "角色定位"]);
+    const overallSection = [...container.querySelectorAll("section")].find(
+      (section) => section.querySelector("h3")?.textContent === "整体评价",
+    );
+    expect(overallSection?.querySelector("strong")?.textContent).toBe("整体符合岗位要求");
+    expect(overallSection?.querySelectorAll("ul > li")).toHaveLength(2);
+    expect(overallSection?.querySelector("ol > li")?.textContent).toBe("继续面试");
+    expect(overallSection?.textContent).not.toContain("**");
     const triggers = [...container.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")];
-    expect(triggers.map((trigger) => trigger.textContent)).toEqual([
+    expect(triggers.map((trigger) => trigger.querySelector("span > span")?.textContent)).toEqual([
+      "AI 评价",
       "HR 初面",
       "业务一面",
       "业务二面",
     ]);
+    expect(
+      [...container.querySelectorAll<HTMLElement>("[data-evaluation-id]")].map(
+        (item) => item.dataset.evaluationId,
+      ),
+    ).toEqual(["ai-evaluation", "hr-initial", "round-0", "round-1"]);
+    expect(
+      [...container.querySelectorAll('nav[aria-label="评价时间线"] button')].map(
+        (button) => button.querySelector("[title]")?.textContent,
+      ),
+    ).toEqual(["AI 评价", "HR 初面", "业务一面", "业务二面"]);
+    expect(triggers[1]?.textContent).toMatch(/2026/);
+    expect(triggers[2]?.textContent).toMatch(/2026/);
     expect(triggers.map((trigger) => trigger.getAttribute("aria-expanded"))).toEqual([
-      "false",
-      "false",
+      "true",
+      "true",
+      "true",
       "true",
     ]);
     for (const text of [
       "面试官：张面试官",
       "评级（A/B/C/D）",
       "通过",
-      "职级定位",
-      "小组主管",
       "角色定位",
       "主导决策者",
       "专业技能",
@@ -143,13 +187,14 @@ describe("candidate interview history", () => {
       "劣势风险",
       "薪资建议",
       "30K",
-      "提交时间",
     ]) {
       expect(container.textContent).toContain(text);
     }
-    await act(() => triggers[0]?.click());
-    expect(triggers[0]?.getAttribute("aria-expanded")).toBe("true");
     expect(container.textContent).toContain("寻找技术管理机会");
-    expect(container.textContent).toContain("未收集到相关信息");
+    expect(container.textContent).not.toContain("未收集到相关信息");
+    expect(container.textContent).toContain("简历 AI 评价内容");
+    await act(() => triggers[1]?.click());
+    expect(triggers[1]?.getAttribute("aria-expanded")).toBe("false");
+    expect(triggers[3]?.getAttribute("aria-expanded")).toBe("true");
   });
 });

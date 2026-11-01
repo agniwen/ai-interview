@@ -2,11 +2,13 @@ import type {
   RecruitingPipelineAction,
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
-  HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
-  OfferEmailPreviewRecord,
 } from "@app/shared/studio-pipeline-stages";
+import type {
+  StudioInterviewRecordSummary,
+  StudioInterviewRoundDetail,
+} from "@app/shared/studio-interview-rounds";
 /**
  * Studio 后台「面试管理」相关 API。
  * Studio admin "interview management" API.
@@ -18,17 +20,12 @@ import type {
  *
  * Maps to the `/api/w/:slug/studio/interviews/*` route family. JSON endpoints now
  * use Hono RPC under the hood; errors raise {@link ApiError}, and 404s
- * become `null` where applicable. File-upload POST/PATCH stay on raw
- * fetch+FormData inside their dialog components.
+ * become `null` where applicable. File uploads stay on apiFetch + FormData,
+ * including Offer email attachments.
  */
 
 import type { CandidateFormSubmissionWithSnapshot } from "@app/db-schema/candidate-forms";
-import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { StudioInterviewConversationReport } from "@app/db-schema/interview-session";
-import type {
-  PaginatedStudioInterviewRoundsResult,
-  StudioInterviewRoundDetail,
-} from "@app/shared/studio-interview-rounds";
 import type {
   CandidateExpectationsMeta,
   HumanInterviewMeetingInput,
@@ -103,101 +100,13 @@ export interface DedupSourceCandidate {
 }
 
 /**
- * 面试轮次列表分页参数。
- * Interview round list pagination / filter parameters.
+ * 拉取面试记录概览数据（AI 与真人面试轮次的各状态计数）。
+ * Fetch the interview records summary (status counts across AI and human rounds).
  */
-export interface StudioInterviewRoundListParams {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  creatorIds?: string[];
-  status?: string;
-}
-
-interface StudioInterviewRoundsQuery {
-  creatorIds?: string;
-  page?: string;
-  pageSize?: string;
-  search?: string;
-  status?: string;
-}
-
-/**
- * 拉取面试轮次列表（支持分页 / 关键词 / 状态筛选）。
- * Fetch the interview round list (supports pagination / keyword / status filtering).
- */
-export function fetchStudioInterviewRounds(
-  slug: string,
-  params: StudioInterviewRoundListParams = {},
-): Promise<PaginatedStudioInterviewRoundsResult> {
-  const query: StudioInterviewRoundsQuery = {};
-  if (params.page !== undefined) {
-    query.page = String(params.page);
-  }
-  if (params.pageSize !== undefined) {
-    query.pageSize = String(params.pageSize);
-  }
-  if (params.search) {
-    query.search = params.search;
-  }
-  if (params.creatorIds && params.creatorIds.length > 0) {
-    query.creatorIds = params.creatorIds.join(",");
-  }
-  if (params.status) {
-    query.status = params.status;
-  }
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews.$get({
-      param: { slug },
-      query,
-    }),
-    "加载面试列表失败",
-  );
-}
-
-/**
- * 面试轮次概览计数（按状态分组）。
- * Interview round summary counts grouped by status.
- */
-export interface InterviewRoundSummaryResponse {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  interrupted: number;
-}
-
-/**
- * 拉取轮次概览数据（各状态计数）。
- * Fetch the round summary (status counts).
- */
-export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoundSummaryResponse> {
+export function fetchStudioInterviewSummary(slug: string): Promise<StudioInterviewRecordSummary> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
     "加载概览失败",
-  );
-}
-
-/**
- * 基于解析后的简历画像做语义查重。
- * Look up potential duplicates through semantic resume similarity.
- */
-export function fetchInterviewDedup(
-  slug: string,
-  input: {
-    name: string | null;
-    email: string | null;
-    phone: string | null;
-    resumeProfile?: ResumeProfile | null;
-  },
-  options?: { signal?: AbortSignal },
-): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["dedup-check"].$post(
-      { json: input, param: { slug } },
-      { init: { signal: options?.signal } },
-    ),
-    "查重失败",
   );
 }
 
@@ -440,18 +349,6 @@ export function updateHumanInterviewMeeting(
   );
 }
 
-export function getHumanInterviewMeeting(
-  slug: string,
-  meetingId: string,
-): Promise<HumanInterviewMeetingRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$get({
-      param: { meetingId, slug },
-    }),
-    "加载真人面试会议失败",
-  );
-}
-
 export function issueHumanInterviewMeetingLinks(
   slug: string,
   meetingId: string,
@@ -487,34 +384,6 @@ export function endHumanInterviewMeeting(
       param: { meetingId, slug },
     }),
     "结束真人面试会议失败",
-  );
-}
-
-export function deleteHumanInterviewMeeting(
-  slug: string,
-  meetingId: string,
-): Promise<{ ok: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$delete({
-      param: { meetingId, slug },
-    }),
-    "删除真人面试会议失败",
-  );
-}
-
-export function getHumanInterviewMeetingLiveKitToken(
-  slug: string,
-  meetingId: string,
-  input: { interviewerId?: string } = {},
-): Promise<HumanInterviewMeetingTokenResponse> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"][
-      "livekit-token"
-    ].$post({
-      json: input,
-      param: { meetingId, slug },
-    }),
-    "进入真人面试会议失败",
   );
 }
 
@@ -657,7 +526,10 @@ export function patchOfferDraft(
   slug: string,
   candidateId: string,
   draftId: string,
-  input: Partial<OfferDraftInput>,
+  input: Partial<OfferDraftInput> & {
+    expectedContentRevision: number;
+    invalidateApproval?: boolean;
+  },
 ): Promise<OfferDraftRecord> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].$patch({
@@ -691,34 +563,6 @@ export function getOfferPublicLink(
       param: { draftId, id: candidateId, slug },
     }),
     "获取 Offer 链接失败",
-  );
-}
-
-export function getOfferEmailPreview(
-  slug: string,
-  candidateId: string,
-  draftId: string,
-): Promise<OfferEmailPreviewRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"]["email-preview"].$get({
-      param: { draftId, id: candidateId, slug },
-    }),
-    "加载 Offer 邮件内容失败",
-  );
-}
-
-export function sendOfferEmail(
-  slug: string,
-  candidateId: string,
-  draftId: string,
-  input: { content: string; subject: string; to: string },
-): Promise<{ interviewRecordId: string; providerMessageId: string; sentAt: string; url: string }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].email.$post({
-      json: input,
-      param: { draftId, id: candidateId, slug },
-    }),
-    "发送 Offer 邮件失败",
   );
 }
 

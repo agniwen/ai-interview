@@ -45,6 +45,7 @@ export function CandidateInvitation({
               disabled={pending}
               onClick={() => onRespond("accept")}
               size="lg"
+              variant="secondary"
             >
               {pending ? "处理中…" : "确认参加"}
             </Button>
@@ -53,7 +54,7 @@ export function CandidateInvitation({
               disabled={pending}
               onClick={() => onRespond("decline")}
               size="lg"
-              variant="outline"
+              variant="ghost"
             >
               无法参加
             </Button>

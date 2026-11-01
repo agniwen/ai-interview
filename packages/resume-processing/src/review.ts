@@ -1,11 +1,12 @@
 import type { Database } from "@app/database";
 import { bindResumeProcessingDatabase } from "./database";
-import * as review from "./internal/studio/resumes/utils/review-worker";
+import * as review from "./internal/recruiting/resumes/utils/review-worker";
+import { recoverStaleResumeReviewRuns } from "./internal/recruiting/resumes/utils/review-recovery";
 
 export type {
   ResumePoolAssessmentGenerationDependencies,
   ResumeReviewWorkerDependencies,
-} from "./internal/studio/resumes/utils/review-worker";
+} from "./internal/recruiting/resumes/utils/review-worker";
 
 export function createResumeReview(database: Database) {
   return {
@@ -18,6 +19,10 @@ export function createResumeReview(database: Database) {
       review.processResumeReviewGenerationJob,
     ),
     reassessResumeRecord: bindResumeProcessingDatabase(database, review.reassessResumeRecord),
+    recoverStaleResumeReviewRuns: bindResumeProcessingDatabase(
+      database,
+      recoverStaleResumeReviewRuns,
+    ),
   };
 }
 

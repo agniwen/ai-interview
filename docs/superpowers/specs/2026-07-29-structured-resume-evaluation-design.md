@@ -1,5 +1,7 @@
 # Structured Resume Evaluation V1
 
+> 历史方案（状态核对：2026-10-09）：本文描述已退役的数字评分、发布或结构化升级流程，不是当前实施计划。新评价与岗位保存遵循[当前评价契约](../../agents/resume-evaluation.md)；历史结果和相应兼容读取仍需保留。本文中的代码路径、命令和依赖版本属于原编写时期，不能直接用于当前部署。
+
 ## Goal
 
 Use the structured configuration of a newly published job to produce an evidence-backed resume evaluation with hard-gate findings, standardized six-dimension deductions, a deterministic integer composite score, and an AI narrative that explains the already-computed result. The evaluation is advisory; the recruiter owns the final pass/fail decision and manually starts an AI interview.

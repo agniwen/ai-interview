@@ -1,4 +1,4 @@
-import { echoProcessingOwner, hasEchoProcessing, retryEchoProcessing } from "./echo-processing";
+import { echoProcessingOwner, retryEchoProcessing } from "./echo-processing";
 import type {
   MeetingIntelligenceResult,
   MeetingIntelligenceTemplate,
@@ -9,24 +9,13 @@ import type {
   MeetingLiveSummarySnapshot,
 } from "@app/shared/meeting-live-summary";
 import type {
-  CreateMeetingQuestion,
-  MeetingQuestionExchange,
-  MeetingQuestionThread,
-  MeetingQuestionThreadSummary,
-} from "@app/shared/meeting-answer";
-import type {
-  CreateMeetingNoteInput,
   MeetingDetail,
   MeetingLibraryItem,
-  MeetingNote,
   MeetingPlaybackAuthorization,
   MeetingRecruitingContextSettings,
   MeetingRecruitingRecordSummary,
-  MeetingShareSettings,
   PaginatedTrashedMeetings,
   TrashedMeetingListQuery,
-  UpdateMeetingNoteInput,
-  UpdateMeetingShareInput,
 } from "@app/shared/meeting-recording";
 import { paginationSearchParams } from "@app/shared/pagination";
 import type {
@@ -36,8 +25,6 @@ import type {
   MeetingLiveTranscriptAuthorization,
   MeetingTranscriptResult,
   MeetingTranscriptRevisionHistory,
-  MeetingTranscriptionPolicy,
-  UpdateMeetingTranscriptionPolicyInput,
 } from "@app/shared/meeting-transcription";
 import type {
   MeetingLibrarySearchResponse,
@@ -324,91 +311,6 @@ export function fetchMeetingIntelligence(
   );
 }
 
-export function fetchMeetingQuestionThreads(
-  slug: string,
-  meetingId: string,
-): Promise<MeetingQuestionThreadSummary[]> {
-  return apiJson<{ records: MeetingQuestionThreadSummary[] }>(
-    apiUrl(meetingSubresourcePath(slug, meetingId, "questions")),
-    "加载会议提问线程失败",
-  ).then((payload) => payload.records);
-}
-
-export function createMeetingQuestionThread(
-  slug: string,
-  meetingId: string,
-  title?: string,
-): Promise<MeetingQuestionThreadSummary> {
-  return apiJson(
-    apiUrl(meetingSubresourcePath(slug, meetingId, "questions")),
-    "创建会议提问线程失败",
-    {
-      body: JSON.stringify(title ? { title } : {}),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
-}
-
-export async function fetchMeetingQuestionThread(
-  slug: string,
-  meetingId: string,
-  threadId: string,
-): Promise<MeetingQuestionThread> {
-  const thread = await apiJson<MeetingQuestionThread>(
-    apiUrl(
-      `${meetingSubresourcePath(slug, meetingId, "questions")}/${encodeURIComponent(threadId)}`,
-    ),
-    "加载会议提问内容失败",
-  );
-  if (!hasEchoProcessing()) {
-    return thread;
-  }
-  const owner = await echoProcessingOwner(slug);
-  const local = await window.api.echoProcessing.localQuestions({
-    accountId: owner.accountId,
-    meetingId,
-    threadId,
-  });
-  const byRequest = new Map(thread.exchanges.map((exchange) => [exchange.requestId, exchange]));
-  for (const exchange of local) {
-    const remote = byRequest.get(exchange.requestId);
-    if (remote?.status !== "ready") {
-      byRequest.set(exchange.requestId, {
-        ...exchange,
-        sequence: remote?.sequence ?? exchange.sequence,
-      });
-    }
-  }
-  return {
-    ...thread,
-    exchanges: [...byRequest.values()].toSorted((left, right) =>
-      left.createdAt.localeCompare(right.createdAt),
-    ),
-  };
-}
-
-export async function askMeetingQuestion(
-  slug: string,
-  meetingId: string,
-  threadId: string,
-  input: CreateMeetingQuestion,
-): Promise<MeetingQuestionExchange> {
-  const owner = await echoProcessingOwner(slug);
-  await window.api.echoProcessing.question({ ...owner, meetingId, threadId, ...input });
-  return {
-    answer: null,
-    answeredAt: null,
-    createdAt: new Date().toISOString(),
-    error: null,
-    id: input.requestId,
-    question: input.question,
-    requestId: input.requestId,
-    sequence: 0,
-    status: "pending",
-  };
-}
-
 export async function regenerateMeetingIntelligence(
   slug: string,
   meetingId: string,
@@ -465,11 +367,6 @@ export function createMeetingTranscriptCorrection(
   );
 }
 
-export function fetchMeetingTranscriptionPolicy(slug: string): Promise<MeetingTranscriptionPolicy> {
-  const path = `/api/w/${encodeURIComponent(slug)}/meetings/transcription-policy`;
-  return apiJson(apiUrl(path), "加载最终转录策略失败");
-}
-
 export function createMeetingLiveTranscriptAuthorization(
   slug: string,
   input: CreateMeetingLiveTranscriptAuthorizationInput,
@@ -499,90 +396,4 @@ export function releaseMeetingLiveTranscript(slug: string, captureId: string): P
     method: "DELETE",
     signal: AbortSignal.timeout(10_000),
   });
-}
-
-export function updateMeetingTranscriptionPolicy(
-  slug: string,
-  policy: UpdateMeetingTranscriptionPolicyInput,
-): Promise<MeetingTranscriptionPolicy> {
-  const path = `/api/w/${encodeURIComponent(slug)}/meetings/transcription-policy`;
-  return apiJson(apiUrl(path), "更新最终转录策略失败", {
-    body: JSON.stringify(policy),
-    headers: { "Content-Type": "application/json" },
-    method: "PUT",
-  });
-}
-
-export function fetchMeetingNotes(slug: string, meetingId: string): Promise<MeetingNote[]> {
-  return apiJson<{ records: MeetingNote[] }>(
-    apiUrl(meetingSubresourcePath(slug, meetingId, "notes")),
-    "加载 Meeting Notes 失败",
-  ).then((payload) => payload.records);
-}
-
-export function createMeetingNote(
-  slug: string,
-  meetingId: string,
-  note: CreateMeetingNoteInput,
-): Promise<MeetingNote> {
-  return apiJson(
-    apiUrl(meetingSubresourcePath(slug, meetingId, "notes")),
-    "创建 Meeting Note 失败",
-    {
-      body: JSON.stringify(note),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
-}
-
-export function updateMeetingNote(
-  slug: string,
-  meetingId: string,
-  noteId: string,
-  note: UpdateMeetingNoteInput,
-): Promise<MeetingNote> {
-  const path = `${meetingSubresourcePath(slug, meetingId, "notes")}/${encodeURIComponent(noteId)}`;
-  return apiJson(apiUrl(path), "更新 Meeting Note 失败", {
-    body: JSON.stringify(note),
-    headers: { "Content-Type": "application/json" },
-    method: "PATCH",
-  });
-}
-
-export function deleteMeetingNote(slug: string, meetingId: string, noteId: string): Promise<null> {
-  const path = `${meetingSubresourcePath(slug, meetingId, "notes")}/${encodeURIComponent(noteId)}`;
-  return apiJson(apiUrl(path), "删除 Meeting Note 失败", { method: "DELETE" });
-}
-
-export function fetchMeetingShare(slug: string, meetingId: string): Promise<MeetingShareSettings> {
-  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "share")), "加载会议分享设置失败");
-}
-
-export function updateMeetingShare(
-  slug: string,
-  meetingId: string,
-  share: UpdateMeetingShareInput,
-): Promise<{ updated: true }> {
-  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "share")), "更新会议分享失败", {
-    body: JSON.stringify(share),
-    headers: { "Content-Type": "application/json" },
-    method: "PUT",
-  });
-}
-
-export function reassignMeetingOwner(
-  slug: string,
-  meetingId: string,
-  userId: string,
-): Promise<{ updated: true }> {
-  return apiJson(
-    apiUrl(`${meetingSubresourcePath(slug, meetingId, "share")}/owner`),
-    "重新分配会议失败",
-    {
-      body: JSON.stringify({ userId }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
 }

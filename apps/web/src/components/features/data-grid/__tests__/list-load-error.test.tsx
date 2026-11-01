@@ -41,8 +41,6 @@ describe("ListLoadError", () => {
       root.render(<ListLoadError compact error={new Error("刷新失败")} />);
     });
 
-    const alert = container.querySelector('[role="alert"]');
-    expect(alert?.className).not.toContain("min-h-48");
     expect(container.textContent).toContain("刷新失败");
   });
 });

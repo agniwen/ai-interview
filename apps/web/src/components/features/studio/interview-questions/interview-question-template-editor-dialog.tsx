@@ -1,6 +1,5 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
@@ -9,14 +8,24 @@ import {
   interviewQuestionTemplateScopeSchema,
   interviewQuestionTemplateSchema,
 } from "@app/db-schema/interview-question-templates";
+import {
+  pickInterviewQuestionAgentPageContext,
+  toInterviewQuestionFormQuestions,
+} from "@app/shared/interview-question-agent";
+import type { InterviewQuestionAgentPageContext } from "@app/shared/interview-question-agent";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
+import {
+  subscribeToFormStore,
+  useRegisterSubjectAgentForm,
+} from "@/components/features/subject-agent/subject-agent-context";
+import type { SubjectAgentFormBridge } from "@/components/features/subject-agent/subject-agent-context";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
+import { EditorFormActions, EditorPageSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -32,15 +41,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
-import { env } from "@/env/client";
-import { FollowUpContractHoverCard } from "./follow-up-contract-hover-card";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
 const QUESTION_MAX_LENGTH = 1000;
 const errorPayloadSchema = z.object({ error: z.string().optional() });
 
-export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplateInput {
+function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplateInput {
   return {
     description: "",
     jobDescriptionIds: [],
@@ -78,24 +85,27 @@ function toFormValues(record: InterviewQuestionTemplateRecord): InterviewQuestio
 
 // oxlint-disable-next-line complexity -- Dialog orchestrates schema, mode, and question array state together.
 export function InterviewQuestionTemplateEditorDialog({
+  presentation = "dialog",
   initialDraft,
   open,
   onOpenChange,
   record,
   jobDescriptions,
   onSaved,
-  showDeveloperDetails = env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
+  onCreated,
   slug,
 }: {
+  presentation?: "dialog" | "page";
   initialDraft?: InterviewQuestionTemplateInput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: InterviewQuestionTemplateRecord | null;
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
-  showDeveloperDetails?: boolean;
+  onCreated?: (id: string) => void;
   slug: string;
 }) {
+  const Surface = presentation === "page" ? EditorPageSurface : Modal;
   const isEdit = record !== null;
   const resolvedInitialValues = useMemo(() => {
     if (record) {
@@ -134,7 +144,8 @@ export function InterviewQuestionTemplateEditorDialog({
             json: body,
             param: { slug },
           });
-      const payload = errorPayloadSchema.safeParse(await response.json().catch(() => null));
+      const result: unknown = await response.json().catch(() => null);
+      const payload = errorPayloadSchema.safeParse(result);
       if (!response.ok) {
         toast.error(
           (payload.success ? payload.data.error : undefined) ?? (isEdit ? "更新失败" : "创建失败"),
@@ -143,7 +154,12 @@ export function InterviewQuestionTemplateEditorDialog({
       }
       toast.success(isEdit ? "沟通题已更新" : "已创建沟通题");
       onSaved();
-      onOpenChange(false);
+      if (!isEdit && onCreated) {
+        const saved = z.object({ id: z.string() }).parse(result);
+        onCreated(saved.id);
+      } else {
+        onOpenChange(false);
+      }
     },
     validators: { onSubmit: interviewQuestionTemplateSchema },
   });
@@ -159,25 +175,51 @@ export function InterviewQuestionTemplateEditorDialog({
       form.reset(resolvedInitialValues);
     }
   }, [open, form, resolvedInitialValues]);
+  // Hireseer Agent 只写入未保存的表单（ADR-0045）；不在 Agent Provider 内时登记为空操作。
+  const agentFormBridge = useMemo<SubjectAgentFormBridge>(
+    () => ({
+      getPageContext: () => pickInterviewQuestionAgentPageContext(form.state.values),
+      getSavedContext: () =>
+        record ? pickInterviewQuestionAgentPageContext(resolvedInitialValues) : null,
+      kind: "interview_question_template",
+      subscribe: (listener) => subscribeToFormStore(form.store, listener),
+      write: (values: Partial<InterviewQuestionAgentPageContext>) => {
+        if (values.title !== undefined) {
+          form.setFieldValue("title", values.title);
+        }
+        if (values.description !== undefined) {
+          form.setFieldValue("description", values.description);
+        }
+        if (values.scope !== undefined) {
+          form.setFieldValue("scope", values.scope);
+        }
+        if (values.jobDescriptionIds !== undefined) {
+          form.setFieldValue("jobDescriptionIds", values.jobDescriptionIds);
+        }
+        if (values.questions !== undefined) {
+          form.setFieldValue("questions", toInterviewQuestionFormQuestions(values.questions));
+        }
+      },
+    }),
+    [form, record, resolvedInitialValues],
+  );
+  useRegisterSubjectAgentForm(agentFormBridge);
 
   return (
-    <Modal
+    <Surface
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "编辑沟通题" : "创建沟通题"}
-      description="修改不会影响已发起的面试。"
+      description="候选人点击开始面试时绑定最新题目；修改不会影响本次已开始的面试。"
       size="xl"
       bodyClassName="-mx-1 px-7 py-1.5 space-y-6"
       footer={
-        <>
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            取消
-          </Button>
-          <Button disabled={isSubmitting} form="interview-question-template-form" type="submit">
-            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-            {isEdit ? "保存" : "创建"}
-          </Button>
-        </>
+        <EditorFormActions
+          creating={!isEdit && presentation !== "page"}
+          formId="interview-question-template-form"
+          onCancel={() => onOpenChange(false)}
+          submitting={isSubmitting}
+        />
       }
     >
       <form
@@ -188,8 +230,14 @@ export function InterviewQuestionTemplateEditorDialog({
           void form.handleSubmit();
         }}
       >
-        <div className="space-y-6">
-          <FieldGroup className="gap-5">
+        <div className="min-w-0 space-y-6">
+          <FieldGroup
+            className={
+              presentation === "page"
+                ? "gap-5 rounded-xl bg-card text-card-foreground p-5 shadow-default"
+                : "gap-5"
+            }
+          >
             <form.Field name="title">
               {(field) => {
                 const errors = toFieldErrors(field.state.meta.errors);
@@ -246,7 +294,13 @@ export function InterviewQuestionTemplateEditorDialog({
               }}
             </form.Field>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div
+              className={
+                presentation === "page"
+                  ? "flex min-w-0 flex-col gap-5"
+                  : "grid gap-5 md:grid-cols-2"
+              }
+            >
               <form.Field name="scope">
                 {(field) => (
                   <Field>
@@ -314,7 +368,7 @@ export function InterviewQuestionTemplateEditorDialog({
             </div>
           </FieldGroup>
 
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">题目列表</h3>
               <form.Subscribe selector={(state) => state.values.questions.length}>
@@ -322,6 +376,7 @@ export function InterviewQuestionTemplateEditorDialog({
               </form.Subscribe>
             </div>
             <SortableQuestionListEditor
+              collapsible={presentation === "page"}
               arrayFieldName="questions"
               contentFieldName="content"
               contentMaxLength={QUESTION_MAX_LENGTH}
@@ -335,29 +390,12 @@ export function InterviewQuestionTemplateEditorDialog({
                 sortOrder: sortIndex,
               })}
               form={form}
-              renderHeaderAccessory={(question, index) => {
-                const savedQuestion = record?.questions.find(
-                  (recordQuestion) => recordQuestion.id === question.id,
-                );
-                if (
-                  !showDeveloperDetails ||
-                  !question.id ||
-                  (!savedQuestion?.evaluationFocus?.trim() &&
-                    !savedQuestion?.followUpDirections?.trim())
-                ) {
-                  return null;
-                }
-                const contract = savedQuestion.followUpContract;
-                return contract ? (
-                  <FollowUpContractHoverCard contract={contract} questionNumber={index + 1} />
-                ) : null;
-              }}
               resetKey={record?.id ?? "new"}
             />
             <FieldError errors={questionListErrors} />
           </div>
         </div>
       </form>
-    </Modal>
+    </Surface>
   );
 }

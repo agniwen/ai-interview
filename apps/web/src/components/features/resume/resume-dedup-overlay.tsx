@@ -187,7 +187,6 @@ function UploaderMeta({
       <div className="flex min-w-0 items-center gap-1.5">
         <Avatar
           className="size-4 shrink-0"
-          generatedSize={16}
           label={`${displayName}的头像`}
           seed={`uploader:${displayName}`}
         >
@@ -224,7 +223,7 @@ function JudgmentLines({ match }: { match: DedupMatchRecord }) {
       {conflicts.length > 0 ? (
         <FieldLine
           label="差异"
-          value={<span className="text-amber-800 dark:text-amber-200">{conflicts.join("、")}</span>}
+          value={<span className="text-amber-ink">{conflicts.join("、")}</span>}
         />
       ) : null}
     </div>

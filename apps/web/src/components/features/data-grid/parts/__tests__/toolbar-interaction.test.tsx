@@ -2,7 +2,6 @@
 
 import { createStore, Provider } from "jotai";
 import { listFilterSelectionAtom } from "../filter-selection";
-
 import { act, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatDatePickerValue, parseDatePickerValue } from "@/lib/client/date-picker-value";
@@ -44,6 +43,33 @@ async function selectDate(value: string) {
   expect(day, `Missing calendar day: ${value}`).not.toBeNull();
   await act(async () => {
     day?.click();
+    await Promise.resolve();
+  });
+}
+
+function fieldOption(label: string) {
+  return [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (option) => option.textContent?.trim() === label,
+  );
+}
+
+function chipLabels() {
+  return [...document.querySelectorAll('[data-slot="filter-chip"]')].map(
+    (chip) => chip.firstElementChild?.textContent?.trim() ?? "",
+  );
+}
+
+async function openChipValue(label: string) {
+  const chip = [...document.querySelectorAll<HTMLElement>('[data-slot="filter-chip"]')].find(
+    (item) => item.firstElementChild?.textContent?.trim() === label,
+  );
+  const triggers = [
+    ...(chip?.querySelectorAll<HTMLButtonElement>('[data-slot="popover-trigger"]') ?? []),
+  ];
+  const valueTrigger = triggers.at(-1);
+  expect(valueTrigger, `Missing value trigger: ${label}`).toBeDefined();
+  await act(async () => {
+    valueTrigger?.click();
     await Promise.resolve();
   });
 }
@@ -136,8 +162,7 @@ describe("Toolbar filter editing", () => {
     roots.push(root);
     const input = textInput("候选人");
     expect(input.value).toBe("Alice");
-    expect(input.parentElement?.classList.contains("has-focus-visible:shadow-none")).toBe(true);
-    expect(input.parentElement?.className).not.toContain("has-focus-visible:shadow-[");
+
     await typeText(input, "Bob");
     expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
@@ -193,30 +218,33 @@ describe("Toolbar filter editing", () => {
     expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(1);
   });
 
-  it("defaults newly added text conditions and focuses their value without an operator popup", async () => {
+  it("toggles fields from the add-filter checklist and keeps it open", async () => {
     const onChange = vi.fn();
     const { root } = await renderInAct(<TextHarness onChange={onChange} />);
     roots.push(root);
     await clickText("button", "添加筛选");
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+    expect(fieldOption("候选人")?.getAttribute("aria-selected")).toBe("true");
+
     await clickText('[role="option"]', "公司");
-    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
-    expect(document.activeElement).toBe(textInput("公司"));
-    expect(
-      [...document.querySelectorAll("button")].some(
-        (button) => button.textContent?.trim() === "添加筛选",
-      ),
-    ).toBe(true);
-    expect(document.querySelector('[data-slot="filter-editor"]')).toBeNull();
+    expect(fieldOption("公司")?.getAttribute("aria-selected")).toBe("true");
+    expect(chipLabels()).toEqual(["候选人", "公司"]);
+
+    await clickText('[role="option"]', "邮箱");
+    await clickText('[role="option"]', "邮箱");
+    expect(fieldOption("邮箱")?.getAttribute("aria-selected")).toBe("false");
+    expect(chipLabels()).toEqual(["候选人", "公司"]);
     expect(onChange).not.toHaveBeenCalled();
+
+    await clickText('[role="option"]', "候选人");
+    expect(fieldOption("候选人")).toBeDefined();
+    expect(chipLabels()).toEqual(["公司"]);
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("textFilters", "");
+    onChange.mockClear();
+
+    expect(document.querySelector('[data-slot="filter-editor"]')).toBeNull();
     await typeText(textInput("公司"), "极光");
     await pressKey(textInput("公司"), "Enter");
-    expect(onChange).toHaveBeenCalledExactlyOnceWith(
-      "textFilters",
-      '{"candidateName":"Alice","company":"极光"}',
-    );
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("textFilters", '{"company":"极光"}');
   });
 
   it("clears only values in one commit and retains active fields restored from the URL", async () => {
@@ -272,12 +300,13 @@ describe("Toolbar filter editing", () => {
       ),
     ];
     expect(actions.map((item) => item.textContent?.trim())).toEqual([
+      "添加筛选",
       "清空筛选",
       "刷新",
       "创建记录",
     ]);
-    expect(actions[0]).toHaveProperty("disabled", true);
-    for (const action of actions.slice(0, 2)) {
+    expect(actions[1]).toHaveProperty("disabled", true);
+    for (const action of actions.slice(0, 3)) {
       expect(action.dataset.size).toBe("default");
       expect(action.querySelector(".sr-only")).toBeNull();
       expect(action.querySelector('[data-icon="inline-start"]')).not.toBeNull();
@@ -346,9 +375,7 @@ describe("Toolbar filter editing", () => {
     );
     roots.push(root);
     await clickText("button", "2026-08-20");
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     await selectDate("2026-08-26");
     expect(document.querySelector('[role="alert"]')?.textContent).toContain("不能晚于");
     expect(onChange).not.toHaveBeenCalled();
@@ -358,7 +385,7 @@ describe("Toolbar filter editing", () => {
     expect(onChange).toHaveBeenCalledExactlyOnceWith("from", "2026-08-24");
   });
 
-  it("opens and focuses a newly added date value directly", async () => {
+  it("edits a newly added date value from its chip", async () => {
     const onChange = vi.fn();
     const { root } = await renderInAct(
       <Provider store={createStore()}>
@@ -376,11 +403,14 @@ describe("Toolbar filter editing", () => {
     roots.push(root);
     await clickText("button", "添加筛选");
     await clickText('[role="option"]', "起始日期");
-    const calendar = document.querySelector('[data-slot="calendar"]');
-    expect(calendar).not.toBeNull();
-    expect(calendar?.contains(document.activeElement)).toBe(true);
+    expect(fieldOption("起始日期")?.getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector('[data-slot="calendar"]')).toBeNull();
+    await openChipValue("起始日期");
+    expect(document.querySelector('[data-slot="calendar"]')).not.toBeNull();
     expect(document.querySelector('input[type="date"]')).toBeNull();
-    expect(document.querySelector('[data-slot="filter-chip"]')?.textContent).toContain("不早于");
+    const chip = document.querySelector('[data-slot="filter-chip"]');
+    expect(chip?.textContent).not.toContain("不早于");
+    expect(chip?.getAttribute("aria-label")).toContain("不早于");
     expect(onChange).not.toHaveBeenCalled();
     const today = formatDatePickerValue(new Date());
     await selectDate(today);
@@ -452,7 +482,7 @@ describe("Toolbar filter editing", () => {
   });
 
   it.each(["any", "all"] as const)(
-    "opens new multi-select values directly with the configured %s operator",
+    "adds multi-select conditions with the configured %s operator",
     async (match) => {
       const onChange = vi.fn();
       const { root } = await renderInAct(
@@ -477,13 +507,15 @@ describe("Toolbar filter editing", () => {
       roots.push(root);
       await clickText("button", "添加筛选");
       await clickText('[role="option"]', "技能");
-      expect(document.querySelector('[data-slot="filter-chip"]')?.textContent).toContain(
-        match === "all" ? "同时具备" : "属于任意",
-      );
-      expect(document.querySelector('[data-slot="popover-content"] input')).toBe(
-        document.activeElement,
-      );
+      // 唯一的操作符不单独占一段；“同时具备”的语义仍保留在筛选项的无障碍名称里。
+      const chip = document.querySelector('[data-slot="filter-chip"]');
+      const operatorLabel = match === "all" ? "同时具备" : "属于任意";
+      expect(chip?.textContent).not.toContain(operatorLabel);
+      if (match === "all") {
+        expect(chip?.getAttribute("aria-label")).toContain(operatorLabel);
+      }
       expect(onChange).not.toHaveBeenCalled();
+      await openChipValue("技能");
       await clickText('[role="option"]', "React");
       expect(onChange).toHaveBeenCalledExactlyOnceWith("skills", "react");
     },
@@ -511,14 +543,13 @@ describe("Toolbar filter editing", () => {
     await clickText("button", "添加筛选");
     await clickText('[role="option"]', "状态");
     expect(onChange).not.toHaveBeenCalled();
+    await openChipValue("状态");
     expect(
       [...document.querySelectorAll('[role="option"]')].some(
         (option) => option.textContent?.trim() === "是",
       ),
     ).toBe(false);
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     expect(onChange).not.toHaveBeenCalled();
     await clickText('[role="option"]', "完成");
     expect(onChange).toHaveBeenCalledExactlyOnceWith("status", "done");
@@ -549,9 +580,7 @@ describe("Toolbar filter editing", () => {
     roots.push(root);
 
     await clickText("button", "React");
-    expect(
-      document.querySelector('[data-slot="popover-content"]')?.classList.contains("bg-background"),
-    ).toBe(true);
+
     expect(document.querySelector('[data-slot="scroll-area-viewport"]')).not.toBeNull();
     await clickText('[role="option"]', "TypeScript");
     expect(onChange).toHaveBeenCalledExactlyOnceWith("skills", "react,ts");
@@ -570,5 +599,46 @@ describe("Toolbar filter editing", () => {
     expect(onChange).toHaveBeenCalledTimes(3);
     expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(1);
     expect(document.querySelector('[data-slot="scroll-area-viewport"]')).not.toBeNull();
+  });
+});
+
+describe("fixed interview type filter", () => {
+  it("keeps the selected type when clearing other conditions and excludes it from removable fields", async () => {
+    const onReset = vi.fn();
+    const { root, container } = await renderInAct(
+      <Toolbar
+        filterValues={{ email: "", kind: "human", name: "张三" }}
+        filters={[
+          {
+            key: "kind",
+            label: "面试类型",
+            options: [
+              { label: "全部", value: "all" },
+              { label: "AI面试", value: "ai" },
+              { label: "真人面试", value: "human" },
+            ],
+            required: true,
+            type: "select",
+            unfilteredValue: "all",
+          },
+          { key: "name", label: "姓名", type: "search" },
+          { key: "email", label: "邮箱", type: "search" },
+        ]}
+        onResetFilters={onReset}
+      />,
+    );
+    roots.push(root);
+    const fixedChip = container.querySelector<HTMLElement>('[data-slot="filter-chip"]');
+    expect(fixedChip?.textContent).toContain("面试类型");
+    expect(fixedChip?.textContent).toContain("真人面试");
+    act(() => {
+      fixedChip?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Delete" }));
+    });
+    expect(container.querySelector('[data-slot="filter-chip"]')?.textContent).toContain("真人面试");
+    await clickText("button", "清空筛选");
+    expect(onReset).toHaveBeenCalledWith({ email: "", name: "" });
+    await clickText("button", "添加筛选");
+    expect(fieldOption("面试类型")).toBeUndefined();
+    expect(container.querySelector('[aria-label="清空"]')).toBeNull();
   });
 });

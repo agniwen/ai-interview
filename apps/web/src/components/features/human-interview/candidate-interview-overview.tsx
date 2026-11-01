@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { formatJobDescriptionForDisplay } from "./job-description-display";
 import { MarkdownView } from "@/components/features/display/markdown-view";
+import { JobDescriptionPromptHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
+import { cn } from "@app/shared/utils";
 
 interface CandidateInterviewOverviewProps {
   candidateName: string;
@@ -12,6 +14,8 @@ interface CandidateInterviewOverviewProps {
   scheduledAt: string | null;
   message?: string;
   interviewer?: { name: string; role: string };
+  /** 面试官入会页右侧的候选人资料；岗位 JD 改为标题悬浮卡。/ Interviewer-side candidate materials; the JD moves to the title hover card. */
+  materials?: ReactNode;
   children: ReactNode;
 }
 
@@ -34,6 +38,7 @@ export function CandidateInterviewOverview({
   scheduledAt,
   message,
   interviewer,
+  materials,
   children,
 }: CandidateInterviewOverviewProps) {
   const date = scheduledAt ? new Date(scheduledAt) : null;
@@ -48,10 +53,16 @@ export function CandidateInterviewOverview({
     <p className="text-sm text-muted-foreground">暂未提供岗位 JD，请联系招聘负责人了解岗位详情。</p>
   );
   const companyDescription = interviewer ? null : companyContext?.trim();
+  const jobTitle = jobDescriptionName?.trim() || "岗位信息待确认";
 
   return (
     <section
-      className="grid w-full max-w-5xl items-start gap-6 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-10 lg:gap-20"
+      className={cn(
+        "grid w-full items-start gap-6 md:gap-10",
+        materials
+          ? "max-w-7xl md:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] lg:gap-14"
+          : "max-w-5xl md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-20",
+      )}
       aria-labelledby="candidate-invitation-title"
     >
       <div
@@ -64,7 +75,16 @@ export function CandidateInterviewOverview({
             id="candidate-invitation-title"
             className="text-balance text-2xl font-semibold leading-tight tracking-normal sm:text-3xl [@media(min-height:800px)]:sm:text-4xl"
           >
-            {jobDescriptionName?.trim() || "岗位信息待确认"}
+            {materials ? (
+              <JobDescriptionPromptHoverCard
+                name={jobTitle}
+                prompt={
+                  jobDescriptionPrompt && formatJobDescriptionForDisplay(jobDescriptionPrompt)
+                }
+              />
+            ) : (
+              jobTitle
+            )}
           </h1>
         </header>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 [@media(min-height:800px)]:gap-y-6">
@@ -107,36 +127,47 @@ export function CandidateInterviewOverview({
           </p>
         )}
       </div>
-      <section
-        aria-labelledby="candidate-job-description-title"
-        data-slot="interview-entry-jd"
-        className="flex min-w-0 flex-col gap-6 pb-4 md:pt-1"
-      >
-        {companyDescription ? (
-          <Tabs defaultValue="job" className="gap-6">
-            <TabsList variant="line" aria-label="面试相关信息">
-              <TabsTab value="job" id="candidate-job-description-title">
+      {materials ? (
+        <section
+          aria-label="候选人资料"
+          data-slot="interview-entry-materials"
+          // 资料随整页滚动，透出入会页背景。/ Materials scroll with the page over its background.
+          className="hidden min-w-0 pb-8 md:block [&>div]:h-auto [&>div]:overflow-visible [&>div]:bg-transparent"
+        >
+          {materials}
+        </section>
+      ) : (
+        <section
+          aria-labelledby="candidate-job-description-title"
+          data-slot="interview-entry-jd"
+          className="flex min-w-0 flex-col gap-6 pb-4 md:pt-1"
+        >
+          {companyDescription ? (
+            <Tabs defaultValue="job" className="gap-6">
+              <TabsList variant="line" aria-label="面试相关信息">
+                <TabsTab value="job" id="candidate-job-description-title">
+                  岗位 JD
+                </TabsTab>
+                <TabsTab value="company">公司信息</TabsTab>
+              </TabsList>
+              <TabsPanel value="job">{jobContent}</TabsPanel>
+              <TabsPanel value="company">
+                <MarkdownView
+                  content={companyDescription}
+                  className="text-sm leading-7 [&_p]:whitespace-pre-line"
+                />
+              </TabsPanel>
+            </Tabs>
+          ) : (
+            <>
+              <h2 id="candidate-job-description-title" className="text-base font-semibold">
                 岗位 JD
-              </TabsTab>
-              <TabsTab value="company">公司信息</TabsTab>
-            </TabsList>
-            <TabsPanel value="job">{jobContent}</TabsPanel>
-            <TabsPanel value="company">
-              <MarkdownView
-                content={companyDescription}
-                className="text-sm leading-7 [&_p]:whitespace-pre-line"
-              />
-            </TabsPanel>
-          </Tabs>
-        ) : (
-          <>
-            <h2 id="candidate-job-description-title" className="text-base font-semibold">
-              岗位 JD
-            </h2>
-            {jobContent}
-          </>
-        )}
-      </section>
+              </h2>
+              {jobContent}
+            </>
+          )}
+        </section>
+      )}
     </section>
   );
 }

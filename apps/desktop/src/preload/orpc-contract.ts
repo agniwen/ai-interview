@@ -79,4 +79,3 @@ export const orpcContract = oc.router({
 });
 
 export type DesktopSettings = z.infer<typeof desktopSettingsSchema>;
-export type ThemeMode = z.infer<typeof themeModeSchema>;

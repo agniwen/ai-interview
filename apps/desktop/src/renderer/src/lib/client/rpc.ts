@@ -1,7 +1,7 @@
 import { env } from "@/env";
 
 /** Auth / API origin (no trailing slash). */
-export function apiBaseUrl(): string {
+function apiBaseUrl(): string {
   return env.VITE_BETTER_AUTH_URL.replace(/\/+$/, "");
 }
 

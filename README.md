@@ -1,4 +1,4 @@
-# AI Hiring Copilot
+# Hireseer
 
 AI-powered voice interview and resume screening platform. Chinese-first locale:
 agent instructions, system prompts, and interview flows are written in
@@ -14,17 +14,19 @@ Simplified Chinese.
   Drizzle ORM, PostgreSQL, Better Auth, object storage, email, and server-side
   AI utilities. It can be mounted by the web app at `/api` or started as a
   standalone Bun service.
-- **Resume worker** (`apps/worker/`): background processing for resume
+- **Background worker** (`apps/worker/`): background processing for resume
   parsing, meeting transcription, and notification/queue reconciliation.
-- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with a
-  DashScope (Alibaba) streaming STT adapter, an OpenAI-compatible LLM pointed at
-  the DashScope endpoint, and MiniMax TTS.
+- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK, defaulting to
+  Qwen Realtime speech-to-speech. The optional `pipeline` mode uses DashScope
+  streaming STT, an OpenAI-compatible LLM, and MiniMax TTS.
 - **Shared packages** (`packages/`): `@app/shared` (isomorphic contracts and
   schemas), `@app/db-schema` (Drizzle schema and relations), `@app/database`
-  (database factory), and `@app/resume-parse-queue`.
+  (database factory, scoped database context, query helpers), `@app/recruiting`
+  (recruiting record domain persistence), and `@app/job-queues` (BullMQ
+  queue contracts).
 - **Application runtime packages** (`packages/`): `@app/ai-runtime`,
   `@app/object-storage`, `@app/meeting-media`, `@app/meeting-live-transcript`,
-  `@app/meeting-processing`, `@app/meeting-processing-queue`, and
+  `@app/meeting-processing`, `@app/feishu`, `@app/recruiting-workflows`, and
   `@app/resume-processing`.
 
 Two package managers are used: **Bun 1.4.0** for TypeScript apps/packages and **uv**
@@ -36,6 +38,7 @@ for the Python agent. Do not mix them.
 make install
 cp apps/web/.env.example apps/web/.env
 cp apps/server/.env.example apps/server/.env
+cp apps/worker/.env.example apps/worker/.env
 cp apps/livekit-agent/.env.example apps/livekit-agent/.env
 bun run db:migrate
 make dev
@@ -46,9 +49,8 @@ a LiveKit room. `make help` lists every Make target.
 
 ## Local Docker Validation
 
-Build and start the Bun 1.4.0 web and worker images. Both services load
-`apps/web/.env`, matching the dependencies and credentials
-used by the local web app:
+Build and start the Bun 1.4.0 web and worker images. Web loads `apps/web/.env`; Worker loads `apps/worker/.env`.
+Configure their intended database, Redis, and storage targets before starting:
 
 ```bash
 BETTER_AUTH_URL=http://localhost:3000 \
@@ -74,6 +76,7 @@ Each runtime owns its own `.env` file:
 
 - `apps/web/.env` for the TanStack Start web app.
 - `apps/server/.env` for standalone Hono backend runs.
+- `apps/worker/.env` for background processing.
 - `apps/livekit-agent/.env` for the Python LiveKit agent.
 
 Key requirements:
@@ -83,7 +86,8 @@ Key requirements:
   `NEXT_PUBLIC_BASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - **LLM providers**: `OPENAI_API_KEY`, `ALIBABA_API_KEY` (DashScope OCR and
   structured extraction), `DASHSCOPE_API_KEY` (voice-agent LLM/STT)
-- **Voice providers**: `MINIMAX_API_KEY` (TTS)
+- **Voice providers**: `DASHSCOPE_API_KEY` for default realtime mode;
+  `MINIMAX_API_KEY` for TTS in pipeline mode
 - **LiveKit**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
   `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`; private/self-hosted deployment is the
   default, and LiveKit Cloud requires `INTERVIEW_SELF_HOSTED=0`
@@ -133,7 +137,7 @@ bun run --filter @app/server test
 ```bash
 cd apps/livekit-agent
 uv sync
-uv run -m livekit.agents download-files
+uv run src/agent.py download-files
 uv run src/agent.py dev
 uv run src/agent.py console
 uv run pytest
@@ -149,15 +153,16 @@ apps/
     src/routes/                 TanStack Router file routes
     src/lib/start/              server functions and Start-only helpers
     src/lib/client/             browser helpers and Hono RPC client
-    src/lib/server/             small web server helpers
+    nitro/                      Nitro plugins and WebSocket handlers
+    src/lib/og-image/            server-only OG response generation
     src/components/             shadcn/ui + project components
     src/server.ts               TanStack Start server entry
     src/client.tsx              browser entry
     vite.config.ts              TanStack Start / Vite / Nitro config
   server/
-    src/server/app.ts           Hono app factory
-    src/server/routes/          route folders with route.ts/schema.ts/dao
-    src/lib/server/             backend runtime helpers
+    src/app.ts                  Hono app factory
+    src/routes/                 route folders with route.ts/schema.ts/dao
+    src/infrastructure/         backend adapters and database-bound facades
     src/index.ts                standalone Bun entrypoint
   desktop/
     src/main/                   Electron main process (Echo capture, SQLite)
@@ -170,15 +175,17 @@ apps/
 packages/
   shared/                     isomorphic contracts, schemas, state machines
   db-schema/                  Drizzle PostgreSQL schema, relations, enums
-  database/                   shared Drizzle database factory and type
+  database/                   Drizzle factory, scoped database context, query helpers
+  recruiting/                 recruiting records, pipeline, AI review, Offer approval
   ai-runtime/                 provider-neutral server-side model primitives
   object-storage/             S3-compatible client, keys, upload/download/copy
-  resume-parse-queue/         BullMQ contracts for resume parse/review/index
   resume-processing/          resume ingest, parsing, review, semantic workflows
   meeting-media/              recording normalization and audio preparation
   meeting-live-transcript/    live-transcript capture/correction/relay contracts
   meeting-processing/         meeting transcription/intelligence/purge workflows
-  meeting-processing-queue/   BullMQ contracts for meeting jobs
+  job-queues/                 BullMQ contracts for resume and meeting jobs
+  feishu/                     Feishu Open Platform client (credentials, docx)
+  recruiting-workflows/       interview, report, notification workflows (server + worker)
 ```
 
 ## Frontend Data Flow
@@ -197,7 +204,7 @@ packages/
 ## Backend Route Layout
 
 Every route folder under
-`apps/server/src/server/routes/` is self-contained:
+`apps/server/src/routes/` is self-contained:
 
 - `route.ts` exports a Hono router.
 - `schema.ts` contains Zod schemas when needed.
@@ -205,7 +212,7 @@ Every route folder under
 - `utils.ts` or `utils/` contains feature-internal helpers.
 - Nested sub-resources live under `routes/` and are mounted from the parent.
 
-Keep middleware inside the closest owning router. `server/app.ts` should remain
+Keep middleware inside the closest owning router. `src/app.ts` should remain
 mount-only.
 
 ## External References
@@ -218,4 +225,5 @@ When touching fast-moving APIs, prefer canonical docs:
 - Hono: <https://hono.dev/llms.txt> and <https://hono.dev/llms-full.txt>
 - LiveKit: `lk docs overview` / `lk docs search`
 
-See `AGENTS.md` and `CLAUDE.md` for detailed repository conventions.
+See [the documentation index](docs/README.md) for current guides and historical records.
+`AGENTS.md` is the shared repository convention; `CLAUDE.md` imports it.

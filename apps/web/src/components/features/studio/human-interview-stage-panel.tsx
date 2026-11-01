@@ -27,6 +27,7 @@ import {
   withoutHumanInterviewReviewSearch,
 } from "./resumes/recruiter-resume-detail-search";
 import { HumanInterviewReviewDialog } from "./human-interview-review-dialog";
+import { getHumanInterviewReviewNavigation } from "./human-interview-review-navigation";
 import { Button } from "@/components/ui/button";
 import { HumanInterviewStageSkeleton } from "./human-interview-stage-skeleton";
 import {
@@ -52,11 +53,13 @@ interface PanelProps {
   targetStage?: "second_interview" | "final_interview";
   candidateId: string;
   candidateName: string;
+  /** 简历头像版本，用于参会情况里显示候选人照片。Resume headshot version for the attendance list. */
+  candidateAvatarVersion?: string | null;
   canCreate?: boolean;
   canDelete?: boolean;
   canUpdate?: boolean;
   // closed 状态时所有写按钮禁用（页面上层已隐藏，这里再兜一手）。
-  // All writes disabled when candidate is closed (defense in depth).
+  // Closed candidates cannot change arrangements; completed rounds still accept supplemental reviews.
   disabled?: boolean;
 }
 
@@ -104,6 +107,7 @@ export function HumanInterviewStagePanel({
   targetStage = "second_interview",
   candidateId,
   candidateName,
+  candidateAvatarVersion = null,
   canCreate = true,
   canDelete = true,
   canUpdate = true,
@@ -116,6 +120,7 @@ export function HumanInterviewStagePanel({
   const queryClient = useQueryClient();
   const { rounds, meetings, roundsQuery, meetingsQuery, initialError, hasData } =
     useHumanInterviewStageQueries(slug, candidateId, true);
+  const { latestRound, newerRound } = getHumanInterviewReviewNavigation(rounds, reviewRoundId);
   const businessRoundNumbers = getHumanInterviewBusinessRoundNumbers(rounds);
 
   function invalidateRounds() {
@@ -277,6 +282,7 @@ export function HumanInterviewStagePanel({
                   }
                   round={round}
                   roundNumber={businessRoundNumbers.get(round.id) ?? 2}
+                  candidateAvatar={{ recordId: candidateId, version: candidateAvatarVersion }}
                   slug={slug}
                 />
               );
@@ -305,6 +311,24 @@ export function HumanInterviewStagePanel({
         </div>
       </div>
 
+      {latestRound ? (
+        <p className="text-sm text-muted-foreground">
+          最近一轮评价：
+          <Link
+            to="."
+            replace
+            resetScroll={false}
+            search={(previous) => ({
+              ...previous,
+              reviewRoundId: latestRound.id,
+              tab: "human-interview",
+            })}
+            className="text-primary underline underline-offset-4"
+          >
+            {latestRound.label} · 查看处理结果
+          </Link>
+        </p>
+      ) : null}
       {roundsContent}
 
       {reviewRoundId ? (
@@ -315,6 +339,7 @@ export function HumanInterviewStagePanel({
           candidateName={candidateName}
           roundId={reviewRoundId}
           roundLabel={rounds.find((round) => round.id === reviewRoundId)?.label}
+          newerRoundLabel={newerRound?.label}
           onSaved={invalidateRounds}
           onClose={() =>
             navigate({

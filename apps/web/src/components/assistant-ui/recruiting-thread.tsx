@@ -7,10 +7,8 @@ import {
   makeAssistantToolUI,
   MessagePrimitive,
   ThreadPrimitive,
-  useEditComposer,
-  useMessage,
+  useAuiState,
 } from "@assistant-ui/react";
-import type { TextMessagePartComponent } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import {
   IconArrowDown,
@@ -24,7 +22,6 @@ import {
 } from "@tabler/icons-react";
 import { useEffect } from "react";
 import type { ComponentProps, ReactNode } from "react";
-import { MarkdownView } from "@/components/features/display/markdown-view";
 import { getCandidateStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";
 import {
   ResumeDocumentFileIcon,
@@ -36,14 +33,30 @@ import {
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { Button } from "@/components/ui/button";
+import { ScrollToBottomButton } from "@/components/ui/scroll-to-bottom-button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { RecruitingMarkdownText } from "./recruiting-markdown-text";
+import {
+  assistantMessageContentClass,
+  assistantMessageRootClass,
+  userMessageBubbleClass,
+  userMessageRootClass,
+} from "./recruiting-message-style";
+import {
+  RecruitingThinkingIndicator,
+  ThinkingClockContext,
+  useThinkingClock,
+} from "./recruiting-thinking-indicator";
 import { pipelineStageMeta, pipelineStageSchema } from "@app/db-schema/studio-interviews";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
 import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import {
+  composerActionsClass,
+  composerInputClass,
   composerSendButtonClass,
+  composerShellClass,
   recruitingComposerDisclaimer,
   recruitingComposerPlaceholder,
 } from "./recruiting-composer-style";
@@ -54,6 +67,7 @@ import {
 } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { RecruitingActionProposalToolUI } from "./recruiting-action-proposal";
+import { ToolChipsGroup } from "./tool-chips";
 import { RecruitingResumeReviewCard } from "./recruiting-resume-review-card";
 import { shouldPresentResumeReviewCard } from "./recruiting-tool-presentation";
 import { useRecruitingComposerShellLayout } from "./use-recruiting-composer-shell-layout";
@@ -64,12 +78,10 @@ import type {
   ResumeRecordDetailResult,
   SearchResumeRecordsResult,
 } from "./recruiting-copilot-context";
-export { RecruitingCopilotContextProvider } from "./recruiting-copilot-context";
-export { NewRecruitingThread } from "./new-recruiting-thread";
 
 function ToolNotice({ children }: { children: string }) {
   return (
-    <div className="aui-tool-notice mt-2 rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+    <div className="aui-tool-notice mt-2 rounded-xl border border-transparent bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
       {children}
     </div>
   );
@@ -183,21 +195,19 @@ function UserActionBar() {
 function EditComposer() {
   return (
     <MessagePrimitive.Root className="aui-edit-composer-wrapper flex flex-col px-2">
-      <ComposerPrimitive.Root className="aui-edit-composer ms-auto flex w-full max-w-[70%] flex-col rounded-[22px] border bg-background shadow-sm">
+      <ComposerPrimitive.Root className="aui-edit-composer ms-auto flex w-full max-w-[70%] flex-col rounded-[14px] border border-transparent bg-control shadow-default">
         <ComposerPrimitive.Input
           autoFocus
-          className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base text-foreground outline-none"
+          className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent px-3.5 pt-2.5 pb-1 text-base text-foreground outline-none"
         />
-        <div className="aui-edit-composer-footer mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
+        <div className="aui-edit-composer-footer mx-1.5 mb-1.5 flex items-center gap-1 self-end">
           <ComposerPrimitive.Cancel asChild>
-            <Button className="h-8 rounded-full px-3.5" size="sm" variant="ghost">
+            <Button size="sm" variant="ghost">
               取消
             </Button>
           </ComposerPrimitive.Cancel>
           <ComposerPrimitive.Send asChild>
-            <Button className="h-8 rounded-full px-3.5" size="sm">
-              更新
-            </Button>
+            <Button size="sm">更新</Button>
           </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
@@ -205,18 +215,23 @@ function EditComposer() {
   );
 }
 
-const MarkdownTextPart: TextMessagePartComponent = ({ text }) => (
-  <MarkdownView className="aui-markdown-text" content={text} />
-);
+// 运行中的思考指示器跟在助手回复内容之后，而不是固定在线程底部。
+function AssistantRunningIndicator() {
+  const isRunning = useAuiState((state) => state.message.status?.type === "running");
+  if (!isRunning) {
+    return null;
+  }
+  return <RecruitingThinkingIndicator className="mt-3" />;
+}
 
 function AssistantMessage() {
   return (
-    <MessagePrimitive.Root
-      className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full min-w-0 px-2 duration-150"
-      data-role="assistant"
-    >
-      <div className="aui-assistant-message-content min-w-0 max-w-full text-foreground leading-7 wrap-break-word">
-        <MessagePrimitive.Parts components={{ Text: MarkdownTextPart }} />
+    <MessagePrimitive.Root className={assistantMessageRootClass} data-role="assistant">
+      <div className={assistantMessageContentClass}>
+        <MessagePrimitive.Parts
+          components={{ Text: RecruitingMarkdownText, ToolGroup: ToolChipsGroup }}
+        />
+        <AssistantRunningIndicator />
       </div>
       <div className="mt-1 flex min-h-8 items-center">
         <BranchPicker />
@@ -229,10 +244,13 @@ function AssistantMessage() {
 function UserMessage() {
   return (
     <MessagePrimitive.Root
-      className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150 [&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]"
+      className={cn(
+        userMessageRootClass,
+        "[&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]",
+      )}
       data-role="user"
     >
-      <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-border bg-muted/55 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-muted/35">
+      <div className={userMessageBubbleClass}>
         <MessagePrimitive.Parts components={{ Text: RecruitingDirectiveText }} />
       </div>
       <div className="flex min-h-8 items-center justify-end">
@@ -244,9 +262,8 @@ function UserMessage() {
 }
 
 function ThreadMessage() {
-  const role = useMessage((message) => message.role);
-  const editComposer = useEditComposer({ optional: true });
-  const isEditing = editComposer?.isEditing ?? false;
+  const role = useAuiState((state) => state.message.role);
+  const isEditing = useAuiState((state) => state.message.composer.isEditing);
   if (isEditing) {
     return <EditComposer />;
   }
@@ -266,11 +283,7 @@ function RecruitingComposerInput({ autoFocus = true }: { autoFocus?: boolean }) 
     <LexicalComposerInput
       aria-label="招聘问题输入"
       autoFocus={autoFocus}
-      className={cn(
-        "aui-composer-input relative -me-3 max-h-36 min-w-0 flex-1 bg-transparent text-base text-foreground",
-        "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-1.5 [&_.aui-lexical-input]:ps-1 [&_.aui-lexical-input]:pe-14 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
-        "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:start-1 [&_.aui-lexical-placeholder]:end-14 [&_.aui-lexical-placeholder]:top-1.5 [&_.aui-lexical-placeholder]:text-muted-foreground",
-      )}
+      className={composerInputClass}
       directiveChip={RecruitingComposerDirectiveChip}
       placeholder={recruitingComposerPlaceholder}
       submitMode="enter"
@@ -288,12 +301,9 @@ function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
           className="aui-composer-root relative flex w-full flex-col"
           onClick={focusComposerInputFromShellClick}
         >
-          <div
-            className="aui-composer-shell relative flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-md transition-shadow focus-within:shadow-xl data-[multiline]:pb-13 data-[multiline]:[&_.aui-lexical-input]:pe-1"
-            ref={composerShellRef}
-          >
+          <div className={composerShellClass} ref={composerShellRef}>
             <RecruitingComposerInput autoFocus={autoFocus} />
-            <div className="aui-composer-action-wrapper absolute right-3 bottom-2 z-1 flex shrink-0 items-center justify-end gap-1">
+            <div className={composerActionsClass}>
               <AuiIf condition={(state) => !state.thread.isRunning}>
                 <ComposerPrimitive.Send asChild>
                   <Button
@@ -310,11 +320,11 @@ function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
                 <ComposerPrimitive.Cancel asChild>
                   <Button
                     aria-label="停止生成"
-                    className="size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90"
+                    className={composerSendButtonClass}
                     size="icon"
                     type="button"
                   >
-                    <IconSquare className="size-3.5 fill-current" />
+                    <IconSquare className="size-3 fill-current" />
                   </Button>
                 </ComposerPrimitive.Cancel>
               </AuiIf>
@@ -370,7 +380,7 @@ function CandidateResumePreviewIcon({ card }: { card: CandidateSummaryCard }) {
             render={
               <Button
                 aria-label={`预览 ${label}`}
-                className="size-8 shrink-0 rounded-md p-0"
+                className="size-8 shrink-0 p-0"
                 onClick={(event) => {
                   event.stopPropagation();
                   openResumePreview({ id: card.id, resumeFileName: card.resumeFileName ?? null });
@@ -416,7 +426,7 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
   const openDetail = () => openResumeDetail(card.id);
 
   return (
-    <div className="aui-candidate-card group relative w-full rounded-xl border bg-background p-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/35">
+    <div className="aui-candidate-card group relative w-full rounded-xl border border-transparent bg-card p-3 text-left shadow-default transition-colors hover:bg-(--gray-2) dark:hover:bg-(--gray-3)">
       <button
         aria-label={`查看 ${card.candidateName} 的简历详情`}
         className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -471,8 +481,9 @@ const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRe
   display: "standalone",
   render: ({ result, status }) => {
     const cards = result?.candidateSummaryCards ?? [];
+    // 运行状态由工具调用条展示。
     if (status.type === "running") {
-      return <ToolNotice>正在检索候选人...</ToolNotice>;
+      return null;
     }
     if (cards.length === 0) {
       return (
@@ -602,59 +613,53 @@ export function RecruitingThread({
   historyLoadingFallback: ReactNode;
   isRunning: boolean;
 }) {
+  const lastMessageRole = useAuiState((state) => state.thread.messages.at(-1)?.role);
+  // 助手消息出现前（刚发送）在线程末尾占位；之后由助手消息自己展示。
+  const awaitingAssistantMessage = isRunning && lastMessageRole !== "assistant";
+  const thinkingClock = useThinkingClock(isRunning);
   return (
-    <ThreadPrimitive.Root
-      aria-busy={historyLoading || undefined}
-      className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
-      inert={historyLoading || undefined}
-      style={activeThreadStyle}
-    >
-      <div className="relative flex min-h-0 flex-1">
-        <div className="relative flex min-w-0 flex-1 flex-col">
-          <ThreadPrimitive.Viewport
-            autoScroll
-            className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-(--header-height) scroll-smooth"
-            scrollToBottomOnRunStart
-            turnAnchor="top"
-          >
-            <SkeletonReveal
-              className="min-h-full"
-              contentClassName="min-h-full"
-              loading={historyLoading}
-              skeleton={historyLoadingFallback}
+    <ThinkingClockContext.Provider value={thinkingClock}>
+      <ThreadPrimitive.Root
+        aria-busy={historyLoading || undefined}
+        className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
+        inert={historyLoading || undefined}
+        style={activeThreadStyle}
+      >
+        <div className="relative flex min-h-0 flex-1">
+          <div className="relative flex min-w-0 flex-1 flex-col">
+            <ThreadPrimitive.Viewport
+              autoScroll
+              className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-(--header-height) scroll-smooth"
+              scrollToBottomOnRunStart
+              turnAnchor="top"
             >
-              <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
-                <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
-                {isRunning ? (
-                  <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
-                    思考中...
-                  </div>
-                ) : null}
+              <SkeletonReveal
+                className="min-h-full"
+                contentClassName="min-h-full"
+                loading={historyLoading}
+                skeleton={historyLoadingFallback}
+              >
+                <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
+                  <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
+                  {awaitingAssistantMessage ? <RecruitingThinkingIndicator /> : null}
+                </div>
+              </SkeletonReveal>
+            </ThreadPrimitive.Viewport>
+            <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
+              <div className="relative mx-auto w-full max-w-(--thread-max-width)">
+                <ThreadPrimitive.ScrollToBottom asChild>
+                  <ScrollToBottomButton className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 -translate-x-1/2 disabled:invisible" />
+                </ThreadPrimitive.ScrollToBottom>
+                <Composer autoFocus={!historyLoading} />
+                <p className="mt-2 text-center text-muted-foreground text-xs">
+                  {recruitingComposerDisclaimer}
+                </p>
               </div>
-            </SkeletonReveal>
-          </ThreadPrimitive.Viewport>
-          <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
-            <div className="relative mx-auto w-full max-w-(--thread-max-width)">
-              <ThreadPrimitive.ScrollToBottom asChild>
-                <Button
-                  aria-label="回到底部"
-                  className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
-                  size="icon"
-                  type="button"
-                  variant="outline"
-                >
-                  <IconArrowDown className="size-4" />
-                </Button>
-              </ThreadPrimitive.ScrollToBottom>
-              <Composer autoFocus={!historyLoading} />
-              <p className="mt-2 text-center text-muted-foreground text-xs">
-                {recruitingComposerDisclaimer}
-              </p>
             </div>
           </div>
+          <RecruitingContextPanel />
         </div>
-        <RecruitingContextPanel />
-      </div>
-    </ThreadPrimitive.Root>
+      </ThreadPrimitive.Root>
+    </ThinkingClockContext.Provider>
   );
 }

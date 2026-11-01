@@ -4,11 +4,14 @@ import type { JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { IconCopy } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,40 +37,76 @@ function JobDescriptionPreviewSkeleton() {
   );
 }
 
-function JobDescriptionPreview({ record }: { record: JobDescriptionRecord }) {
+function JobDescriptionPreview({
+  code,
+  internalCriteria,
+  interviewerCount,
+  name,
+  prompt,
+}: {
+  code?: string | null;
+  internalCriteria?: string | null;
+  interviewerCount?: number;
+  name: string;
+  prompt: string;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 wrap-break-word font-medium text-sm leading-5">{record.name}</h3>
-          {record.code ? (
+          <h3 className="min-w-0 wrap-break-word font-medium text-sm leading-5">{name}</h3>
+          {code ? (
             <Badge className="shrink-0 font-mono" variant="secondary">
-              {record.code}
+              {code}
             </Badge>
           ) : null}
         </div>
-        <p className="text-muted-foreground text-xs">
-          已配置 {record.interviewerIds.length} 位面试官
-        </p>
+        {interviewerCount === undefined ? null : (
+          <p className="text-muted-foreground text-xs">已配置 {interviewerCount} 位面试官</p>
+        )}
       </div>
 
       <section className="flex flex-col gap-1">
-        <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
-        <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
-          <MarkdownView className="pr-3 text-sm" content={record.prompt.trim() || "未填写"} />
+        <div className="flex items-center gap-1">
+          <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
+          <Button
+            aria-label="复制岗位 JD Markdown 原文"
+            disabled={!prompt.trim()}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(prompt);
+                toast.success("岗位 JD Markdown 原文已复制");
+              } catch {
+                toast.error("复制失败，请重试或手动复制");
+              }
+            }}
+            size="icon-xs"
+            title="复制 Markdown 原文"
+            variant="ghost"
+          >
+            <IconCopy />
+          </Button>
+        </div>
+        <ScrollArea className="max-h-80 [--scroll-fade-reveal:1rem]" scrollFade>
+          <MarkdownView className="pr-3 text-sm" content={prompt.trim() || "未填写"} />
         </ScrollArea>
       </section>
-      {record.internalCriteria?.trim() ? (
+      {internalCriteria?.trim() ? (
         <section className="flex flex-col gap-1">
           <h4 className="font-medium text-muted-foreground text-xs">内部标准</h4>
           <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
-            <MarkdownView className="pr-3 text-sm" content={record.internalCriteria} />
+            <MarkdownView className="pr-3 text-sm" content={internalCriteria} />
           </ScrollArea>
         </section>
       ) : null}
     </div>
   );
 }
+
+const TRIGGER_BUTTON_CLASS =
+  "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none";
+const HOVER_CARD_CONTENT_CLASS =
+  "w-[30rem] max-w-[calc(100vw-2rem)] max-h-[var(--available-height)] overflow-y-auto";
 
 export interface JobDescriptionHoverCardDependencies {
   fetchDetail: (slug: string, id: string) => Promise<JobDescriptionRecord>;
@@ -79,11 +118,14 @@ export function JobDescriptionHoverCardView({
   className,
   jobDescriptionId,
   name,
+  triggerElement = "button",
 }: {
   dependencies: JobDescriptionHoverCardDependencies;
   className?: string;
   jobDescriptionId: string | null | undefined;
   name: string | null | undefined;
+  /** 放在其他按钮里时用 `span`，避免按钮嵌套。/ Use `span` inside another button to avoid nesting. */
+  triggerElement?: "button" | "span";
 }) {
   const { fetchDetail, slug } = dependencies;
   const [open, setOpen] = useState(false);
@@ -108,33 +150,55 @@ export function JobDescriptionHoverCardView({
 
   return (
     <HoverCard onOpenChange={setOpen} open={open}>
-      <HoverCardTrigger
-        render={
-          <button
-            className={cn(
-              "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
-              className,
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpen(true);
-            }}
-            type="button"
-          >
-            {displayName}
-          </button>
-        }
-      />
+      {triggerElement === "span" ? (
+        <HoverCardTrigger
+          onClick={(event) => {
+            // 嵌在整行按钮里：点击只打开预览，不触发整行。/ Inside a row button: open, don't activate the row.
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(true);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          render={
+            <span className={cn("text-left underline-offset-4 hover:underline", className)} />
+          }
+        >
+          {displayName}
+        </HoverCardTrigger>
+      ) : (
+        <HoverCardTrigger
+          render={
+            <button
+              className={cn(TRIGGER_BUTTON_CLASS, className)}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(true);
+              }}
+              type="button"
+            >
+              {displayName}
+            </button>
+          }
+        />
+      )}
       <HoverCardContent
         align="start"
-        className="w-96 max-w-[calc(100vw-2rem)]"
+        className={HOVER_CARD_CONTENT_CLASS}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         sideOffset={8}
       >
         {isPending || record ? (
           <SkeletonReveal loading={isPending} skeleton={<JobDescriptionPreviewSkeleton />}>
-            {record ? <JobDescriptionPreview record={record} /> : null}
+            {record ? (
+              <JobDescriptionPreview
+                code={record.code}
+                internalCriteria={record.internalCriteria}
+                interviewerCount={record.interviewerIds.length}
+                name={record.name}
+                prompt={record.prompt}
+              />
+            ) : null}
           </SkeletonReveal>
         ) : null}
         {isError ? (
@@ -149,6 +213,7 @@ export function JobDescriptionHoverCard(props: {
   className?: string;
   jobDescriptionId: string | null | undefined;
   name: string | null | undefined;
+  triggerElement?: "button" | "span";
 }) {
   const slug = useOptionalWorkspaceSlug();
   return (
@@ -165,5 +230,41 @@ export function JobDescriptionHoverCard(props: {
         slug,
       }}
     />
+  );
+}
+
+// 公开链接页面没有工作区上下文，直接用页面已有的 JD 文本渲染同一张岗位预览卡。
+// Public link pages have no workspace context, so they render the same preview from the JD text
+// they already hold.
+export function JobDescriptionPromptHoverCard({
+  className,
+  name,
+  prompt,
+}: {
+  className?: string;
+  name: string;
+  prompt: string | null | undefined;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!prompt?.trim()) {
+    return <span className={className}>{name}</span>;
+  }
+  return (
+    <HoverCard onOpenChange={setOpen} open={open}>
+      <HoverCardTrigger
+        render={
+          <button
+            className={cn(TRIGGER_BUTTON_CLASS, className)}
+            onClick={() => setOpen(true)}
+            type="button"
+          >
+            {name}
+          </button>
+        }
+      />
+      <HoverCardContent align="start" className={HOVER_CARD_CONTENT_CLASS} sideOffset={8}>
+        <JobDescriptionPreview name={name} prompt={prompt} />
+      </HoverCardContent>
+    </HoverCard>
   );
 }

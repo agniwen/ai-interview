@@ -1,21 +1,34 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconLoader2, IconX } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
-import { buildJobDescriptionInterviewerOptions } from "@app/shared/job-description-interviewers";
+import {
+  buildJobDescriptionInterviewerOptions,
+  filterInterviewerIdsByDepartment,
+} from "@app/shared/job-description-interviewers";
+import { pickJobDescriptionAgentPageContext } from "@app/shared/job-description-agent";
+import type { JobDescriptionAgentPageContext } from "@app/shared/job-description-agent";
 import { jobDescriptionFormSchema } from "@app/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@app/shared/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
+import {
+  subscribeToFormStore,
+  useRegisterSubjectAgentForm,
+} from "@/components/features/subject-agent/subject-agent-context";
+import type { SubjectAgentFormBridge } from "@/components/features/subject-agent/subject-agent-context";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
+import { EditorPageSurface } from "../editor-page-surface";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
 import { JobDescriptionBasicSettingsFields } from "./job-description-basic-settings-fields";
 import { JobDescriptionAiSupplementModal } from "./job-description-form-modals";
@@ -32,30 +45,42 @@ import {
 import { JobDescriptionPromptFields } from "./job-description-prompt-fields";
 import { useJobDescriptionFormActions } from "./use-job-description-form-actions";
 
-export { emptyJobDescriptionFormValues } from "./job-description-form-values";
-
 export function isJobDescriptionFormTab(value: string): value is JobDescriptionFormTab {
   return value === "basic" || value === "interview-questions" || value === "forms";
 }
 
+// oxlint-disable-next-line complexity -- Shared editor retains existing tabs, creation dependencies, and page/dialog presentation.
 export function JobDescriptionFormDialog({
+  presentation = "dialog",
+  defaultDepartmentId = "",
   initialDraft,
   open,
   onOpenChange,
   record,
   departments,
   interviewers,
+  onDepartmentCreated,
   onSaved,
+  onCreated,
 }: {
+  /** 新建岗位时预选的部门（如当前部门栏选中的部门）。Department preselected for a new job. */
+  defaultDepartmentId?: string;
+  presentation?: "dialog" | "page";
   initialDraft?: JobDescriptionFormValues | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: JobDescriptionRecord | null;
   departments: DepartmentRecord[];
   interviewers: InterviewerListRecord[];
+  /** 表单内新建部门后刷新部门列表。Refreshes the department list after an inline create. */
+  onDepartmentCreated?: () => Promise<void> | void;
   onSaved: (record: JobDescriptionRecord) => void;
+  onCreated?: (id: string) => void;
 }) {
+  const Surface = presentation === "page" ? EditorPageSurface : Modal;
   const slug = useWorkspaceSlug();
+  const canCreateDepartment = useHasPermission("department", "create");
+  const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const [pendingGeneratedJobDescription, setPendingGeneratedJobDescription] = useState<{
     jobDescription: string;
@@ -67,8 +92,11 @@ export function JobDescriptionFormDialog({
     () =>
       record
         ? toDepartmentScopedFormValues(record, interviewers)
-        : (initialDraft ?? emptyJobDescriptionFormValues()),
-    [initialDraft, interviewers, record],
+        : (initialDraft ?? {
+            ...emptyJobDescriptionFormValues(),
+            departmentId: defaultDepartmentId,
+          }),
+    [defaultDepartmentId, initialDraft, interviewers, record],
   );
   const form = useForm({
     defaultValues: resolvedInitialValues,
@@ -83,7 +111,11 @@ export function JobDescriptionFormDialog({
     form,
     onSaved: (saved) => {
       onSaved(saved);
-      onOpenChange(false);
+      if (!record && onCreated) {
+        onCreated(saved.id);
+      } else {
+        onOpenChange(false);
+      }
     },
     pendingGeneratedJobDescription,
     setPendingGeneratedJobDescription,
@@ -93,14 +125,58 @@ export function JobDescriptionFormDialog({
   useEffect(() => {
     submitRef.current = actions.submitJobDescription;
   }, [actions.submitJobDescription]);
+  // 岗位助手只写入未保存的表单（ADR-0045）；不在助手 Provider 内时登记为空操作。
+  const agentFormBridge = useMemo<SubjectAgentFormBridge>(
+    () => ({
+      getPageContext: () => pickJobDescriptionAgentPageContext(form.state.values),
+      getSavedContext: () =>
+        record ? pickJobDescriptionAgentPageContext(resolvedInitialValues) : null,
+      kind: "job_description",
+      subscribe: (listener) => subscribeToFormStore(form.store, listener),
+      write: (values: Partial<JobDescriptionAgentPageContext>) => {
+        setActiveTab("basic");
+        // 先写跨部门开关和部门，再写面试官：补丁已在 Server 端校验过三者的组合。
+        const writes = [
+          ["allowCrossDepartmentInterviewers", values.allowCrossDepartmentInterviewers],
+          ["departmentId", values.departmentId],
+          ["interviewerIds", values.interviewerIds],
+          ["reportingManagerUserId", values.reportingManagerUserId],
+          ["name", values.name],
+          ["prompt", values.prompt],
+          ["internalCriteria", values.internalCriteria],
+          ["headcount", values.headcount],
+          ["priority", values.priority],
+          ["jobWeight", values.jobWeight],
+          ["salaryMinK", values.salaryMinK],
+          ["salaryMaxK", values.salaryMaxK],
+          ["targetDate", values.targetDate],
+          ["publishedDate", values.publishedDate],
+          ["referralChannels", values.referralChannels],
+        ] as const;
+        for (const [field, value] of writes) {
+          if (value !== undefined) {
+            form.setFieldValue(field, value);
+          }
+        }
+      },
+    }),
+    [form, record, resolvedInitialValues],
+  );
+  useRegisterSubjectAgentForm(agentFormBridge);
+  // 只在打开或切换记录时重置；打开期间部门/面试官列表刷新（如表单内新建部门）不能清掉正在编辑的内容。
+  // Reset only on open or a record switch; list refreshes while open (e.g. an inline department
+  // create) must not wipe in-progress edits.
+  const resetOnOpen = useEffectEvent(() => {
+    form.reset(resolvedInitialValues);
+    setActiveTab("basic");
+    setPendingGeneratedJobDescription(null);
+  });
   useEffect(() => {
     if (open) {
-      form.reset(resolvedInitialValues);
       // oxlint-disable-next-line react/set-state-in-effect -- opening a different record resets dialog-local navigation state
-      setActiveTab("basic");
-      setPendingGeneratedJobDescription(null);
+      resetOnOpen();
     }
-  }, [form, open, resolvedInitialValues]);
+  }, [defaultDepartmentId, initialDraft, open, record]);
 
   const { data: workspaceMembers } = useQuery({
     enabled: open,
@@ -115,6 +191,7 @@ export function JobDescriptionFormDialog({
   const reportingManagerOptions = useMemo(
     () =>
       (workspaceMembers?.records ?? []).map((member) => ({
+        avatarUrl: member.image,
         label: member.name,
         value: member.id,
       })),
@@ -178,14 +255,29 @@ export function JobDescriptionFormDialog({
       ),
     [allowCrossDepartmentInterviewers, interviewers, selectedDepartmentId],
   );
-  const missingRefs = departments.length === 0 || interviewers.length === 0;
+  // 部门可在表单内新建，只有面试官缺失时才无法保存。Departments can be created inline.
+  const missingRefs = interviewers.length === 0;
+
+  async function handleDepartmentCreated({ id }: { id: string }) {
+    await onDepartmentCreated?.();
+    form.setFieldValue("departmentId", id);
+    form.setFieldValue(
+      "interviewerIds",
+      filterInterviewerIdsByDepartment(
+        interviewers,
+        id,
+        form.getFieldValue("interviewerIds"),
+        form.getFieldValue("allowCrossDepartmentInterviewers"),
+      ),
+    );
+  }
 
   return (
     <Tabs
       onValueChange={(value) => isJobDescriptionFormTab(value) && setActiveTab(value)}
       value={activeTab}
     >
-      <Modal
+      <Surface
         bodyClassName="px-5 py-3"
         description="岗位 JD 用于描述职责和核心要求；内部标准可补充仅供招聘端使用的评价依据。"
         footer={
@@ -196,6 +288,7 @@ export function JobDescriptionFormDialog({
               type="button"
               variant="outline"
             >
+              <IconX data-icon="inline-start" />
               取消
             </Button>
             <Button
@@ -203,7 +296,11 @@ export function JobDescriptionFormDialog({
               form="job-description-form"
               type="submit"
             >
-              {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+              {isSubmitting ? (
+                <IconLoader2 className="animate-spin" data-icon="inline-start" />
+              ) : (
+                <IconDeviceFloppy data-icon="inline-start" />
+              )}
               {isSubmitting ? "保存中" : "保存"}
             </Button>
           </>
@@ -232,27 +329,38 @@ export function JobDescriptionFormDialog({
           }}
         >
           <TabsContent motion="page" value="basic">
-            <FieldGroup className="mt-2 gap-4">
-              <JobDescriptionBasicSettingsFields
-                allowCrossDepartmentInterviewers={allowCrossDepartmentInterviewers}
-                codeLocked={Boolean(record?.code)}
-                departments={departments}
-                evaluationFrozen={false}
-                form={form}
-                handleGenerateCode={actions.handleGenerateCode}
-                interviewers={interviewers}
-                interviewerOptions={interviewerOptions}
-                isGeneratingCode={actions.isGeneratingCode}
-                reportingManagerOptions={reportingManagerOptions}
-                selectedDepartmentId={selectedDepartmentId}
-                selectedInterviewerIds={selectedInterviewerIds}
-              />
-              <JobDescriptionPromptFields
-                form={form}
-                handleGenerateJobDescription={actions.handleGenerateJobDescription}
-                isGeneratingJobDescription={actions.isGeneratingJobDescription}
-              />
-            </FieldGroup>
+            <div
+              className={
+                presentation === "page" ? "mx-auto w-full max-w-4xl space-y-6" : "mt-2 space-y-4"
+              }
+            >
+              <FieldGroup className="min-w-0">
+                <JobDescriptionBasicSettingsFields
+                  allowCrossDepartmentInterviewers={allowCrossDepartmentInterviewers}
+                  codeLocked={Boolean(record?.code)}
+                  departments={departments}
+                  evaluationFrozen={false}
+                  form={form}
+                  handleGenerateCode={actions.handleGenerateCode}
+                  interviewers={interviewers}
+                  interviewerOptions={interviewerOptions}
+                  isGeneratingCode={actions.isGeneratingCode}
+                  onCreateDepartment={
+                    canCreateDepartment ? () => setDepartmentDialogOpen(true) : undefined
+                  }
+                  reportingManagerOptions={reportingManagerOptions}
+                  selectedDepartmentId={selectedDepartmentId}
+                  selectedInterviewerIds={selectedInterviewerIds}
+                />
+              </FieldGroup>
+              <FieldGroup className="min-w-0 gap-6">
+                <JobDescriptionPromptFields
+                  form={form}
+                  handleGenerateJobDescription={actions.handleGenerateJobDescription}
+                  isGeneratingJobDescription={actions.isGeneratingJobDescription}
+                />
+              </FieldGroup>
+            </div>
           </TabsContent>
           {record ? (
             <TabsContent motion="page" value="interview-questions">
@@ -273,7 +381,14 @@ export function JobDescriptionFormDialog({
             </TabsContent>
           ) : null}
         </form>
-      </Modal>
+      </Surface>
+      {/* 只有具备部门创建权限时才会出现打开入口。Only reachable through the permission-gated button. */}
+      <DepartmentFormDialog
+        onOpenChange={setDepartmentDialogOpen}
+        onSaved={handleDepartmentCreated}
+        open={departmentDialogOpen}
+        record={null}
+      />
       <JobDescriptionAiSupplementModal
         applyGeneratedJobDescription={actions.applyGeneratedJobDescription}
         pending={pendingGeneratedJobDescription}

@@ -1,5 +1,4 @@
 import type { OfferDraftStatus } from "@app/db-schema/studio-interviews";
-import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
 
 export type DashboardActionSeverity = "info" | "warning" | "danger";
 
@@ -88,7 +87,7 @@ export interface DashboardVacancyRow {
 }
 
 export interface RecruitingDashboardMetrics {
-  resume: ResumeLibraryMetrics;
+  resume: { conversion: { withInterview: number; withoutInterview: number } };
   actions: DashboardActionItem[];
   activity: DashboardActivityRow[];
   jobPipeline: DashboardJobPipelineRow[];

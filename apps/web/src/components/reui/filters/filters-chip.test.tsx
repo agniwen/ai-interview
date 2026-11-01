@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FilterValuePopover } from "@/components/reui/filters/filters-chip";
+import { FilterChip, FilterValuePopover } from "@/components/reui/filters/filters-chip";
 import { Filters, createFilterQuery, createFilterRule } from "@/components/reui/filters/filters";
 import type {
   FilterEditorProps,
@@ -138,5 +138,50 @@ describe("FilterValuePopover draft lifecycle", () => {
 
     expect(observedDrafts.at(-1)).toBe("draft");
     expect(observedDrafts.every((value) => value === "draft")).toBe(true);
+  });
+});
+
+function renderChipLabel(field: FilterField, operatorValue: string) {
+  const rule = createFilterRule({ id: "rule-1", path: [field.id], operator: operatorValue });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+
+  act(() =>
+    root.render(
+      <Filters fields={[field]} query={createFilterQuery([rule])}>
+        <FilterChip index={0} rule={rule} />
+      </Filters>,
+    ),
+  );
+
+  const label = [...document.querySelectorAll("label")].find(
+    (entry) => entry.textContent === field.label,
+  );
+  return { control: label?.control ?? null, unmount: () => act(() => root.unmount()) };
+}
+
+describe("FilterChip field label", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("labels the inline text input with the field name", () => {
+    const { control, unmount } = renderChipLabel(
+      { id: "phone", label: "电话", type: "text" },
+      "contains",
+    );
+    expect(control).toBe(document.querySelector('input[aria-label="电话"]'));
+    unmount();
+  });
+
+  it("labels the value trigger of an option field with the field name", () => {
+    const { control, unmount } = renderChipLabel(
+      { id: "stage", label: "阶段", type: "select", options: [{ value: "a", label: "A" }] },
+      "is",
+    );
+    expect(control?.tagName).toBe("BUTTON");
+    expect(control?.closest('[data-slot="filter-chip"]')).not.toBeNull();
+    unmount();
   });
 });

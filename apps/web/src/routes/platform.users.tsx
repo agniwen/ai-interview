@@ -55,7 +55,7 @@ export const Route = createFileRoute("/platform/users")({
     return state;
   },
   head: () => ({
-    meta: [{ title: formatDocumentTitle("平台 · 所有用户") }],
+    meta: [{ title: formatDocumentTitle("平台 · 用户管理") }],
   }),
   component: PlatformUsersRoute,
   shouldReload: false,

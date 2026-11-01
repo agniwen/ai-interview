@@ -1,5 +1,5 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import type { QualitativeResumeEvaluationWithDimensionLevels } from "@app/db-schema/qualitative-resume-evaluation";
 import type {
   studioInterviewQuestionClientSchema,
   HumanInterviewEvaluationDraft,
@@ -42,6 +42,8 @@ export interface HumanInterviewCandidateMaterialListResponse {
 
 export interface HumanInterviewCandidateOverviewResponse {
   candidate: {
+    /** 简历头像版本；没有头像时为 null。/ Resume headshot version, or null without one. */
+    avatarVersion: string | null;
     candidateEmail: string | null;
     candidateName: string;
     candidatePhone: string | null;
@@ -56,9 +58,10 @@ export interface HumanInterviewCandidateOverviewResponse {
 }
 
 export interface HumanInterviewCandidateAiEvaluationResponse {
+  generatedAt: string | null;
   aiEvaluation:
     | {
-        evaluation: QualitativeResumeEvaluationV2;
+        evaluation: QualitativeResumeEvaluationWithDimensionLevels;
         status: "ready";
       }
     | {
@@ -80,9 +83,11 @@ export interface HumanInterviewCandidateHrInformationResponse {
     outcome: HumanInterviewRoundOutcome | null;
     submittedAt: string | null;
     submittedBy: string | null;
+    submittedByImage: string | null;
     values: Pick<
       HumanInterviewEvaluationDraft,
       | "rating"
+      | "overallEvaluation"
       | "seniorityPosition"
       | "rolePosition"
       | "professionalSkill"
@@ -95,4 +100,44 @@ export interface HumanInterviewCandidateHrInformationResponse {
 
 export interface HumanInterviewCandidateQuestionsResponse {
   interviewQuestions: HumanInterviewCandidateQuestion[];
+  questionHistory: HumanInterviewQuestionEdit[];
+  canEditQuestions: boolean;
+}
+
+export function questionChecklistKey(question: HumanInterviewCandidateQuestion): string {
+  return JSON.stringify([question.dimension ?? "business", question.question.trim()]);
+}
+
+export const humanInterviewQuestionEditSchema = z.object({
+  asked: z.boolean(),
+  meetingId: z.string(),
+  meetingTitle: z.string(),
+  operatorName: z.string(),
+  question: z.string(),
+  questionKey: z.string(),
+  sequence: z.number().int().positive(),
+});
+
+export type HumanInterviewQuestionEdit = z.infer<typeof humanInterviewQuestionEditSchema> & {
+  id: string;
+  operatorId: string | null;
+  createdAt: string;
+};
+
+export const setHumanInterviewQuestionAskedSchema = z
+  .object({
+    asked: z.boolean(),
+    questionKey: z.string().min(1).max(20_000),
+  })
+  .strict();
+
+export function canEditHumanInterviewQuestions(
+  scope: { status: string; validUntil: string | null },
+  now = Date.now(),
+): boolean {
+  return (
+    (scope.status === "scheduled" || scope.status === "in_progress") &&
+    scope.validUntil !== null &&
+    Date.parse(scope.validUntil) >= now
+  );
 }

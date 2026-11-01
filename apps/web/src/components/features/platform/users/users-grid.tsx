@@ -2,7 +2,7 @@
 
 import { listTextQuery } from "@app/shared/list-text-filters";
 
-import { IconBan, IconBuilding, IconShieldCheck, IconUsers } from "@tabler/icons-react";
+import { IconBan, IconBuilding, IconPlus, IconShieldCheck, IconUsers } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,46 @@ import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatDate, formatDateOnly } from "@app/shared/utils/time";
 import { formatUserNameWithRemark } from "./user-display";
+import { UserFormDialog } from "./user-form-dialog";
+import type { PlatformUserAdmin } from "./user-form-dialog";
+
+const INITIAL_WORKSPACE_OPTION_LIMIT = 10;
+
+interface WorkspaceOptionsQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+  sortBy: "name";
+  sortOrder: "asc";
+}
+
+const platformUserAdmin: PlatformUserAdmin = {
+  async addUserToWorkspace({ organizationId, role, userId }) {
+    await rpcFetch(
+      rpc.api.platform.users[":userId"].workspaces.$post({
+        json: { organizationId, role },
+        param: { userId },
+      }),
+      "加入工作区失败",
+    );
+  },
+  createUser: (input) => authClient.admin.createUser(input),
+  async searchWorkspaces(search) {
+    const query: WorkspaceOptionsQuery = {
+      page: "1",
+      pageSize: String(INITIAL_WORKSPACE_OPTION_LIMIT),
+      sortBy: "name",
+      sortOrder: "asc",
+    };
+    if (search) {
+      query.search = search;
+    }
+    const result = await rpcFetch(rpc.api.platform.organizations.$get({ query }), "加载工作区失败");
+    return result.records.map(({ id, name, slug }) => ({ id, name, slug }));
+  },
+  setUserPassword: (input) => authClient.admin.setUserPassword(input),
+  updateUser: (input) => authClient.admin.updateUser(input),
+};
 
 interface UserRecord {
   id: string;
@@ -317,6 +357,12 @@ export function UsersGrid() {
   const [remarkValue, setRemarkValue] = useState("");
   const [remarkPending, setRemarkPending] = useState(false);
   const [workspacesTarget, setWorkspacesTarget] = useState<UserRecord | null>(null);
+  // user 为 null 时是创建模式；关闭时保留 user，避免退场动画中标题跳变。
+  // A null user means create mode; keep the user while closing so the title doesn't flip mid-exit.
+  const [userForm, setUserForm] = useState<{ open: boolean; user: UserRecord | null }>({
+    open: false,
+    user: null,
+  });
 
   function openRemarkDialog(record: UserRecord) {
     setRemarkTarget(record);
@@ -508,6 +554,10 @@ export function UsersGrid() {
           onClick: (r) => setWorkspacesTarget(r),
         },
         {
+          label: "编辑用户",
+          onClick: (r) => setUserForm({ open: true, user: r }),
+        },
+        {
           label: "编辑备注",
           onClick: (r) => openRemarkDialog(r),
         },
@@ -556,6 +606,23 @@ export function UsersGrid() {
           },
         ]}
         getRowId={(r) => r.id}
+        toolbarRight={
+          <Button
+            className="flex-1 sm:flex-none"
+            onClick={() => setUserForm({ open: true, user: null })}
+          >
+            <IconPlus className="size-4" />
+            创建用户
+          </Button>
+        }
+      />
+
+      <UserFormDialog
+        onOpenChange={(open) => setUserForm((current) => ({ ...current, open }))}
+        onSaved={grid.invalidate}
+        open={userForm.open}
+        user={userForm.user}
+        userAdmin={platformUserAdmin}
       />
 
       <Dialog

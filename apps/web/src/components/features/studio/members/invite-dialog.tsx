@@ -147,7 +147,7 @@ export function InviteDialog({
               </InputGroupAddon>
               <InputGroupInput
                 id="invite-email"
-                autoComplete="email"
+                autoComplete="off"
                 inputMode="email"
                 maxLength={EMAIL_MAX_LENGTH}
                 onChange={(e) => setEmail(e.target.value)}

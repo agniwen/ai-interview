@@ -1,7 +1,7 @@
 "use client";
 
 import { IconEye } from "@tabler/icons-react";
-import type { ReactElement } from "react";
+import type { ReactElement, ComponentProps } from "react";
 import { useState } from "react";
 import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
 import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
@@ -54,6 +54,7 @@ export interface ResumeDocumentPreviewButtonProps {
   label?: string;
   className?: string;
   disabled?: boolean;
+  variant?: ComponentProps<typeof Button>["variant"];
 }
 
 export function ResumeDocumentPreviewButton({
@@ -63,6 +64,7 @@ export function ResumeDocumentPreviewButton({
   label = "预览",
   className,
   disabled,
+  variant = "ghost",
 }: ResumeDocumentPreviewButtonProps) {
   const [open, setOpen] = useState(false);
   const kind = getPreviewableResumeDocumentKind({ fileName: filename, mediaType });
@@ -79,6 +81,7 @@ export function ResumeDocumentPreviewButton({
         filename={filename ?? undefined}
         label={label}
         url={url}
+        variant={variant}
       />
     );
   }
@@ -86,14 +89,14 @@ export function ResumeDocumentPreviewButton({
   return (
     <>
       <Button
-        className={cn("h-8 shrink-0 gap-1.5", className)}
+        className={cn("shrink-0", className)}
         disabled={disabled}
         onClick={() => setOpen(true)}
         size="sm"
         type="button"
-        variant="ghost"
+        variant={variant}
       >
-        <IconEye className="size-3.5" />
+        <IconEye />
         {label}
       </Button>
       {open && !disabled ? (

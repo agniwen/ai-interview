@@ -3,6 +3,7 @@ import { GlobalConfigForm } from "@/components/features/studio/global-config/glo
 import { GlobalConfigPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioGlobalConfigState } from "@/lib/start/studio/global-config.functions";
+import { requireStudioPagePermission } from "@/lib/start/studio-page-permission";
 
 function StudioGlobalConfigRoute() {
   const state = useLoaderData({ from: "/w/$slug/studio/global-config" });
@@ -19,7 +20,8 @@ function StudioGlobalConfigRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/global-config")({
-  loader: async ({ params }) => {
+  loader: async ({ params, parentMatchPromise }) => {
+    await requireStudioPagePermission(parentMatchPromise, "globalConfig");
     const state = await loadStudioGlobalConfigState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({

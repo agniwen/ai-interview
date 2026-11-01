@@ -189,10 +189,6 @@ function uniformTypeToGLSLType(t: string) {
 const LinearFilter = 9729;
 const NearestFilter = 9728;
 const LinearMipMapLinearFilter = 9987;
-const NearestMipMapLinearFilter = 9986;
-const LinearMipMapNearestFilter = 9985;
-const NearestMipMapNearestFilter = 9984;
-const MirroredRepeatWrapping = 33_648;
 const ClampToEdgeWrapping = 33_071;
 const RepeatWrapping = 10_497;
 

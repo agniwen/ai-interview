@@ -15,8 +15,8 @@ import type { createMeetingTranscriptionDao } from "@app/meeting-processing/tran
 import type {
   HumanInterviewRecordingJobData,
   HumanInterviewTrackRecordingJobData,
-} from "@app/meeting-processing-queue/human-interview-recording";
-import type { enqueueMeetingTranscriptionJobs } from "@app/meeting-processing-queue/meeting-transcription";
+} from "@app/job-queues/human-interview-recording";
+import type { enqueueMeetingTranscriptionJobs } from "@app/job-queues/meeting-transcription";
 import { Context, Data, Effect, Layer } from "effect";
 import { z } from "zod";
 import { detectCandidateSilence } from "@app/meeting-media";
@@ -41,14 +41,15 @@ export interface HumanInterviewRecordingProcessorDependencies {
   markTranscriptionUnavailable: ReturnType<
     typeof createHumanInterviewRecordingDao
   >["markHumanInterviewTranscriptionUnavailable"];
+  requestEvaluation: (input: { meetingSessionId: string; organizationId: string }) => Promise<void>;
 }
 
-export class HumanInterviewRecordingProcessor extends Context.Service<
+class HumanInterviewRecordingProcessor extends Context.Service<
   HumanInterviewRecordingProcessor,
   HumanInterviewRecordingProcessorDependencies
 >()("@app/worker/HumanInterviewRecordingProcessor") {}
 
-export const humanInterviewRecordingProcessorLayer = (
+const humanInterviewRecordingProcessorLayer = (
   dependencies: HumanInterviewRecordingProcessorDependencies,
 ) => Layer.succeed(HumanInterviewRecordingProcessor, dependencies);
 
@@ -62,6 +63,28 @@ async function sha256File(filePath: string): Promise<string> {
     hash.update(chunk);
   }
   return hash.digest("hex");
+}
+
+// 字幕已作为正式转录时直接生成面评；否则才转写录音。
+async function continueAfterRecordingIngest(
+  result: Awaited<ReturnType<HumanInterviewRecordingProcessorDependencies["ingest"]>>,
+  dependencies: HumanInterviewRecordingProcessorDependencies,
+): Promise<void> {
+  const session = {
+    meetingSessionId: result.meetingSessionId,
+    organizationId: result.organizationId,
+  };
+  if (result.liveTranscriptPublished) {
+    await dependencies.requestEvaluation(session);
+    return;
+  }
+  const job = await dependencies.getTranscriptionJob({
+    meetingId: result.meetingSessionId,
+    organizationId: result.organizationId,
+  });
+  await (job
+    ? dependencies.enqueueTranscription([job])
+    : dependencies.markTranscriptionUnavailable(session));
 }
 
 async function runHumanInterviewRecordingProcessingPromise(
@@ -147,16 +170,7 @@ async function runHumanInterviewRecordingProcessingPromise(
         sizeBytes: input.sizeBytes,
       },
     });
-    const transcriptionJob = await dependencies.getTranscriptionJob({
-      meetingId: result.meetingSessionId,
-      organizationId: result.organizationId,
-    });
-    await (transcriptionJob
-      ? dependencies.enqueueTranscription([transcriptionJob])
-      : dependencies.markTranscriptionUnavailable({
-          meetingSessionId: result.meetingSessionId,
-          organizationId: result.organizationId,
-        }));
+    await continueAfterRecordingIngest(result, dependencies);
   } catch (error) {
     hasPrimaryFailure = true;
     const message = error instanceof Error ? error.message : "真人复面录音处理失败";
@@ -277,12 +291,11 @@ async function ingestTrackRecordings(
   }
   const start = Math.min(...verified.map(({ track }) => track.startedAtMs));
   const end = Math.max(...verified.map(({ track }) => track.startedAtMs + track.durationMs));
+  const missingParticipantRole = ["candidate", "interviewer"].some(
+    (role) => !verified.some(({ track }) => track.role === role),
+  );
   const recoveryRanges = [
-    ...(["candidate", "interviewer"].some(
-      (role) => !verified.some(({ track }) => track.role === role),
-    )
-      ? [{ endMs: end - start, startMs: 0 }]
-      : []),
+    ...(missingParticipantRole ? [{ endMs: end - start, startMs: 0 }] : []),
     ...failed
       .filter((track) => track.role !== "mixed")
       .map((track) => ({
@@ -342,30 +355,25 @@ async function ingestTrackRecordings(
   const manifestSha256 = createHash("sha256")
     .update(JSON.stringify(assets.toSorted((a, b) => a.track.localeCompare(b.track))))
     .digest("hex");
+  let warning: string | null = null;
+  if (failed.length || missingParticipantRole) {
+    warning = "部分录音不完整，已保留可用音轨；全场补救中的身份不明内容需要人工确认。";
+  } else if (recoveryRanges.length) {
+    // Keep every recovery range: wall-clock skew alone cannot prove lost speech.
+    warning = "录音启停时间存在覆盖差，已保留可用音轨供核对；是否缺失发言需结合录音确认。";
+  }
   const result = await dependencies.ingest({
     assets,
     manifestSha256,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
     startedAtMs: start,
-    warning:
-      failed.length || recoveryRanges.length
-        ? "部分录音不完整，已保留可用音轨；全场补救中的身份不明内容需要人工确认。"
-        : null,
+    warning,
   });
-  const job = await dependencies.getTranscriptionJob({
-    meetingId: result.meetingSessionId,
-    organizationId: result.organizationId,
-  });
-  await (job
-    ? dependencies.enqueueTranscription([job])
-    : dependencies.markTranscriptionUnavailable({
-        meetingSessionId: result.meetingSessionId,
-        organizationId: result.organizationId,
-      }));
+  await continueAfterRecordingIngest(result, dependencies);
 }
 
-export function runHumanInterviewRecordingProcessingEffect(
+function runHumanInterviewRecordingProcessingEffect(
   input: HumanInterviewRecordingJobData,
   context: { attempt: number; maxAttempts: number },
 ) {

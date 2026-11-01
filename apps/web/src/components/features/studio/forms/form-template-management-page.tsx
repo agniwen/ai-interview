@@ -1,14 +1,12 @@
 import { listTextQuery } from "@app/shared/list-text-filters";
-import { IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
+import { IconClipboardList, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { JobDescriptionListRecord } from "@app/shared/job-descriptions";
-import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
   CandidateFormScope,
-  CandidateFormTemplateInput,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
 } from "@app/db-schema/candidate-forms";
@@ -17,7 +15,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import {
   actionsColumn,
   customColumn,
@@ -37,10 +34,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
-import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
-import { FormTemplateAiCreateDialog } from "@/components/features/studio/forms/form-template-ai-create-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "@/components/features/studio/forms/form-template-submissions-drawer";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
@@ -134,27 +128,11 @@ export function CandidateFormTemplateManagementPage({
     queryKeyBase: ["candidate-form-templates", slug],
   });
 
-  const routeSearch = coerceSearchParams(useSearch({ from: "/w/$slug/studio/forms" }));
-  const navigate = useNavigate({ from: "/w/$slug/studio/forms" });
-  const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
-  const setActiveTemplateId = useCallback(
-    (value: string | null) => {
-      void navigate({
-        replace: true,
-        resetScroll: false,
-        search: (prev: SearchParamsRecord) => {
-          const next = { ...prev };
-          if (value) {
-            next.templateId = value;
-          } else {
-            delete next.templateId;
-          }
-          return next;
-        },
-      });
-    },
-    [navigate],
+  const routeSearch = coerceSearchParams(
+    useSearch({ from: "/w/$slug/studio/question-bank/forms" }),
   );
+  const navigate = useNavigate({ from: "/w/$slug/studio/question-bank/forms" });
+  const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
 
   const crud = useEntityCrud<CandidateFormTemplateListRecord, CandidateFormTemplateRecord>({
     deleteEntity: (record) =>
@@ -231,57 +209,29 @@ export function CandidateFormTemplateManagementPage({
 
   const [submissionsRecord, setSubmissionsRecord] =
     useState<CandidateFormTemplateListRecord | null>(null);
-  const [createDraft, setCreateDraft] = useState<CandidateFormTemplateInput | null>(null);
-  const [aiCreateOpen, setAiCreateOpen] = useState(false);
-
-  // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
-  // load the detail and pop the editor open.
-  const lastLoadedTemplateRef = useRef<string | null>(null);
-  const { setEditingRecord, setFormDialogOpen } = crud;
+  const openEditorPage = useCallback(
+    (id: string) => {
+      void navigate({
+        params: { slug, templateId: id },
+        resetScroll: false,
+        search: routeSearch,
+        to: "/w/$slug/studio/question-bank/forms/overlay/$templateId",
+      });
+    },
+    [navigate, slug, routeSearch],
+  );
   useEffect(() => {
-    if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
+    if (!activeTemplateId) {
       return;
     }
-    if (!canUpdateCandidateForm) {
-      void setActiveTemplateId(null);
-      return;
-    }
-    lastLoadedTemplateRef.current = activeTemplateId;
-    let cancelled = false;
-    void (async () => {
-      const detail = await loadTemplateDetailById(activeTemplateId);
-      if (cancelled) {
-        return;
-      }
-      if (!detail) {
-        toast.error("加载模版失败");
-        void setActiveTemplateId(null);
-        lastLoadedTemplateRef.current = null;
-        return;
-      }
-      setEditingRecord(detail);
-      setFormDialogOpen(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activeTemplateId,
-    canUpdateCandidateForm,
-    loadTemplateDetailById,
-    setActiveTemplateId,
-    setEditingRecord,
-    setFormDialogOpen,
-  ]);
-
-  function onEditorOpenChange(next: boolean) {
-    crud.onFormOpenChange(next);
-    if (!next) {
-      lastLoadedTemplateRef.current = null;
-      setCreateDraft(null);
-      void setActiveTemplateId(null);
-    }
-  }
+    const { templateId: _legacyId, ...search } = routeSearch;
+    void navigate({
+      params: { slug, templateId: activeTemplateId },
+      replace: true,
+      search,
+      to: "/w/$slug/studio/question-bank/forms/$templateId",
+    });
+  }, [activeTemplateId, routeSearch, navigate, slug]);
 
   const columns = useMemo(
     () => [
@@ -369,7 +319,7 @@ export function CandidateFormTemplateManagementPage({
           {
             label: "编辑",
             onClick: (r) => {
-              void crud.openEdit(r);
+              openEditorPage(r.id);
             },
             show: () => canUpdateCandidateForm,
           },
@@ -401,7 +351,7 @@ export function CandidateFormTemplateManagementPage({
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [canDeleteCandidateForm, canUpdateCandidateForm, openRefreshConfirm],
+    [canDeleteCandidateForm, canUpdateCandidateForm, openEditorPage, openRefreshConfirm],
   );
 
   const filtersConfig = useMemo(
@@ -441,32 +391,9 @@ export function CandidateFormTemplateManagementPage({
     [jobDescriptions],
   );
 
-  function handleAiGenerated({
-    jobDescriptionId,
-    questions,
-  }: {
-    jobDescriptionId: string;
-    questions: CandidateFormTemplateInput["questions"];
-  }) {
-    if (!canCreateCandidateForm) {
-      return;
-    }
-    setCreateDraft({
-      description: "",
-      jobDescriptionIds: [jobDescriptionId],
-      questions,
-      scope: "job_description",
-      title: "",
-    });
-    crud.setEditingRecord(null);
-    crud.setFormDialogOpen(true);
-  }
-
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader description="可按岗位复用；提交后随面试留档。" title="表单题" />
-
         <DataGrid<CandidateFormTemplateListRecord>
           {...grid.bind}
           columns={columns}
@@ -483,26 +410,10 @@ export function CandidateFormTemplateManagementPage({
               </EmptyHeader>
               {canCreateCandidateForm ? (
                 <EmptyContent className="flex items-center justify-center">
-                  <ButtonGroup>
-                    <Button
-                      onClick={() => {
-                        setCreateDraft(null);
-                        crud.openCreate();
-                      }}
-                    >
-                      <IconPlus className="size-4" />
-                      创建表单题
-                    </Button>
-                    <Button
-                      aria-label="AI 创建表单题"
-                      onClick={() => setAiCreateOpen(true)}
-                      size="icon"
-                      title="AI 创建表单题"
-                      type="button"
-                    >
-                      <IconSparkles className="size-4" />
-                    </Button>
-                  </ButtonGroup>
+                  <Button onClick={() => openEditorPage("new")}>
+                    <IconPlus className="size-4" />
+                    创建表单题
+                  </Button>
                 </EmptyContent>
               ) : null}
             </Empty>
@@ -511,54 +422,14 @@ export function CandidateFormTemplateManagementPage({
           getRowId={(r) => r.id}
           toolbarRight={
             canCreateCandidateForm ? (
-              <ButtonGroup className="flex-1 sm:flex-none">
-                <Button
-                  className="flex-1 sm:flex-none"
-                  onClick={() => {
-                    setCreateDraft(null);
-                    crud.openCreate();
-                  }}
-                >
-                  <IconPlus className="size-4" />
-                  创建表单题
-                </Button>
-                <Button
-                  aria-label="AI 创建表单题"
-                  onClick={() => setAiCreateOpen(true)}
-                  size="icon"
-                  title="AI 创建表单题"
-                  type="button"
-                >
-                  <IconSparkles className="size-4" />
-                </Button>
-              </ButtonGroup>
+              <Button className="flex-1 sm:flex-none" onClick={() => openEditorPage("new")}>
+                <IconPlus className="size-4" />
+                创建表单题
+              </Button>
             ) : null
           }
         />
       </div>
-
-      {canCreateCandidateForm ? (
-        <FormTemplateAiCreateDialog
-          jobDescriptions={jobDescriptions}
-          onGenerated={handleAiGenerated}
-          onOpenChange={setAiCreateOpen}
-          open={aiCreateOpen}
-        />
-      ) : null}
-
-      {(crud.editingRecord ? canUpdateCandidateForm : canCreateCandidateForm) ? (
-        <CandidateFormTemplateEditorDialog
-          initialDraft={createDraft}
-          jobDescriptions={jobDescriptions}
-          onOpenChange={onEditorOpenChange}
-          onSaved={() => {
-            grid.invalidate();
-            void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
-          }}
-          open={crud.formDialogOpen}
-          record={crud.editingRecord}
-        />
-      ) : null}
 
       <CandidateFormTemplateSubmissionsDrawer
         onOpenChange={(value) => !value && setSubmissionsRecord(null)}

@@ -26,6 +26,7 @@ node_modules/
 /build
 apps/worker/dist/
 apps/server/dist/
+packages/recruiting-mcp-apps/dist/
 # Legacy package-name build outputs accidentally materialized under apps/.
 /apps/ai-recruitment-copilot-desktop/
 /apps/ai-recruitment-copilot-worker/

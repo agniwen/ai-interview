@@ -15,10 +15,7 @@ export type StudioInterviewQuestionsState =
 export const loadStudioInterviewQuestionsState = createServerFn({ method: "GET" })
   .validator(slugInputSchema)
   .handler(async ({ data }): Promise<StudioInterviewQuestionsState> => {
-    const access = await resolveAuthorizedStudioPageAccessFromRequest(
-      data.slug,
-      "interviewQuestions",
-    );
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "questionBank");
     if (access.status !== "ready") {
       return access;
     }

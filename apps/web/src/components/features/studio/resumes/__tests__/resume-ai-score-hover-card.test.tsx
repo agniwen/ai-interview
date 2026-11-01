@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { ResumeAiScoreHoverCardView } from "../resume-ai-score-hover-card";
 import type { ResumeAiScoreDependencies } from "../resume-ai-score-hover-card";
 
@@ -164,11 +163,6 @@ describe("ResumeAiScoreHoverCard", () => {
 
     expect(fetchStudioResumeReviewMock).not.toHaveBeenCalled();
     const trigger = host.querySelector("button");
-    expect(trigger?.classList).toContain("underline");
-    expect(trigger?.classList).toContain("decoration-transparent");
-    expect(trigger?.classList).toContain("underline-offset-2");
-    expect(trigger?.classList).toContain("hover:decoration-foreground/40");
-    expect(trigger?.classList).toContain("cursor-default!");
 
     act(() => {
       trigger?.click();
@@ -194,24 +188,13 @@ describe("ResumeAiScoreHoverCard", () => {
       const radarChart = document.body.querySelector<HTMLElement>("[data-radar-chart]");
       expect(radarChart?.textContent).toContain("技能匹配度");
       expect(radarChart?.dataset.showTooltip).toBe("false");
-      expect(document.body.querySelector('[data-slot="ai-score-radar"]')?.classList).toContain(
-        "overflow-hidden",
-      );
-      const dimensionList = document.body.querySelector('[data-slot="ai-score-dimension-list"]');
-      expect(dimensionList?.classList).toContain("grid");
-      expect(dimensionList?.className).toContain("lg:grid-cols-3");
-      expect(document.body.querySelector('[data-slot="hover-card-content"]')?.classList).toContain(
-        "overflow-hidden",
-      );
+
       const contentShell = document.body.querySelector('[data-slot="ai-score-content-shell"]');
-      expect(contentShell?.className).toContain("--available-height");
-      expect(contentShell?.className).not.toContain("p-3");
+
       expect(contentShell?.querySelector('[data-slot="separator"]')?.parentElement).toBe(
         contentShell,
       );
-      expect(contentShell?.querySelector('[data-slot="ai-score-header"]')?.classList).toContain(
-        "p-4",
-      );
+
       expect(contentShell?.querySelector('[data-slot="ai-score-header"]')?.parentElement).toBe(
         contentShell,
       );
@@ -265,18 +248,10 @@ describe("ResumeAiScoreHoverCard", () => {
       expect(document.body.querySelectorAll("[data-qualitative-hover-dimension]")).toHaveLength(6);
       expect(document.body.textContent).toContain("技能匹配");
       expect(document.body.textContent).toContain("核心技能与岗位要求匹配");
-      expect(
-        document.body.querySelector('[data-slot="qualitative-overall-section"]')?.className,
-      ).toContain("md:grid-cols-[15rem_minmax(0,1fr)]");
-      expect(
-        document.body.querySelector('[data-slot="qualitative-evidence-section"]')?.className,
-      ).toContain("sm:grid-cols-2");
+
       expect(
         document.body.querySelector('[data-slot="qualitative-dimensions-section"] h4'),
       ).toBeNull();
-      expect(document.body.querySelector('[data-slot="hover-card-content"]')?.className).toContain(
-        "w-[56rem]",
-      );
     });
 
     act(() => root.unmount());

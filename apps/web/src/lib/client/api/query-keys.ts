@@ -17,14 +17,9 @@ export const humanInterviewKeys = {
   studioResumes: () => ["studio-resumes"] as const,
 };
 
-export const interviewNotificationKeys = {
-  recipients: (slug: string, candidateId: string) =>
-    ["interview-notification-recipients", slug, candidateId] as const,
-  workspaceMembers: (slug: string) => ["workspace-members", slug] as const,
-};
-
 export const jobDescriptionKeys = {
   all: ["job-descriptions"] as const,
+  managed: (slug: string) => [...jobDescriptionKeys.all, "managed", slug] as const,
   recruiting: (slug: string) => [...jobDescriptionKeys.all, "recruiting", slug] as const,
   recruitingFilterOptions: (slug: string) =>
     [...jobDescriptionKeys.all, "recruiting-filter-options", slug] as const,
@@ -36,16 +31,29 @@ export const studioCalendarKeys = {
   range: (slug: string, start: string, end: string) =>
     [...studioCalendarKeys.ranges(slug), start, end] as const,
   ranges: (slug: string) => ["studio-calendar", slug, "ranges"] as const,
+  roundEvaluation: (slug: string, kind: "ai" | "human", roundId: string) =>
+    ["studio-calendar", slug, "round-evaluation", kind, roundId] as const,
 };
 
 export const studioResumeKeys = {
-  metrics: (slug: string, scope: "team" | "personal" = "team", boardPreset?: string) =>
+  metrics: (slug: string, boardPreset?: string) =>
     boardPreset
-      ? (["studio-resume-metrics", slug, scope, boardPreset] as const)
-      : (["studio-resume-metrics", slug, scope] as const),
+      ? (["studio-resume-metrics", slug, boardPreset] as const)
+      : (["studio-resume-metrics", slug] as const),
 };
 
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;
+
+/** Refreshes the resume list together with the recruiting board tab counts. */
+export async function invalidateStudioResumeListQueries(
+  queryClient: QueryInvalidator,
+  slug: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] }),
+    queryClient.invalidateQueries({ queryKey: studioResumeKeys.metrics(slug) }),
+  ]);
+}
 
 export async function invalidateHumanInterviewCandidateQueries(
   queryClient: QueryInvalidator,

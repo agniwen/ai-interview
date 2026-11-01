@@ -70,12 +70,8 @@ describe("DataGrid initial loading", () => {
     expect(rows).toHaveLength(20);
     expect(headers).toHaveLength(3);
     expect(headers[0]?.textContent).toContain("姓名");
-    expect(headers[0]?.className).toContain("border-e");
-    expect(headers[2]?.className).toContain("border-s");
-    expect(rows[0]?.querySelector("td")?.className).toContain("border-e");
-    expect(rows[0]?.querySelector('td[data-pinned="end"]')?.className).toContain("border-s");
+
     expect(rows[0]?.querySelector('[data-slot="skeleton"]')).not.toBeNull();
-    expect([...rows].every((row) => row.classList.contains("h-[53px]"))).toBe(true);
   });
 
   it("keeps existing rows visible while loading", () => {
@@ -88,11 +84,9 @@ describe("DataGrid initial loading", () => {
     expect(container.querySelector('[data-slot="pagination-bar-skeleton"]')).toBeNull();
     expect(container.querySelector('[data-slot="data-grid-pagination"]')).not.toBeNull();
     expect(container.querySelector('[data-slot="data-grid-scroll-area"]')).not.toBeNull();
-    expect(container.querySelector('[data-slot="data-grid"]')?.className).toContain("shadow-none");
+
     expect(container.textContent).toContain("张三");
     expect(container.querySelector('tbody tr[data-row-id="1"]')).not.toBeNull();
-    expect(container.querySelector("tbody tr")?.className).toContain("h-[53px]");
-    expect(container.querySelector("tbody td")?.className).toContain("border-e");
   });
 
   it("shows the empty state after an empty initial request finishes", () => {

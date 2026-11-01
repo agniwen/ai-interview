@@ -16,7 +16,7 @@ import type { MeetingTaskStore } from "./task-store";
 import type { TaskContext } from "./scheduler";
 
 const execFileAsync = promisify(execFile);
-export const localAudioArtifactSchema = z.object({
+const localAudioArtifactSchema = z.object({
   contentType: z.string(),
   durationMs: z.number(),
   filePath: z.string(),

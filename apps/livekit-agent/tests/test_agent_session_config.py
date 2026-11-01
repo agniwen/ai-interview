@@ -114,6 +114,7 @@ def test_agent_session_uses_qwen_audio_streaming_stt(monkeypatch):
     assert stt.kwargs["model"] == "qwen-audio-test-streaming"
     assert stt.kwargs["language"] == "zh"
     assert stt.kwargs["max_sentence_silence"] == 1200
+    assert stt.kwargs["vad_model"] == "near_meeting_16k"
     assert stt.kwargs["vocabulary_id"] == "vocabulary-id"
     assert stt.kwargs["base_url"] == "wss://workspace.example/inference"
     assert stt.kwargs["workspace"] == "workspace-id"
@@ -139,6 +140,7 @@ def test_agent_session_defaults_qwen_sentence_silence_to_1300ms(monkeypatch):
     )
 
     assert session.kwargs["stt"].kwargs["max_sentence_silence"] == 1300
+    assert session.kwargs["stt"].kwargs["vad_model"] == "near_meeting_16k"
 
 
 def test_agent_session_disables_parallel_llm_tool_calls(monkeypatch):
@@ -367,7 +369,7 @@ async def test_room_close_then_participant_disconnect_does_not_restart_reconnect
     monkeypatch.setattr(agent_module.lkapi_module, "LiveKitAPI", lambda: None)
     callbacks = {}
     room_callbacks = {}
-    session = SimpleNamespace(start=AsyncMock(), interrupt=Mock())
+    session = SimpleNamespace(start=AsyncMock(), interrupt=Mock(), llm=None)
     session.on = lambda event: lambda callback: callbacks.__setitem__(event, callback)
 
     def build_session(**kwargs):
@@ -377,6 +379,7 @@ async def test_room_close_then_participant_disconnect_does_not_restart_reconnect
     monkeypatch.setattr(agent_module, "_build_session", build_session)
     participant = SimpleNamespace(identity="candidate", metadata="{}")
     ctx = SimpleNamespace(
+        job=SimpleNamespace(metadata="{}"),
         proc=SimpleNamespace(),
         room=SimpleNamespace(
             name="test-room",

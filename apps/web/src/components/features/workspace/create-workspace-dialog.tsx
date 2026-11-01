@@ -176,7 +176,7 @@ export function CreateWorkspaceDialog({
                 "text-xs",
                 slugStatus.hint.tone === "muted" && "text-muted-foreground",
                 slugStatus.hint.tone === "error" && "text-destructive",
-                slugStatus.hint.tone === "success" && "text-emerald-600 dark:text-emerald-400",
+                slugStatus.hint.tone === "success" && "text-green-ink",
               )}
             >
               {slugStatus.hint.text}

@@ -4,8 +4,8 @@ import type {
   generateMeetingIntelligence,
   getMeetingIntelligenceGeneratorSnapshot,
 } from "@app/meeting-processing/intelligence";
-import type { MeetingIntelligenceJobData } from "@app/meeting-processing-queue/meeting-intelligence";
-import { MEETING_INTELLIGENCE_PROMPT_VERSION } from "@app/meeting-processing-queue/meeting-intelligence";
+import type { MeetingIntelligenceJobData } from "@app/job-queues/meeting-intelligence";
+import { MEETING_INTELLIGENCE_PROMPT_VERSION } from "@app/job-queues/meeting-intelligence";
 import {
   isMeetingIntelligenceLeaseLostError,
   isMeetingIntelligenceTerminalError,
@@ -47,12 +47,12 @@ export interface MeetingIntelligenceDependencies {
   saveProgress: ReturnType<typeof createMeetingIntelligenceDao>["saveMeetingIntelligenceProgress"];
 }
 
-export class MeetingIntelligenceProcessor extends Context.Service<
+class MeetingIntelligenceProcessor extends Context.Service<
   MeetingIntelligenceProcessor,
   MeetingIntelligenceDependencies
 >()("@app/worker/MeetingIntelligenceProcessor") {}
 
-export const meetingIntelligenceProcessorLayer = (dependencies: MeetingIntelligenceDependencies) =>
+const meetingIntelligenceProcessorLayer = (dependencies: MeetingIntelligenceDependencies) =>
   Layer.succeed(MeetingIntelligenceProcessor, dependencies);
 
 class MeetingIntelligenceFailure extends Data.TaggedError("MeetingIntelligenceFailure")<{
@@ -168,7 +168,7 @@ async function runMeetingIntelligenceProcessingPromise(
   }
 }
 
-export function runMeetingIntelligenceProcessingEffect(
+function runMeetingIntelligenceProcessingEffect(
   input: MeetingIntelligenceJobData,
   context: { attempt: number; maxAttempts: number },
 ) {

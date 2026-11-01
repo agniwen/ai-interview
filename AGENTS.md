@@ -23,7 +23,7 @@ This is the shared instruction source for coding agents. `CLAUDE.md` imports thi
 Chinese-first voice interview and resume screening application. Product copy and interview prompts use Simplified Chinese.
 
 - `apps/web/`: TanStack Start/Router/Query, React, shadcn/ui, Tailwind; mounts Hono at `/api`.
-- `apps/server/`: Hono, Drizzle/PostgreSQL, Better Auth; shared app factory for Web and standalone entrypoints.
+- `apps/server/`: Hono, Drizzle/PostgreSQL, Better Auth; `src/app.ts` composes routes, `src/routes/` owns capabilities, and `src/infrastructure/` holds runtime adapters and host-bound facades.
 - `apps/worker/`: background processing. `apps/desktop/`: Electron application.
 - `apps/livekit-agent/`: Python LiveKit voice agent. Keep `src/agent.py` as its deployment entrypoint.
 - `packages/`: `@app/*` workspace packages. Keep pure contracts in `@app/shared`, schema/relations in `@app/db-schema`, and runtime tools in their owning package.
@@ -34,16 +34,18 @@ Use Bun for TypeScript workspaces and uv for Python. Read `package.json`, the af
 
 Read the matching reference before changing the corresponding behavior. Relative paths in this table start at the repository root.
 
-| Task                                                                                 | Required reference                                                                                                        |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Job setup, JD snapshots, resume evaluation prompts/results or evaluation UI          | [Resume evaluation contract](docs/agents/resume-evaluation.md) and the ADRs linked there                                  |
-| Hono routes, middleware, application verbs, DAO ownership, Server/Worker integration | [Server architecture](docs/agents/server-architecture.md)                                                                 |
-| Package exports, browser HTTP clients, SSR helpers, shared modules, schema ownership | [Runtime boundaries](docs/agents/runtime-boundaries.md)                                                                   |
-| TanStack Start/Router APIs, navigation, loaders, route masks, search params, SSR     | [TanStack Intent catalog](docs/agents/tanstack-intent.md); run the matching guidance command before editing that behavior |
-| LiveKit agent code, voice prompts, tools, workflows or handoffs                      | [Voice agent](docs/agents/voice-agent.md)                                                                                 |
-| Environment variables, deployment configuration, transactional email                 | [Environment setup](docs/agents/environment.md)                                                                           |
-| Domain terminology or architecture decisions                                         | [Domain documentation](docs/agents/domain.md), root `CONTEXT.md`, and relevant `docs/adr/` entries                        |
-| GitHub issue work                                                                    | [Issue tracker](docs/agents/issue-tracker.md); for triage also read [triage labels](docs/agents/triage-labels.md)         |
+| Task                                                                                     | Required reference                                                                                                        |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Job setup, JD snapshots, resume evaluation prompts/results or evaluation UI              | [Resume evaluation contract](docs/agents/resume-evaluation.md) and the ADRs linked there                                  |
+| Hono routes, middleware, application verbs, DAO ownership, Server/Worker integration     | [Server architecture](docs/agents/server-architecture.md)                                                                 |
+| Directory/module ownership, exports, browser HTTP, SSR, shared modules, schema ownership | [Runtime boundaries](docs/agents/runtime-boundaries.md)                                                                   |
+| TanStack Start/Router APIs, navigation, loaders, route masks, search params, SSR         | [TanStack Intent catalog](docs/agents/tanstack-intent.md); run the matching guidance command before editing that behavior |
+| LiveKit agent code, voice prompts, tools, workflows or handoffs                          | [Voice agent](docs/agents/voice-agent.md)                                                                                 |
+| Environment variables, deployment configuration, transactional email                     | [Environment setup](docs/agents/environment.md)                                                                           |
+| Domain terminology or architecture decisions                                             | [Domain documentation](docs/agents/domain.md), root `CONTEXT.md`, and relevant `docs/adr/` entries                        |
+| GitHub issue work                                                                        | [Issue tracker](docs/agents/issue-tracker.md); for triage also read [triage labels](docs/agents/triage-labels.md)         |
+
+涉及 Studio sidepane 的新增、修改或接入时，必须阅读并遵守 [侧面板规范](docs/studio-side-pane.md)，包括数据未就绪时必须展示骨架屏的要求。
 
 ## Boundaries to keep visible
 
@@ -56,7 +58,10 @@ Read the matching reference before changing the corresponding behavior. Relative
 ## Verification and completion
 
 - Choose verification by the behavior at risk. Fixes need a reproduction and an outcome check; add a regression test when it protects behavior. Copy, styling, and documentation changes need appropriate inspection rather than tests that repeat the implementation.
+- In Server, Worker, and `packages/*`, put tests in a `tests/` folder inside the directory of the module under test (Web keeps its existing `__tests__/` layout).
+- Test observable behavior, business rules, data contracts, and accessibility. Do not write tests that merely freeze static UI copy, CSS/className strings, spacing, colors, icon geometry, DOM layout, or source snippets of those details; verify presentation changes by inspection. Use text or styling in assertions only when it proves a meaningful behavior or contract, such as correct data attribution, permission-dependent actions, focus, scrolling, or theme changes. Mixed tests should retain behavioral assertions and omit cosmetic ones.
 - For TypeScript behavior, run the affected tests, package typecheck, and lint/format on changed files. For shared APIs, check both producer and consumers. For UI, inspect the target browser or Desktop surface when available and disclose any unverified platform.
+- Do not run Server (`@app/server`), Worker (`@app/worker`), or Desktop (`@app/desktop`) tests, including in root test runs; verify those packages with typecheck and lint.
 - For documentation-only changes, check links, paths, command examples, consistency, and the diff. Application tests/builds are unnecessary unless runtime behavior also changes.
 - Typical commands: `bun run --filter @app/web test <test-path>`, `bun run --filter @app/web typecheck`, `bun run check <changed-files>`, and `git diff --check`. Substitute the owning package; consult its scripts for available checks. Root build/test/typecheck commands fan out through Turbo.
 - Format only changed files with `bun run fix <changed-files>`. Python uses `uv run ruff format`, `uv run ruff check`, and `uv run pytest` from `apps/livekit-agent/`; the voice guide defines its behavioral test-first requirement.

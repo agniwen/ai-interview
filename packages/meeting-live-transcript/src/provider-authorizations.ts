@@ -5,7 +5,7 @@ import type {
 import { z } from "zod";
 
 export const DEFAULT_DEEPGRAM_LIVE_MODEL = "nova-3";
-export const DEFAULT_QWEN_LIVE_MODEL = "qwen-audio-3.0-asr-flash-streaming";
+export const DEFAULT_QWEN_LIVE_MODEL = "qwen-audio-3.1-asr-flash-streaming";
 export const MAX_QWEN_LIVE_TOKEN_TTL_SECONDS = 1800;
 
 const DEEPGRAM_AUTHORIZATION_ERROR_MESSAGES = new Map<number, string>([
@@ -112,7 +112,7 @@ export async function createQwenRealtimeTranscriptionAuthorization(
   }
   const { hostname } = new URL(origin);
   const authorization: MeetingLiveTranscriptAuthorization = {
-    baseUrl: `wss://${hostname}/api-ws/v1/${dependencies.model.startsWith(DEFAULT_QWEN_LIVE_MODEL) ? "inference" : "realtime"}`,
+    baseUrl: `wss://${hostname}/api-ws/v1/${/^qwen-audio-3\.[01]-asr-flash-streaming(?:$|-)/u.test(dependencies.model) ? "inference" : "realtime"}`,
     clientSecret: parsed.data.token,
     expiresAt: new Date(parsed.data.expires_at * 1000).toISOString(),
     language: input.language,

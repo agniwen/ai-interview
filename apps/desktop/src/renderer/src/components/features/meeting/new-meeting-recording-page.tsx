@@ -21,7 +21,7 @@ import { MeetingTranscriptIdleStage } from "./live-transcript-draft-panel";
 import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
 
 /** 默认拉取条数（在线搜索分页第一页）。 */
-export const MEETING_RESUME_PICKER_PAGE_SIZE = 50;
+const MEETING_RESUME_PICKER_PAGE_SIZE = 50;
 
 const PIPELINE_STAGE_LABEL: Record<string, string> = Object.fromEntries(
   PIPELINE_STAGE_TABS.filter((tab) => tab.value !== "all").map((tab) => [tab.value, tab.label]),
@@ -67,7 +67,6 @@ function CreatorDetailRow({ record }: { record: ResumeLibraryListRecord }) {
       >
         <Avatar
           className="size-4!"
-          generatedSize={16}
           label={`${creatorName}的头像`}
           seed={`recruiter:${creatorName}`}
           size="sm"

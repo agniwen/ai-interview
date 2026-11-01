@@ -86,6 +86,19 @@ describe("InterviewReportDetailsDisclosure", () => {
     expect(container.textContent).not.toContain("最新报告详情");
   });
 
+  it("can reveal details without scrolling ancestor viewports", () => {
+    act(() => {
+      root.render(
+        <InterviewReportDetailsDisclosure autoScroll={false}>
+          <div>演示报告详情</div>
+        </InterviewReportDetailsDisclosure>,
+      );
+    });
+    act(() => container.querySelector("button")?.click());
+    expect(container.textContent).toContain("演示报告详情");
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it("scrolls immediately when height animation is disabled", () => {
     act(() => {
       root.render(

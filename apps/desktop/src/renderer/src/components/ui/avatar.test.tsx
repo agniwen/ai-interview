@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { Avatar, AvatarFallback } from "./avatar";
 
 describe("Avatar", () => {
-  it("renders a deterministic Outpace gradient when a seed is provided", () => {
+  it("renders a deterministic generated portrait when a seed is provided", () => {
     const first = renderToStaticMarkup(
       <Avatar label="李晗的头像" seed="candidate:李晗">
         <AvatarFallback>李</AvatarFallback>
@@ -20,7 +20,7 @@ describe("Avatar", () => {
     expect(first).toBe(second);
     expect(first).toContain('data-generated-avatar=""');
     expect(first).toContain('aria-label="李晗的头像"');
-    expect(first).toContain("<canvas");
+    expect(first).toContain("data-hairstyle=");
     expect(first).not.toContain(">李<");
   });
 

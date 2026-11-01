@@ -43,6 +43,7 @@ function job(input: {
     presetQuestions: [],
     prompt: "合成岗位面试 Prompt",
     publishedAt: SYNTHETIC_TIME,
+    recruitingStatus: "active",
     resumeCount: 0,
     resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     resumeScreeningPolicyHash: null,

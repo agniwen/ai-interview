@@ -1,6 +1,7 @@
 import "./instrument.server";
 
 import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
+import { createServerEntry } from "@tanstack/react-start/server";
 import type { ServerEntry } from "@tanstack/react-start/server-entry";
 import { applyServerEnv } from "./env/server";
 import { paraglideMiddleware } from "./paraglide/server";
@@ -36,7 +37,7 @@ async function createHonoApp(): Promise<HonoApp> {
 }
 
 async function createOgImageResponse() {
-  const { createOgImageResponse: createResponse } = await import("./lib/server/og-image");
+  const { createOgImageResponse: createResponse } = await import("./lib/og-image/response.server");
   return createResponse();
 }
 
@@ -60,7 +61,9 @@ if (import.meta.hot) {
 
 function isApiRequest(request: Request) {
   const { pathname } = new URL(request.url);
-  return pathname === "/api" || pathname.startsWith("/api/");
+  return (
+    pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/.well-known/")
+  );
 }
 
 function isHealthRequest(request: Request) {
@@ -169,7 +172,7 @@ const defaultDependencies: ServerEntryDependencies = {
   createOgImageResponse,
   getEnv: (name) => process.env[name],
   getResumeParseQueueStats: async () => {
-    const { getResumeParseQueueStats } = await import("@app/resume-parse-queue/resume-parse");
+    const { getResumeParseQueueStats } = await import("@app/job-queues/resume-parse");
     return getResumeParseQueueStats();
   },
   initializeFeishuBots: async () => {
@@ -177,7 +180,7 @@ const defaultDependencies: ServerEntryDependencies = {
     await initializeFeishuBots();
   },
   isResumeParseQueueConfigured: async () => {
-    const { isResumeParseQueueConfigured } = await import("@app/resume-parse-queue/resume-parse");
+    const { isResumeParseQueueConfigured } = await import("@app/job-queues/resume-parse");
     return isResumeParseQueueConfigured();
   },
   pingDatabase: async () => {
@@ -202,4 +205,5 @@ const sentryHandler: ServerEntry = wrapFetchWithSentry({
   fetch: forwardSentryFetch,
 });
 
-export default sentryHandler;
+// createStartHandler rethrows escaped errors; the server entry scope converts them to Start error responses.
+export default createServerEntry(sentryHandler);

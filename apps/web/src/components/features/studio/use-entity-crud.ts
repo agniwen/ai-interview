@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -11,6 +11,11 @@ interface UseEntityCrudOptions<TList, TFull> {
   deleteEntity: (record: TList) => Promise<Response>;
   /** 编辑前若需要异步拉详情（如 interviewer），传入这个；否则用 detailFromList。 */
   loadDetail?: (record: TList) => Promise<TFull | null>;
+  /**
+   * 为 true 时先打开编辑弹窗、再异步拉详情，加载期间 `detailLoading` 为 true，弹窗可显示骨架屏。
+   * Open the edit dialog first and load the detail behind it, exposing `detailLoading`.
+   */
+  openBeforeLoad?: boolean;
   /** 列表行 → 编辑表单值同步映射；如果列表本身已经是完整记录，直接 `(r) => r as TFull`。 */
   detailFromList?: (record: TList) => TFull;
   /** Toast 文案。 */
@@ -41,6 +46,7 @@ export function useEntityCrud<TList, TFull>(options: UseEntityCrudOptions<TList,
     deleteEntity,
     loadDetail,
     detailFromList,
+    openBeforeLoad = false,
     messages: { deleteSuccess, deleteFallbackError = "删除失败", loadDetailError = "加载失败" },
     invalidate,
   } = options;
@@ -48,21 +54,47 @@ export function useEntityCrud<TList, TFull>(options: UseEntityCrudOptions<TList,
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TFull | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<TList | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  // 每次打开/关闭都递增，丢弃已过期的详情响应。Bumped on every open/close to drop stale detail responses.
+  const detailRequestRef = useRef(0);
 
   const onFormOpenChange = useCallback((next: boolean) => {
     setFormDialogOpen(next);
     if (!next) {
+      detailRequestRef.current += 1;
+      setDetailLoading(false);
       setEditingRecord(null);
     }
   }, []);
 
   const openCreate = useCallback(() => {
+    detailRequestRef.current += 1;
+    setDetailLoading(false);
     setEditingRecord(null);
     setFormDialogOpen(true);
   }, []);
 
   const openEdit = useCallback(
     async (record: TList) => {
+      if (loadDetail && openBeforeLoad) {
+        detailRequestRef.current += 1;
+        const requestId = detailRequestRef.current;
+        setEditingRecord(null);
+        setDetailLoading(true);
+        setFormDialogOpen(true);
+        const full = await loadDetail(record).catch(() => null);
+        if (requestId !== detailRequestRef.current) {
+          return;
+        }
+        setDetailLoading(false);
+        if (!full) {
+          toast.error(loadDetailError);
+          setFormDialogOpen(false);
+          return;
+        }
+        setEditingRecord(full);
+        return;
+      }
       if (loadDetail) {
         const full = await loadDetail(record);
         if (!full) {
@@ -79,7 +111,7 @@ export function useEntityCrud<TList, TFull>(options: UseEntityCrudOptions<TList,
       }
       setFormDialogOpen(true);
     },
-    [loadDetail, detailFromList, loadDetailError],
+    [loadDetail, detailFromList, loadDetailError, openBeforeLoad],
   );
 
   const handleDelete = useCallback(async () => {
@@ -99,6 +131,7 @@ export function useEntityCrud<TList, TFull>(options: UseEntityCrudOptions<TList,
 
   return {
     deleteRecord,
+    detailLoading,
     editingRecord,
     formDialogOpen,
     handleDelete,

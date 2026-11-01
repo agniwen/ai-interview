@@ -195,6 +195,52 @@ describe("read-only human meeting detail", () => {
     expect(view.host.querySelector("textarea, input")).toBeNull();
     view.unmount();
   });
+  it("switches between each interviewer's evaluation and the AI reference in meeting details", async () => {
+    if (!detail.evaluation) {
+      throw new Error("Missing evaluation fixture");
+    }
+    const { evaluation } = detail;
+    const view = renderDetail({
+      ...detail,
+      aiEvaluation: { ...evaluation, overallEvaluation: "AI 的独立分析" },
+      reviewerEvaluations: [
+        { id: "review-a", name: "李老师", outcome: "pass" as const },
+        { id: "review-b", name: "王老师", outcome: "fail" as const },
+      ].map(({ id, name, outcome }) => ({
+        evaluation: { ...evaluation, overallEvaluation: `${name}的独立意见` },
+        id,
+        legacy: false,
+        outcome,
+        reviewerId: id,
+        reviewerName: name,
+        submittedAt: "2026-09-03T01:00:00Z",
+        updatedAt: "2026-09-03T01:00:00Z",
+        version: 1,
+      })),
+    });
+    const tabs = [
+      ...view.host.querySelectorAll<HTMLButtonElement>(
+        '[role="tablist"][aria-label="按面试官查看评价"] [role="tab"]',
+      ),
+    ];
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["李老师", "王老师", "AI 评价"]);
+    expect(view.host.textContent).toContain("李老师的独立意见");
+    expect(view.host.textContent).not.toContain("王老师的独立意见");
+
+    await act(() => tabs[1].click());
+    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
+    expect(view.host.textContent).toContain("王老师的独立意见");
+    expect(view.host.textContent).toContain("不通过");
+    expect(view.host.textContent).not.toContain("李老师的独立意见");
+
+    await act(() => tabs[2].click());
+    expect(tabs[2].getAttribute("aria-selected")).toBe("true");
+    expect(view.host.textContent).toContain("AI 的独立分析");
+    expect(view.host.textContent).toContain("仅供参考");
+    expect(view.host.textContent).not.toContain("王老师的独立意见");
+    expect(view.host.querySelector("textarea, input")).toBeNull();
+    view.unmount();
+  });
   it.each(["generating", "failed"] as const)(
     "identifies the retained evaluation as an old draft when regeneration is %s",
     (evaluationStatus) => {

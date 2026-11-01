@@ -14,8 +14,20 @@ const overlayScrollbarMocks = vi.hoisted(() => ({
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+class FakeCssAnimation {
+  readonly animationName = "enter";
+  readonly finished: Promise<null>;
+  readonly playState = "running";
+
+  constructor(finished: Promise<null>) {
+    this.finished = finished;
+  }
+}
+
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
+  Reflect.deleteProperty(document, "getAnimations");
   document.body.innerHTML = "";
 });
 
@@ -40,5 +52,36 @@ describe("OverlayScrollbarsBody", () => {
     });
 
     expect(overlayScrollbarMocks.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for running entrance animations before taking over the body", async () => {
+    const { promise: entranceFinished, resolve: finishEntrance } = Promise.withResolvers<null>();
+    const entrance = new FakeCssAnimation(entranceFinished);
+    vi.stubGlobal("CSSAnimation", FakeCssAnimation);
+    Object.defineProperty(document, "getAnimations", {
+      configurable: true,
+      value: () => [entrance],
+    });
+
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<OverlayScrollbarsBody dependencies={overlayScrollbarMocks} />);
+    });
+
+    expect(overlayScrollbarMocks.initialize).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishEntrance(null);
+      await entrance.finished;
+    });
+
+    expect(overlayScrollbarMocks.initialize).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
   });
 });

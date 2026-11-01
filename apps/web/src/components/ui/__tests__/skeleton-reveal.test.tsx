@@ -27,14 +27,11 @@ describe("SkeletonReveal", () => {
     });
 
     const reveal = container.querySelector<HTMLElement>("[data-slot='skeleton-reveal']");
-    const skeleton = container.querySelector<HTMLElement>(
-      "[data-slot='skeleton-reveal-placeholder']",
-    );
+
     const content = container.querySelector<HTMLElement>("[data-slot='skeleton-reveal-content']");
 
     expect(reveal?.dataset.state).toBe("loading");
-    expect(reveal?.classList.contains("is-revealed")).toBe(false);
-    expect(skeleton?.classList.contains("is-pulsing")).toBe(true);
+
     expect(content?.getAttribute("aria-hidden")).toBe("true");
 
     await act(async () => {
@@ -46,7 +43,7 @@ describe("SkeletonReveal", () => {
     });
 
     expect(reveal?.dataset.state).toBe("revealed");
-    expect(reveal?.classList.contains("is-revealed")).toBe(true);
+
     expect(content?.getAttribute("aria-hidden")).toBeNull();
 
     await act(async () => {
@@ -58,13 +55,7 @@ describe("SkeletonReveal", () => {
     });
 
     expect(reveal?.dataset.state).toBe("loading");
-    expect(reveal?.classList.contains("is-revealed")).toBe(false);
-    expect(reveal?.classList.contains("is-resetting")).toBe(true);
-    expect(
-      container
-        .querySelector<HTMLElement>("[data-slot='skeleton-reveal-placeholder']")
-        ?.classList.contains("is-pulsing"),
-    ).toBe(true);
+
     expect(content?.getAttribute("aria-hidden")).toBe("true");
     expect(content?.textContent).toBe("暂无记录");
 

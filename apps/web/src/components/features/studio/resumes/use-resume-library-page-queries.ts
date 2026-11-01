@@ -2,15 +2,8 @@ import {
   resolveRecruitingBoardStagePreset,
   resolveRecruitingBoardView,
 } from "@app/shared/recruiting-board";
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
-import { useAtom } from "jotai";
 import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import { parseCsvParam } from "@app/shared/csv";
 import { dateRangeFilterBounds } from "@app/shared/date-range-filter";
@@ -33,16 +26,15 @@ import {
   rpcFetch,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { jobDescriptionKeys, studioResumeKeys } from "@/lib/client/api/query-keys";
-import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope";
+import {
+  invalidateStudioResumeListQueries,
+  jobDescriptionKeys,
+  studioResumeKeys,
+} from "@/lib/client/api/query-keys";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useResumeLibrarySearchState } from "./resume-library-page-model";
-import type {
-  FetchParams,
-  ResumeLibraryGridState,
-  SearchParamsRecord,
-} from "./resume-library-page-model";
+import type { FetchParams, SearchParamsRecord } from "./resume-library-page-model";
 
 const recruitingJobDescriptionsPayloadSchema = z.object({
   records: z.array(
@@ -78,11 +70,11 @@ export function useResumeLibraryPageQueries({
   const queryClient = useQueryClient();
 
   const invalidateAll = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void invalidateStudioResumeListQueries(queryClient, slug);
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
     void router.invalidate();
-  }, [queryClient, router]);
+  }, [queryClient, router, slug]);
 
   const fetcher = useMemo(
     () =>
@@ -164,7 +156,7 @@ export function useResumeLibraryPageQueries({
   });
 
   const refreshResumeList = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+    void invalidateStudioResumeListQueries(queryClient, slug);
   }, [queryClient, slug]);
 
   const grid = useResumeLibrarySearchState({
@@ -212,19 +204,11 @@ export function useResumeLibraryPageQueries({
     staleTime: 30_000,
   });
 
-  const [metricsScope, setMetricsScope] = useAtom(resumeMetricsScopeAtom);
   const boardPreset = resolveRecruitingBoardStagePreset(firstSearchValue(routeSearch.boardPreset));
   const metricsQuery = useQuery({
-    placeholderData: keepPreviousData,
-    queryFn: () => fetchStudioResumeMetrics(slug, metricsScope, boardPreset),
-    queryKey: studioResumeKeys.metrics(slug, metricsScope, boardPreset),
-    structuralSharing: false,
+    queryFn: () => fetchStudioResumeMetrics(slug, boardPreset),
+    queryKey: studioResumeKeys.metrics(slug, boardPreset),
   });
-  /** Dim charts only while switching scope and the previous scope is still shown. */
-  const metricsSwitching = metricsQuery.isPlaceholderData;
-  const metricsChartKey = metricsQuery.isPlaceholderData
-    ? `pending:${metricsScope}:${boardPreset ?? "all"}`
-    : `${metricsScope}:${boardPreset ?? "all"}:${metricsQuery.dataUpdatedAt}`;
 
   const retryParseMutation = useMutation({
     mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),
@@ -268,19 +252,12 @@ export function useResumeLibraryPageQueries({
     jobDescriptions,
     loadedResumeRecords,
     loadedResumeRowsById,
-    metricsChartKey,
     metricsQuery,
-    metricsScope,
-    metricsSwitching,
     resumeLibraryListQuery,
     resumeLibraryTotal,
     retryParseMutation,
-    setMetricsScope,
     skillSuggestions,
     slug,
     workspaceMembers,
   };
 }
-
-export type ResumeLibraryPageQueries = ReturnType<typeof useResumeLibraryPageQueries>;
-export type { ResumeLibraryGridState };

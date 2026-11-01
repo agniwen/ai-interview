@@ -41,7 +41,7 @@ function HoverCardContent({
           data-slot="hover-card-content"
           className={cn(
             cossAnchoredPopupMotionClass,
-            "z-50 w-64 rounded-md border bg-background p-4 text-popover-foreground shadow-sm outline-hidden",
+            "z-50 w-64 rounded-lg bg-popover p-4 text-popover-foreground shadow-large outline-hidden",
             className,
           )}
           {...props}

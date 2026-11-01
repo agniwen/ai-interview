@@ -9,6 +9,7 @@
 - `./draft`：实时草稿和 turn 聚合。
 - `./hints`：转写提示信息构建。
 - `./qwen-events`：provider 事件契约与解析。
+- `./provider-authorizations`：Qwen/Deepgram 临时授权构造，由宿主提供凭据。
 
 ## 职责与边界
 

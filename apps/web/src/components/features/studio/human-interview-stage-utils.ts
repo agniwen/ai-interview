@@ -35,7 +35,10 @@ export function getHumanInterviewBusinessRoundNumbers(
   let passedRoundCount = 0;
   for (const round of rounds) {
     roundNumbers.set(round.id, passedRoundCount + 2);
-    if (round.status === "completed" && round.outcome === "pass") {
+    if (
+      round.status === "completed" &&
+      (round.outcome === "pass" || round.outcome === "inconclusive")
+    ) {
       passedRoundCount += 1;
     }
   }
@@ -56,8 +59,8 @@ export function getHumanInterviewScheduleBlockReason(
     if (round.outcome === "fail") {
       return `“${round.label}”已标记为未通过，不能继续安排下一轮真人面试。`;
     }
-    if (round.outcome !== "pass") {
-      return `请先将“${round.label}”明确标记为通过，再安排下一轮真人面试。`;
+    if (round.outcome !== "pass" && round.outcome !== "inconclusive") {
+      return `请先将“${round.label}”明确标记为通过或待定，再安排下一轮真人面试。`;
     }
     return null;
   }
@@ -86,7 +89,7 @@ export function describeRoundSummaryStatus(
   return { label: "待安排", tone: "info" };
 }
 
-export function describeMeetingStatus(
+function describeMeetingStatus(
   meeting: HumanInterviewMeetingRecord,
 ): HumanInterviewStatusDescription {
   const attendance = describeHumanInterviewAttendance(meeting);
@@ -142,16 +145,8 @@ export function canRescheduleHumanInterviewRound(
   return meeting === null || meeting.status === "scheduled" || meeting.status === "not_held";
 }
 
-export function pad2(n: number): string {
+function pad2(n: number): string {
   return String(n).padStart(2, "0");
-}
-
-// 卡片底部「评分 / 反馈 / 取消原因」区块是否需要渲染。
-// 抽成 helper 避免在 JSX 里堆负条件被 no-negated-condition 标记。
-// Helper for the "extra details" footer visibility; keeps JSX free of negated
-// equality checks.
-export function hasRoundDetails(round: HumanInterviewRoundRecord): boolean {
-  return Boolean(round.feedback) || round.score !== null || Boolean(round.cancelReason);
 }
 
 export function formatDateTime(iso: string): string {

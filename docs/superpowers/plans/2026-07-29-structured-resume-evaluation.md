@@ -1,5 +1,7 @@
 # Structured Resume Evaluation V1 Implementation Plan
 
+> 历史方案（状态核对：2026-10-09）：本文描述已退役的数字评分、发布或结构化升级流程，不是当前实施计划。新评价与岗位保存遵循[当前评价契约](../../agents/resume-evaluation.md)；历史结果和相应兼容读取仍需保留。本文中的代码路径、命令和依赖版本属于原编写时期，不能直接用于当前部署。
+
 > **For agentic workers:** Execute this plan task by task. Use the checkbox steps as the progress log, write the named failing tests before implementation, and do not start a later task until the current task's focused verification passes.
 
 **Goal:** Implement the accepted `Structured Resume Evaluation V1` design: freeze a recruiter-confirmed evaluation blueprint when a new structured job is published, permanently isolate legacy and structured jobs, evaluate structured-job resumes through a dedicated Mastra workflow, calculate all scores in code, persist a separate versioned artifact plus sortable summaries, and keep the recruiter as the final pass/fail decision maker.

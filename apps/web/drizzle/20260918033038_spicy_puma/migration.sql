@@ -1,0 +1,2 @@
+ALTER TABLE "human_transcription_run" ADD COLUMN "cleanup_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "human_transcription_run" ADD COLUMN "downstream_requested_at" timestamp with time zone;

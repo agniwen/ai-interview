@@ -4,6 +4,7 @@ import type {
 } from "@app/shared/studio-pipeline-stages";
 import type { BackgroundCheckDraftInput } from "@app/db-schema/background-check";
 import { backgroundCheckRpc, rpc } from "@/lib/client/rpc";
+import { apiFetch } from "../client";
 import { rpcFetch } from "../rpc-fetch";
 
 export function savePublicBackgroundCheckDraft(
@@ -43,8 +44,21 @@ export function getBackgroundCheckEmailPreview(
 export function sendBackgroundCheckEmail(
   slug: string,
   candidateId: string,
-  input: { content: string; subject: string; to: string },
+  input: { attachments?: readonly File[]; content: string; subject: string; to: string },
 ): Promise<{ providerMessageId: string; sentAt: string; url: string }> {
+  if (input.attachments?.length) {
+    const formData = new FormData();
+    formData.append("content", input.content);
+    formData.append("subject", input.subject);
+    formData.append("to", input.to);
+    for (const file of input.attachments) {
+      formData.append("attachments", file);
+    }
+    return apiFetch(
+      `/api/w/${encodeURIComponent(slug)}/studio/interviews/${encodeURIComponent(candidateId)}/background-check/email`,
+      { body: formData, method: "POST" },
+    );
+  }
   return rpcFetch(
     backgroundCheckRpc(slug, candidateId).email.$post({ json: input }),
     "发送背调信息采集邮件失败",

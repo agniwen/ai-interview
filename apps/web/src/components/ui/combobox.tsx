@@ -254,7 +254,7 @@ function ComboboxChips({
       data-slot="combobox-chips"
       className={cn(
         cossFieldSurfaceClass,
-        "inline-flex min-h-9 min-w-0 flex-wrap items-center gap-1.5 px-2.5 py-0 text-base focus-within:shadow-[0_1px_1px_0_--theme(--color-foreground/16%)] has-aria-invalid:ring-[3px] has-data-[slot=combobox-chip]:px-1.5 has-data-[slot=combobox-chip]:py-1 md:text-sm [&>*]:relative [&>*]:z-10",
+        "inline-flex min-h-8 min-w-0 flex-wrap items-center gap-1.5 px-2 py-0 text-base md:text-[13px] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/15 has-aria-invalid:ring-[3px] has-data-[slot=combobox-chip]:px-1.5 has-data-[slot=combobox-chip]:py-1 md:text-sm [&>*]:relative [&>*]:z-10",
         className,
       )}
       {...props}

@@ -445,13 +445,13 @@ describe("RoundCard interviewer arrangement", () => {
     },
   );
   it.each([
-    ["inconclusive", true, false, true],
+    ["inconclusive", true, false, false],
     ["inconclusive", false, false, false],
     ["inconclusive", true, true, false],
     ["pass", true, false, false],
     ["fail", true, false, false],
   ] as const)(
-    "shows 修改 only for editable historical pending decisions (%s, %s, %s)",
+    "never shows 修改 for completed decisions (%s, %s, %s)",
     (outcome, canUpdate, disabled, visible) => {
       const queryClient = new QueryClient();
       const host = document.createElement("div");
@@ -488,7 +488,7 @@ describe("RoundCard interviewer arrangement", () => {
       queryClient.clear();
     },
   );
-  it("shows the evaluation summary first and reveals complete details on demand", () => {
+  it("shows evaluation fields first and reveals only analysis details on demand", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
     document.body.append(host);
@@ -542,34 +542,41 @@ describe("RoundCard interviewer arrangement", () => {
 
     expect(host.textContent).toContain("评价 · 已提交");
     expect(host.textContent).not.toContain("AI 评价");
-    expect(host.textContent).toContain("评级 · A");
+    expect(host.textContent).toContain("评级A");
+    expect(host.textContent).toContain("专业技能优");
+    expect(host.textContent).toContain("具备完整的系统架构与前端工程化能力");
+    expect(host.textContent).not.toContain("职级定位");
+    expect(host.textContent).toContain("角色定位核心方案负责人");
+    expect(host.textContent).not.toContain("薪资建议");
     expect(host.textContent).toContain("整体评价唯一整体评价内容");
+    expect(host.textContent).not.toContain("优势特点架构思路清晰");
+    expect(host.textContent).not.toContain("劣势风险规模化经验需要确认");
     expect(host.textContent).not.toContain("完整详细分析内容");
     const disclosure = host.querySelector<HTMLButtonElement>("button[aria-expanded]");
     expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
     act(() => disclosure?.click());
     expect(disclosure?.getAttribute("aria-expanded")).toBe("true");
-    expect(host.textContent).toContain("评级A");
-    expect(host.textContent).toContain("专业技能优");
-    expect(host.textContent).not.toContain("具备完整的系统架构与前端工程化能力");
-    expect(host.textContent).toContain("职级定位高级专家");
-    expect(host.textContent).toContain("角色定位核心方案负责人");
     expect(host.textContent).toContain("优势特点架构思路清晰");
     expect(host.textContent).toContain("劣势风险规模化经验需要确认");
-    expect(host.textContent).toContain("薪资建议-");
-    expect(host.textContent).toContain("整体评价唯一整体评价内容");
     expect(host.textContent).toContain("完整详细分析完整详细分析内容");
     expect(host.textContent?.match(/唯一整体评价内容/g)).toHaveLength(1);
     act(() => disclosure?.click());
     expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
+    expect(host.textContent).not.toContain("优势特点架构思路清晰");
+    expect(host.textContent).not.toContain("劣势风险规模化经验需要确认");
     expect(host.textContent).not.toContain("完整详细分析内容");
+    expect(host.textContent).toContain("评级A");
     expect(host.textContent).toContain("整体评价唯一整体评价内容");
 
     act(() => root.unmount());
     queryClient.clear();
   });
 
-  it("offers the unified review flow after the meeting has ended", () => {
+  it.each([
+    ["pending", false],
+    ["completed", false],
+    ["completed", true],
+  ] as const)("keeps review available for an ended %s round with closed=%s", (status, disabled) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
     document.body.append(host);
@@ -589,6 +596,7 @@ describe("RoundCard interviewer arrangement", () => {
             canDelete
             canUpdate
             dependencies={dependencies}
+            disabled={disabled}
             meeting={endedMeeting}
             onCancel={vi.fn()}
             onComplete={vi.fn()}
@@ -597,7 +605,7 @@ describe("RoundCard interviewer arrangement", () => {
             onOpenLinks={vi.fn()}
             onRescheduled={vi.fn()}
             onReview={onReview}
-            round={round}
+            round={{ ...round, status }}
             roundNumber={2}
             slug="test-workspace"
           />
@@ -606,7 +614,8 @@ describe("RoundCard interviewer arrangement", () => {
     });
 
     const reviewButton = [...host.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "评价并完成",
+      (button) =>
+        button.textContent?.trim() === (status === "completed" ? "补充评价" : "评价并完成"),
     );
     expect(reviewButton).toBeDefined();
     act(() => reviewButton?.click());

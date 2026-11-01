@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { STUDIO_PAGE_PERMISSION_ACTIONS } from "@app/shared/permissions";
 import {
   BUILT_IN_WORKSPACE_ROLE_NAMES,
   ROLE_ASSIGNED_TO_MEMBERS_MESSAGE,
@@ -67,15 +68,18 @@ describe("workspace role permission helpers", () => {
       offer: ["read", "manage"],
     });
 
+    // 已下线的邮箱监听权限资源不再出现在角色权限里。
+
     expect(permission.humanInterview).toEqual(["create", "read", "update", "delete"]);
     expect(permission.offer).toEqual(["read", "create", "update", "delete"]);
-    expect(permission.mailIngestAccount).toEqual(["manage"]);
+    expect(permission).not.toHaveProperty("mailIngestAccount");
   });
 
   it("flattens permission groups into stable table columns", () => {
     const items = buildPermissionItems();
 
-    expect(items[0]).toMatchObject({
+    expect(items[0]?.key).toBe(`page:${STUDIO_PAGE_PERMISSION_ACTIONS[0]}`);
+    expect(items.find((item) => item.key === "page:resumes")).toMatchObject({
       action: "resumes",
       description: expect.stringContaining("侧边栏"),
       groupTitle: "页面浏览",
@@ -95,7 +99,9 @@ describe("workspace role permission helpers", () => {
     expect(items.map((item) => item.key)).toContain("offer:read");
     expect(items.map((item) => item.key)).toContain("offer:update");
     expect(items.map((item) => item.key)).toContain("offer:delete");
-    expect(items.map((item) => item.key)).toContain("mailIngestAccount:manage");
+    expect(items.map((item) => item.key)).toContain("page:calendar");
+    expect(items.map((item) => item.key)).toContain("page:offerApprovalTemplates");
+    expect(items.map((item) => item.key)).not.toContain("mailIngestAccount:manage");
     expect(items.map((item) => item.key)).toContain("resumeEmailIngest:read");
     expect(items.map((item) => item.key)).not.toContain("resume:read");
     expect(items.map((item) => item.key)).toContain("globalConfig:update");

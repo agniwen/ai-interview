@@ -1,5 +1,5 @@
-export const BANNED_USER_MESSAGE = "你的账号已被封禁，请联系管理员。";
-export const BANNED_USER_REDIRECT_MARKER = "banned";
+const BANNED_USER_MESSAGE = "你的账号已被封禁，请联系管理员。";
+const BANNED_USER_REDIRECT_MARKER = "banned";
 
 interface AuthErrorLike {
   code?: string;

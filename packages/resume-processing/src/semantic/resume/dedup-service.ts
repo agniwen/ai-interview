@@ -1,4 +1,4 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../database";
@@ -228,7 +228,7 @@ export async function findSemanticResumeDuplicates(
   }
 }
 
-export function createDefaultSemanticDedupDeps(): SemanticDedupDeps {
+function createDefaultSemanticDedupDeps(): SemanticDedupDeps {
   const embeddingConfig = getResumeEmbeddingConfig();
   const semanticConfig = getResumeSemanticIndexConfig();
   return {

@@ -1,6 +1,7 @@
 "use client";
 
 import { IconFileText, IconHistory, IconUserPlus } from "@tabler/icons-react";
+import { cn } from "@app/shared/utils";
 import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -14,13 +15,16 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
+  STUDIO_RECORD_ROW_DIVIDER_CLASS,
   StudioDateGroupHeaderSkeleton,
   StudioStickyDateGroupHeader,
   buildStudioStickyDateHeaderPositions,
+  hasStudioRecordRowDivider,
   useStudioStickyDateGroup,
 } from "@/components/features/studio/studio-date-group-virtual-list";
 
 import { ResumePoolCard, useResumePoolCardHeight } from "./resume-pool-card";
+import { canEditResumePoolProfile } from "./resume-pool-profile-edit-dialog";
 import { ResumePoolCardSkeleton } from "./resume-pool-card-skeleton";
 import { buildResumePoolVirtualRows, canDeletePoolRecord } from "./resume-pool-page-model";
 
@@ -83,6 +87,7 @@ export function ResumePoolEmptyState({
 export function ResumePoolListContent({
   bindingJobDescriptionRecordId,
   canDeletePoolRecords,
+  canEditPoolRecords,
   canEnterRecruiting,
   canRecommend,
   canRetryResumeParse,
@@ -92,10 +97,10 @@ export function ResumePoolListContent({
   currentUserId,
   deletingRecordId,
   emptyTitle,
-  enteringRecruitingRecordId,
   isInitialPoolLoading,
   onBindJobDescription,
   onDelete,
+  onEdit,
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
@@ -111,6 +116,8 @@ export function ResumePoolListContent({
 }: {
   bindingJobDescriptionRecordId: string | null;
   canDeletePoolRecords: boolean;
+  /** 当前成员可上传人才库简历；编辑仍限上传者本人。Can upload; editing stays uploader-only. */
+  canEditPoolRecords: boolean;
   canEnterRecruiting: boolean;
   canRecommend: boolean;
   canRetryResumeParse: boolean;
@@ -120,10 +127,10 @@ export function ResumePoolListContent({
   currentUserId: string | null;
   deletingRecordId: string | null;
   emptyTitle: string;
-  enteringRecruitingRecordId: string | null;
   isInitialPoolLoading: boolean;
   onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
   onDelete: (record: ResumePoolListRecord) => void;
+  onEdit: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
@@ -234,9 +241,18 @@ export function ResumePoolListContent({
             const canDelete =
               canDeletePoolRecords &&
               canDeletePoolRecord(record, { currentOrganizationId, currentUserId });
+            const canEdit = canEditResumePoolProfile({
+              canCreateResumePool: canEditPoolRecords,
+              currentUserId,
+              record,
+            });
             return (
               <div
-                className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
+                className={cn(
+                  "absolute top-0 left-0 w-full py-1.5 [contain:layout]",
+                  hasStudioRecordRowDivider(virtualRows, virtualRow.index) &&
+                    STUDIO_RECORD_ROW_DIVIDER_CLASS,
+                )}
                 data-index={virtualRow.index}
                 data-resume-pool-record-id={record.id}
                 key={virtualRow.key}
@@ -248,13 +264,14 @@ export function ResumePoolListContent({
                 <ResumePoolCard
                   bindingJobDescription={bindingJobDescriptionRecordId === record.id}
                   canDelete={canDelete}
+                  canEdit={canEdit}
                   canEnterRecruiting={canEnterRecruiting}
                   canRecommend={canRecommend}
                   canRetryParse={canRetryResumeParse}
                   deleting={deletingRecordId === record.id}
-                  enteringRecruiting={enteringRecruitingRecordId === record.id}
                   onBindJobDescription={onBindJobDescription}
                   onDelete={onDelete}
+                  onEdit={onEdit}
                   onEnterRecruiting={onEnterRecruiting}
                   onOpenDetail={onOpenDetail}
                   onOpenDuplicateMatches={onOpenDuplicateMatches}

@@ -21,7 +21,7 @@ export const CHROME_EDGE_PAD_PX = 12;
 export const CHROME_BTN_PX = 24;
 
 /** Gap between the inbox and native Win/Linux window controls. */
-export const CHROME_RIGHT_GAP_PX = 6;
+const CHROME_RIGHT_GAP_PX = 6;
 
 /** Gap between page-owned title-bar actions and fixed desktop chrome. */
 export const CHROME_PAGE_ACTIONS_GAP_PX = 20;

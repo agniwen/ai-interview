@@ -1,19 +1,13 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
-import {
-  formatResumeEducationItem,
-  sortResumeEducationExperiences,
-} from "@app/shared/resume-education";
+import { sortResumeEducationExperiences } from "@app/shared/resume-education";
 import {
   isCurrentResumePeriod,
   sortResumeExperiencesByPeriod,
 } from "@app/shared/resume-experience";
-import { cn } from "@app/shared/utils";
-import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
-import { DataField } from "@/components/features/display/data-field";
+import { CandidateInfoField as DataField } from "@/components/features/candidate/candidate-info-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
-import { Frame, FramePanel } from "@/components/ui/frame";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
 
@@ -59,7 +53,7 @@ function extractNormalizedPeriodDates(period: string): string[] {
   ).filter((date): date is string => date !== null);
 }
 
-export function parseResumeEmploymentPeriod(
+function parseResumeEmploymentPeriod(
   period: string | null | undefined,
 ): ExperienceItemType["positions"][number]["employmentPeriod"] {
   const text = cleanText(period);
@@ -79,9 +73,7 @@ export function parseResumeEmploymentPeriod(
   };
 }
 
-export function formatResumeExperienceDescription(
-  summary: string | null | undefined,
-): string | undefined {
+function formatResumeExperienceDescription(summary: string | null | undefined): string | undefined {
   const text = cleanText(summary);
   if (!text) {
     return undefined;
@@ -104,7 +96,7 @@ export function formatResumeExperienceDescription(
   return items.map((item) => `- ${item}`).join("\n");
 }
 
-export function toWorkExperienceItems(experiences: ResumeWorkExperience[]): ExperienceItemType[] {
+function toWorkExperienceItems(experiences: ResumeWorkExperience[]): ExperienceItemType[] {
   const groups: ExperienceItemType[] = [];
   const groupIndexByCompany = new Map<string, ExperienceItemType>();
 
@@ -154,8 +146,8 @@ function ChipList({ items }: { items: string[] }) {
 
 function ResumeProfileSection({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className=" border-border/50 pt-6">
-      <h4 className="mb-3 font-medium text-sm">{title}</h4>
+    <section className="flex min-w-0 flex-col gap-6 border-t border-border/50 pt-8 first:border-t-0 first:pt-0">
+      <h4 className="font-semibold text-base">{title}</h4>
       {children}
     </section>
   );
@@ -166,40 +158,19 @@ function EducationExperienceList({
 }: {
   educationExperiences: ResumeEducationExperience[];
 }) {
-  if (educationExperiences.length === 0) {
-    return <EmptyValue className="text-sm" />;
-  }
-
   return (
-    <Frame
-      className={cn(
-        "grid w-full gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0",
-        educationExperiences.length === 1
-          ? "grid-cols-1 lg:max-w-[33.333333%]"
-          : "grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]",
-      )}
-    >
-      {educationExperiences.map((education, index) => {
-        const educationItem = formatResumeEducationItem(education) ?? {
-          level: null,
-          major: null,
-          school: "未发现学校",
-        };
-        const period = cleanText(education.period) ?? cleanText(education.graduationYear);
+    <ul className="flex min-w-0 flex-col gap-7">
+      {educationExperiences.map((education) => {
+        const details = [
+          { label: "专业", value: cleanText(education.major) },
+          { label: "学历", value: cleanText(education.educationLevel) },
+          { label: "学位", value: cleanText(education.degree) },
+          { label: "毕业年份", value: cleanText(education.graduationYear) },
+        ].filter((detail) => detail.value);
+        const period = cleanText(education.period);
         return (
-          <FramePanel
-            className={cn(
-              "flex min-w-0 flex-col p-3",
-              educationExperiences.length > 1 &&
-                index === 0 &&
-                "rounded-r-[2px] before:rounded-r-[1px]",
-              index > 0 &&
-                index < educationExperiences.length - 1 &&
-                "rounded-[2px] before:rounded-[1px]",
-              educationExperiences.length > 1 &&
-                index === educationExperiences.length - 1 &&
-                "rounded-l-[2px] before:rounded-l-[1px]",
-            )}
+          <li
+            className="min-w-0"
             key={[
               education.school,
               education.major,
@@ -210,23 +181,33 @@ function EducationExperienceList({
               education.summary,
             ].join("\u001F")}
           >
-            <ResumeEducationDisplayLine
-              className="text-sm"
-              item={educationItem}
-              majorLayout="block"
-            />
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <h5 className="min-w-0 break-words font-semibold text-[15px] leading-6">
+                {cleanText(education.school) ?? "未发现学校"}
+              </h5>
+              {period ? (
+                <span className="text-xs text-muted-foreground tabular-nums">{period}</span>
+              ) : null}
+            </div>
+            {details.length > 0 ? (
+              <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] leading-5">
+                {details.map(({ label, value }) => (
+                  <div key={label} className="flex min-w-0 items-baseline gap-1.5">
+                    <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
+                    <dd className="min-w-0 break-words">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
             {isPresent(education.summary) ? (
-              <p className="mt-1 whitespace-pre-line text-muted-foreground text-sm">
+              <p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-6">
                 {education.summary}
               </p>
             ) : null}
-            {period ? (
-              <span className="pt-2 text-muted-foreground text-xs tabular-nums">{period}</span>
-            ) : null}
-          </FramePanel>
+          </li>
         );
       })}
-    </Frame>
+    </ul>
   );
 }
 
@@ -264,11 +245,12 @@ export function ResumeProfileView({
 
   const educationExperiences = sortResumeEducationExperiences(profile.educationExperiences);
   const projectExperiences = sortResumeExperiencesByPeriod(profile.projectExperiences);
+  const schools = profile.schools.filter(isPresent);
 
   return (
-    <div className="space-y-8">
+    <div className="flex min-w-0 flex-col gap-10">
       {showBasicInfo ? (
-        <DataFields columns={2} density="compact">
+        <DataFields columns={2} density="relaxed">
           <ResumeProfileBasicFields profile={profile} />
         </DataFields>
       ) : null}
@@ -283,22 +265,12 @@ export function ResumeProfileView({
         <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
 
-      <ResumeProfileSection title="教育经历">
-        {educationExperiences.length > 0 ? (
-          <EducationExperienceList educationExperiences={educationExperiences} />
-        ) : (
-          <ChipList items={profile.schools} />
-        )}
-      </ResumeProfileSection>
-
-      <ResumeProfileSection title="项目经历">
-        {projectExperiences.length === 0 ? (
-          <EmptyValue className="text-sm" />
-        ) : (
-          <ul className="flex flex-col gap-3">
+      {projectExperiences.length > 0 ? (
+        <ResumeProfileSection title="项目经历">
+          <ul className="flex flex-col gap-6">
             {projectExperiences.map((proj) => (
               <li
-                className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
+                className="flex min-w-0 flex-col gap-3 py-2"
                 key={[
                   proj.name,
                   proj.role,
@@ -317,7 +289,7 @@ export function ResumeProfileView({
                   </span>
                 </div>
                 {isPresent(proj.summary) ? (
-                  <p className="mt-1 whitespace-pre-line text-muted-foreground text-sm">
+                  <p className="whitespace-pre-line text-foreground text-sm leading-7">
                     {proj.summary}
                   </p>
                 ) : null}
@@ -329,8 +301,24 @@ export function ResumeProfileView({
               </li>
             ))}
           </ul>
-        )}
-      </ResumeProfileSection>
+        </ResumeProfileSection>
+      ) : null}
+
+      {educationExperiences.length > 0 || schools.length > 0 ? (
+        <ResumeProfileSection title="教育经历">
+          {educationExperiences.length > 0 ? (
+            <EducationExperienceList educationExperiences={educationExperiences} />
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {schools.map((school) => (
+                <li className="break-words font-medium text-base" key={school}>
+                  {school}
+                </li>
+              ))}
+            </ul>
+          )}
+        </ResumeProfileSection>
+      ) : null}
 
       <ResumeProfileSection title="掌握技能">
         <ChipList items={profile.skills} />
@@ -340,7 +328,7 @@ export function ResumeProfileView({
         {profile.personalStrengths.length === 0 ? (
           <EmptyValue className="text-sm" />
         ) : (
-          <ul className="space-y-2 text-sm leading-6">
+          <ul className="flex flex-col gap-3 text-sm leading-7">
             {profile.personalStrengths.map((item) => (
               <li className="flex gap-2" key={item}>
                 <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />

@@ -1,25 +1,35 @@
 "use client";
 
-import { IconAlertTriangle, IconFileDescription } from "@tabler/icons-react";
-import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@app/db-schema/interview/types";
-import type { QualitativeResumeEvaluationV2 } from "@app/db-schema/qualitative-resume-evaluation";
+import {
+  CandidateQuestionProgress,
+  candidateQuestionsQueryKey,
+} from "./candidate-question-progress";
+import {
+  IconAlertTriangle,
+  IconFileDescription,
+  IconListDetails,
+  IconX,
+} from "@tabler/icons-react";
+import type { QualitativeResumeEvaluationWithDimensionLevels } from "@app/db-schema/qualitative-resume-evaluation";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
+import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, lazy, Suspense, useState } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { lazy, Suspense, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
+import { QualitativeEvaluationPointsView } from "@/components/features/resume/qualitative-evaluation-points";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
-  QUALITATIVE_RECOMMENDATION_LABEL,
-  QualitativeDimensionRadar,
-  QualitativeRecommendationIndicator,
-} from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -28,7 +38,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -37,8 +47,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Modal } from "@/components/ui/modal";
+import { CandidateResumePreview } from "./candidate-resume-preview";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   fetchHumanInterviewCandidateAiEvaluation,
   fetchHumanInterviewCandidateHrInformation,
@@ -46,10 +57,12 @@ import {
   fetchHumanInterviewCandidateMaterials,
   fetchHumanInterviewCandidateQuestions,
   getHumanInterviewCandidatePptxPreviewUrl,
+  getHumanInterviewCandidateAvatarUrl,
   getHumanInterviewCandidateResumeUrl,
 } from "@/lib/client/api";
 import { resolveEffectiveCandidateId } from "./human-meeting-materials-model";
 import { CandidateInterviewHistory } from "./candidate-interview-history";
+import { CandidateQuestionsPanel } from "./candidate-questions-panel";
 
 const InlinePdfViewer = lazy(async () => {
   const mod = await import("@/components/ui/pdf-viewer");
@@ -71,25 +84,16 @@ const InlineImageViewer = lazy(async () => {
   return { default: mod.ImageResumePreviewContent };
 });
 
-export type CandidateMaterialsLeftTab = "ai" | "hr" | "questions";
-export type CandidateMaterialsCenterTab = "detail" | "resume";
-
 export interface InterviewerCandidateMaterialsState {
   candidateId: string | null;
-  centerTab: CandidateMaterialsCenterTab;
-  leftTab: CandidateMaterialsLeftTab;
-}
-
-function isCandidateMaterialsLeftTab(value: string): value is CandidateMaterialsLeftTab {
-  return value === "ai" || value === "hr" || value === "questions";
-}
-
-function isCandidateMaterialsCenterTab(value: string): value is CandidateMaterialsCenterTab {
-  return value === "detail" || value === "resume";
+  questionsOpen: boolean;
 }
 
 interface InterviewerCandidateMaterialsProps {
+  showTimeline?: boolean;
+  showQuestions?: boolean;
   active: boolean;
+  headerActionsContainer?: HTMLElement | null;
   inviteToken: string;
   onStateChange: (state: InterviewerCandidateMaterialsState) => void;
   state: InterviewerCandidateMaterialsState;
@@ -100,21 +104,6 @@ const MATERIALS_QUERY_OPTIONS = {
   refetchOnWindowFocus: false,
   retry: false,
   staleTime: Number.POSITIVE_INFINITY,
-} as const;
-
-const DIMENSION_ENTRIES = [
-  ["skillMatch", "技能匹配"],
-  ["experienceRelevance", "经验相关性"],
-  ["projectMatch", "项目匹配"],
-  ["educationBackground", "教育与背景"],
-  ["potential", "潜力"],
-  ["stability", "稳定性"],
-] as const;
-
-const DIFFICULTY_LABEL = {
-  easy: "基础",
-  hard: "深入",
-  medium: "进阶",
 } as const;
 
 function LoadingBlock() {
@@ -152,85 +141,104 @@ function EmptyBlock({ description, title }: { description?: string; title: strin
   );
 }
 
-function AiEvaluationContent({
+export function AiEvaluationContent({
   data,
 }: {
-  data: { aiEvaluation: { evaluation: QualitativeResumeEvaluationV2; status: "ready" } };
+  data: {
+    aiEvaluation: { evaluation: QualitativeResumeEvaluationWithDimensionLevels; status: "ready" };
+  };
 }) {
   const { evaluation } = data.aiEvaluation;
+  const contentClassName = "mt-2 text-base leading-7 md:text-sm md:leading-6";
   return (
-    <div className="flex flex-col p-4">
-      <section className="flex flex-col gap-3 pb-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-muted-foreground text-xs">综合建议</span>
-          <QualitativeRecommendationIndicator level={evaluation.recommendationLevel} />
-        </div>
-        <p className="font-medium text-sm leading-6">{evaluation.conciseOverall}</p>
+    <div className="grid grid-cols-1 gap-x-6 gap-y-5 py-3 md:grid-cols-2">
+      <section className="min-w-0 md:col-span-2">
+        <h3 className="font-semibold text-base md:text-sm">判断</h3>
+        <RestrictedMarkdownView
+          className={contentClassName}
+          content={evaluation.detailedOverall.judgment}
+        />
       </section>
-      <Separator />
-      <div className="py-4">
-        <QualitativeDimensionRadar compact evaluation={evaluation} />
-      </div>
-      <Separator />
-      <div className="flex flex-col">
-        {DIMENSION_ENTRIES.map(([key, label], index) => {
-          const dimension = evaluation.dimensions[key];
-          return (
-            <Fragment key={key}>
-              <section className="py-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-medium text-sm">{label}</h3>
-                  <Badge variant="outline">
-                    {QUALITATIVE_RECOMMENDATION_LABEL[dimension.level]}
-                  </Badge>
-                </div>
-                <RestrictedMarkdownView
-                  className="mt-2 text-muted-foreground text-xs leading-5"
-                  content={dimension.evaluation}
-                />
-              </section>
-              {index < DIMENSION_ENTRIES.length - 1 ? <Separator /> : null}
-            </Fragment>
-          );
-        })}
-      </div>
+      <section className="min-w-0 md:col-span-2">
+        <h3 className="font-semibold text-base md:text-sm">匹配依据</h3>
+        <QualitativeEvaluationPointsView
+          className={contentClassName}
+          kind="matching"
+          section={evaluation.detailedOverall.matchingEvidence}
+        />
+      </section>
+      <section className="min-w-0 md:col-span-2">
+        <h3 className="font-semibold text-base md:text-sm">风险与待确认项</h3>
+        <QualitativeEvaluationPointsView
+          className={contentClassName}
+          kind="risk"
+          section={evaluation.detailedOverall.risks}
+        />
+      </section>
     </div>
   );
 }
 
-function CandidateAiEvaluation({ query }: { query: ReturnType<typeof useAiEvaluationQuery> }) {
-  if (query.isPending) {
-    return <LoadingBlock />;
+function CandidateEvaluations({
+  compact,
+  showTimeline,
+  query,
+  aiQuery,
+  resumePreview,
+}: {
+  compact: boolean;
+  showTimeline?: boolean;
+  resumePreview: ReactNode;
+  query: ReturnType<typeof useHrInformationQuery>;
+  aiQuery: ReturnType<typeof useAiEvaluationQuery>;
+}) {
+  const aiEvaluation =
+    aiQuery.data?.aiEvaluation.status === "ready" ? (
+      <AiEvaluationContent data={{ aiEvaluation: aiQuery.data.aiEvaluation }} />
+    ) : null;
+  const aiStatus = (
+    <>
+      {aiQuery.isPending ? <LoadingBlock /> : null}
+      {aiQuery.isError ? <ErrorBlock error={aiQuery.error} title="AI 评价加载失败" /> : null}
+    </>
+  );
+  if (query.isPending || query.isError) {
+    return (
+      <ScrollArea className="h-full" scrollFade scrollbars="leave">
+        <div className="mx-auto w-full max-w-5xl">
+          {resumePreview}
+          {aiStatus}
+          {aiEvaluation}
+          {query.isPending ? (
+            <LoadingBlock />
+          ) : (
+            <ErrorBlock error={query.error} title="历史评价加载失败" />
+          )}
+        </div>
+      </ScrollArea>
+    );
   }
-  if (query.isError) {
-    return <ErrorBlock error={query.error} title="AI 评价加载失败" />;
-  }
-  const { aiEvaluation } = query.data;
-  if (aiEvaluation.status !== "ready") {
-    let description: string | undefined;
-    if (aiEvaluation.status === "pending") {
-      description = "当前评价仍在生成中，本次进入资料页不会自动刷新。";
-    } else if (aiEvaluation.status === "failed") {
-      description = "最近一次 AI 评价未成功。";
-    } else if (aiEvaluation.status === "legacy") {
-      description = "历史数字评分不会转换成新版六维评价。";
-    }
-    return <EmptyBlock description={description} title="暂无可展示的六维 AI 评价" />;
-  }
-  return <AiEvaluationContent data={{ aiEvaluation }} />;
+  return (
+    <CandidateInterviewHistory
+      compact={compact}
+      showTimeline={showTimeline}
+      resumePreview={resumePreview}
+      aiEvaluation={aiEvaluation ?? (aiQuery.isPending || aiQuery.isError ? aiStatus : null)}
+      aiEvaluationGeneratedAt={aiEvaluation ? aiQuery.data?.generatedAt : null}
+      data={query.data}
+    />
+  );
 }
 
-function CandidateHrInformation({ query }: { query: ReturnType<typeof useHrInformationQuery> }) {
-  if (query.isPending) {
-    return <LoadingBlock />;
-  }
-  if (query.isError) {
-    return <ErrorBlock error={query.error} title="历史评价加载失败" />;
-  }
-  return <CandidateInterviewHistory data={query.data} />;
-}
-
-function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQuery> }) {
+function CandidateQuestions({
+  query,
+  inviteToken,
+  candidateId,
+}: {
+  query: ReturnType<typeof useQuestionsQuery>;
+  inviteToken: string;
+  candidateId: string;
+}) {
   if (query.isPending) {
     return <LoadingBlock />;
   }
@@ -241,38 +249,47 @@ function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQu
     return <EmptyBlock title="暂无面试题参考" />;
   }
   return (
-    <ol className="flex flex-col px-4">
-      {query.data.interviewQuestions.map((question, index) => {
-        const dimension = question.dimension ?? "business";
-        return (
-          <li className="py-4" key={`${question.order}-${question.question}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-primary text-xs">{question.order}</span>
-              <Badge variant="outline">{INTERVIEW_QUESTION_DIMENSION_LABEL[dimension]}</Badge>
-              <Badge variant="secondary">{DIFFICULTY_LABEL[question.difficulty]}</Badge>
-            </div>
-            <p className="mt-3 text-sm leading-6">{question.question}</p>
-            {question.evaluationFocus ? (
-              <p className="mt-2 text-muted-foreground text-xs leading-5">
-                考核点：{question.evaluationFocus}
-              </p>
-            ) : null}
-            {question.followUpDirections ? (
-              <p className="mt-1 text-muted-foreground text-xs leading-5">
-                追问方向：{question.followUpDirections}
-              </p>
-            ) : null}
-            {index < query.data.interviewQuestions.length - 1 ? (
-              <Separator className="mt-4" />
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
+    <CandidateQuestionProgress
+      key={candidateId}
+      data={query.data}
+      inviteToken={inviteToken}
+      candidateId={candidateId}
+    />
   );
 }
 
-function CandidateDetail({ query }: { query: ReturnType<typeof useOverviewQuery> }) {
+function ResumeViewToggle({ onClick, structured }: { onClick: () => void; structured: boolean }) {
+  const label = structured ? "查看简历原件" : "展示结构化数据";
+  return (
+    <Button
+      aria-label={label}
+      aria-pressed={structured}
+      className="h-8 shrink-0 px-2 has-[>svg]:px-2"
+      onClick={onClick}
+      size="sm"
+      title={label}
+      type="button"
+      variant="ghost"
+    >
+      {structured ? (
+        <IconFileDescription className="size-4" />
+      ) : (
+        <IconListDetails className="size-4" />
+      )}
+      <span className="hidden xl:inline">{label}</span>
+    </Button>
+  );
+}
+
+function CandidateDetail({
+  inviteToken,
+  query,
+  toolbarAction,
+}: {
+  inviteToken: string;
+  query: ReturnType<typeof useOverviewQuery>;
+  toolbarAction: ReactNode;
+}) {
   if (query.isPending) {
     return <LoadingBlock />;
   }
@@ -283,18 +300,27 @@ function CandidateDetail({ query }: { query: ReturnType<typeof useOverviewQuery>
   const candidateName = candidate.candidateName.trim() || "未命名候选人";
   const avatarLabel =
     candidate.candidateName.trim() || candidate.candidateEmail?.trim() || "候选人";
-  const avatarValue = avatarLabel.slice(0, 1).toUpperCase();
   return (
     <ScrollArea className="h-full" scrollFade scrollbars="leave">
       <div className="flex flex-col gap-8 p-5 lg:p-7">
         <header className="flex min-w-0 items-center gap-3">
+          {/* 与招聘台卡片一致：有简历头像就显示，否则显示按姓名生成的人像。
+              / Same as the recruiting cards: the resume headshot, else the name-seeded portrait. */}
           <Avatar
-            className="size-14 shrink-0"
-            generatedSize={56}
+            className="size-14 shrink-0 ring-1 ring-border"
             label={`${avatarLabel}的头像`}
             seed={candidateName}
           >
-            <AvatarFallback>{avatarValue}</AvatarFallback>
+            {candidate.avatarVersion ? (
+              <AvatarImage
+                alt=""
+                src={getHumanInterviewCandidateAvatarUrl(
+                  inviteToken,
+                  candidate.id,
+                  candidate.avatarVersion,
+                )}
+              />
+            ) : null}
           </Avatar>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-baseline gap-2">
@@ -307,6 +333,7 @@ function CandidateDetail({ query }: { query: ReturnType<typeof useOverviewQuery>
               {candidate.jobDescriptionName ?? candidate.targetRole ?? "未关联岗位"}
             </p>
           </div>
+          <div className="ml-auto shrink-0 self-start">{toolbarAction}</div>
         </header>
 
         <section className="border-border/50 border-t pt-6">
@@ -318,7 +345,6 @@ function CandidateDetail({ query }: { query: ReturnType<typeof useOverviewQuery>
             <DataField kind="email" label="邮箱" value={candidate.candidateEmail} />
             <DataField kind="phone" label="电话" value={candidate.candidatePhone} />
             <DataField label="创建人" value={candidate.creatorName} />
-            <DataField label="简历文件" span="full" value={candidate.resumeFileName} />
           </DataFields>
         </section>
 
@@ -342,20 +368,35 @@ function InlineResumeDocument({
   kind,
   onIsDarkChange,
   sourceUrl,
+  toolbarAction,
+  compact = false,
+  toolbarContainer,
 }: {
   fileName: string | undefined;
   isDark: boolean;
   kind: InlineResumeKind;
   onIsDarkChange: (isDark: boolean) => void;
   sourceUrl: string;
+  toolbarAction: ReactNode;
+  compact?: boolean;
+  toolbarContainer?: HTMLElement | null;
 }) {
   if (kind === "pdf" || kind === "pptx") {
     return (
       <InlinePdfViewer
         className="h-full"
+        enableModifierWheelZoom
+        enableTouchPinchZoom
         file={sourceUrl}
+        fitWidthOnMobile
+        scrollFade
+        showToolbar={!compact}
         showDownload={false}
+        showRotateControlsOnMobile={false}
+        showSearchOnMobile={false}
         showUpload={false}
+        toolbarActions={toolbarAction}
+        toolbarContainer={toolbarContainer}
       />
     );
   }
@@ -366,9 +407,11 @@ function InlineResumeDocument({
         fileName={fileName}
         isDark={isDark}
         onIsDarkChange={onIsDarkChange}
+        showToolbar={!compact}
         showDownload={false}
         showUpload={false}
         src={sourceUrl}
+        toolbarActions={toolbarAction}
       />
     );
   }
@@ -379,46 +422,86 @@ function InlineResumeDocument({
         fileName={fileName}
         isDark={isDark}
         onIsDarkChange={onIsDarkChange}
+        showToolbar={!compact}
         showDownload={false}
         showUpload={false}
         src={sourceUrl}
+        toolbarActions={toolbarAction}
       />
     );
   }
   return (
-    <ScrollArea className="h-full" scrollFade scrollbars="leave">
-      <InlineImageViewer filename={fileName} url={sourceUrl} />
-    </ScrollArea>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 justify-end p-2">{toolbarAction}</div>
+      <ScrollArea className="min-h-0 flex-1" scrollFade scrollbars="leave">
+        <InlineImageViewer filename={fileName} url={sourceUrl} />
+      </ScrollArea>
+    </div>
+  );
+}
+
+function ResumePreviewFallback({
+  children,
+  toolbarAction,
+}: {
+  children: ReactNode;
+  toolbarAction: ReactNode;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 justify-end p-2">{toolbarAction}</div>
+      {children}
+    </div>
   );
 }
 
 function ResumePreview({
   query,
   inviteToken,
+  toolbarAction,
+  compact = false,
+  toolbarContainer,
 }: {
   query: ReturnType<typeof useOverviewQuery>;
   inviteToken: string;
+  toolbarAction: ReactNode;
+  compact?: boolean;
+  toolbarContainer?: HTMLElement | null;
 }) {
   const [isDark, setIsDark] = useState(false);
   if (query.isPending) {
-    return <LoadingBlock />;
+    return (
+      <ResumePreviewFallback toolbarAction={toolbarAction}>
+        <LoadingBlock />
+      </ResumePreviewFallback>
+    );
   }
   if (query.isError) {
-    return <ErrorBlock error={query.error} title="简历信息加载失败" />;
+    return (
+      <ResumePreviewFallback toolbarAction={toolbarAction}>
+        <ErrorBlock error={query.error} title="简历信息加载失败" />
+      </ResumePreviewFallback>
+    );
   }
   const { candidate } = query.data;
   if (!candidate.hasResumeFile) {
-    return <EmptyBlock title="候选人未上传简历文件" />;
+    return (
+      <ResumePreviewFallback toolbarAction={toolbarAction}>
+        <EmptyBlock title="候选人未上传简历文件" />
+      </ResumePreviewFallback>
+    );
   }
   const kind = getResumeDocumentKind({ fileName: candidate.resumeFileName ?? undefined });
   if (
     !(kind === "pdf" || kind === "pptx" || kind === "docx" || kind === "xlsx" || kind === "image")
   ) {
     return (
-      <EmptyBlock
-        description={`${candidate.resumeFileName ?? "当前文件"} 的格式暂不支持在线预览，会议资料页不提供下载。`}
-        title="无法预览这份简历"
-      />
+      <ResumePreviewFallback toolbarAction={toolbarAction}>
+        <EmptyBlock
+          description={`${candidate.resumeFileName ?? "当前文件"} 的格式暂不支持在线预览，会议资料页不提供下载。`}
+          title="无法预览这份简历"
+        />
+      </ResumePreviewFallback>
     );
   }
   const sourceUrl =
@@ -429,13 +512,97 @@ function ResumePreview({
   return (
     <Suspense fallback={<LoadingBlock />}>
       <InlineResumeDocument
+        compact={compact}
+        toolbarContainer={toolbarContainer}
         fileName={candidate.resumeFileName ?? undefined}
         isDark={isDark}
         kind={kind}
         onIsDarkChange={setIsDark}
         sourceUrl={sourceUrl}
+        toolbarAction={toolbarAction}
       />
     </Suspense>
+  );
+}
+
+function CandidateResumeDialog({
+  open,
+  onClose,
+  query,
+  inviteToken,
+}: {
+  open: boolean;
+  onClose: () => void;
+  query: ReturnType<typeof useOverviewQuery>;
+  inviteToken: string;
+}) {
+  const isMobile = useIsMobile();
+  const [pdfToolbarContainer, setPdfToolbarContainer] = useState<HTMLDivElement | null>(null);
+  const [showStructuredResume, setShowStructuredResume] = useState(false);
+  const resumeViewToggle = (
+    <ResumeViewToggle
+      onClick={() => setShowStructuredResume((current) => !current)}
+      structured={showStructuredResume}
+    />
+  );
+  return (
+    <Modal
+      open={open}
+      onOpenChange={() => onClose()}
+      size="full"
+      fullScreen
+      bodyClassName="overflow-hidden p-0"
+      title={
+        isMobile ? (
+          "简历详情"
+        ) : (
+          <span className="flex min-w-0 items-center gap-3 text-sm">
+            <ResumeDocumentFileIcon
+              className="size-5 shrink-0"
+              kind={getResumeDocumentFileIconKind({
+                fileName: query.data?.candidate.resumeFileName,
+              })}
+            />
+            <span className="sr-only">简历详情</span>
+            <span
+              className="truncate font-normal text-muted-foreground"
+              title={query.data?.candidate.resumeFileName ?? undefined}
+            >
+              {query.data?.candidate.resumeFileName}
+            </span>
+          </span>
+        )
+      }
+      headerClassName="md:px-3 md:py-2"
+      showCloseButton={false}
+      headerLayout="row"
+      headerExtra={
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block" ref={setPdfToolbarContainer} />
+          {!isMobile && showStructuredResume ? resumeViewToggle : null}
+          <Button aria-label="关闭简历详情" onClick={() => onClose()} size="icon" variant="ghost">
+            <IconX />
+          </Button>
+        </div>
+      }
+    >
+      <div className="h-full min-h-0" data-vaul-no-drag>
+        {showStructuredResume ? (
+          <CandidateDetail
+            inviteToken={inviteToken}
+            query={query}
+            toolbarAction={isMobile ? resumeViewToggle : null}
+          />
+        ) : (
+          <ResumePreview
+            toolbarContainer={isMobile ? undefined : pdfToolbarContainer}
+            inviteToken={inviteToken}
+            query={query}
+            toolbarAction={resumeViewToggle}
+          />
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -471,18 +638,32 @@ function useQuestionsQuery(active: boolean, inviteToken: string, candidateId: st
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active && Boolean(candidateId),
     queryFn: () => fetchHumanInterviewCandidateQuestions(inviteToken, candidateId ?? ""),
-    queryKey: ["human-interview-candidate-materials", inviteToken, candidateId, "questions"],
+    queryKey: candidateQuestionsQueryKey(inviteToken, candidateId),
+    refetchInterval: active ? 5000 : false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 
 export function InterviewerCandidateMaterials({
+  showQuestions = false,
+  showTimeline,
   active,
+  headerActionsContainer,
   inviteToken,
   onStateChange,
   state,
 }: InterviewerCandidateMaterialsProps) {
   const isMobile = useIsMobile();
-  const [mobileGroup, setMobileGroup] = useState<"left" | "center">("center");
+  const questionsPanelId = useId();
+  const questionsButtonRef = useRef<HTMLButtonElement>(null);
+  const questionsOpen = showQuestions && state.questionsOpen;
+  const desktopQuestionsOpen = questionsOpen && !isMobile;
+  const closeQuestions = () => {
+    onStateChange({ ...state, questionsOpen: false });
+    questionsButtonRef.current?.focus();
+  };
+  const [resumeDialogCandidateId, setResumeDialogCandidateId] = useState<string | null>(null);
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
     enabled: active,
@@ -494,8 +675,11 @@ export function InterviewerCandidateMaterials({
   const overviewQuery = useOverviewQuery(active, inviteToken, effectiveCandidateId);
   const aiQuery = useAiEvaluationQuery(active, inviteToken, effectiveCandidateId);
   const hrQuery = useHrInformationQuery(active, inviteToken, effectiveCandidateId);
-  const questionsQuery = useQuestionsQuery(active, inviteToken, effectiveCandidateId);
-
+  const questionsQuery = useQuestionsQuery(
+    active && showQuestions,
+    inviteToken,
+    effectiveCandidateId,
+  );
   if (listQuery.isPending) {
     return <LoadingBlock />;
   }
@@ -509,9 +693,10 @@ export function InterviewerCandidateMaterials({
   const candidateSelector =
     candidates.length > 1 ? (
       <Select
-        onValueChange={(candidateId) =>
-          onStateChange({ ...state, candidateId: String(candidateId) })
-        }
+        onValueChange={(candidateId) => {
+          setResumeDialogCandidateId(null);
+          onStateChange({ ...state, candidateId: String(candidateId) });
+        }}
         value={effectiveCandidateId}
       >
         <SelectTrigger aria-label="切换候选人" className="mx-2 mt-2 w-auto max-w-full">
@@ -531,139 +716,84 @@ export function InterviewerCandidateMaterials({
         </SelectContent>
       </Select>
     ) : null;
-  if (isMobile) {
-    return (
-      <Tabs
-        className="h-full min-h-0 gap-0 overflow-hidden bg-background text-foreground"
-        value={mobileGroup === "left" ? state.leftTab : state.centerTab}
-        onValueChange={(value) => {
-          if (isCandidateMaterialsLeftTab(value)) {
-            setMobileGroup("left");
-            onStateChange({ ...state, leftTab: value });
-          } else if (isCandidateMaterialsCenterTab(value)) {
-            setMobileGroup("center");
-            onStateChange({ ...state, centerTab: value });
-          }
-        }}
-      >
-        {candidateSelector}
-        <TabsList
-          aria-label="候选人资料"
-          className="m-2 grid h-auto w-auto shrink-0 grid-cols-5 gap-0 data-[orientation=horizontal]:h-auto"
-        >
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="detail">
-            详情
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="resume">
-            简历
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="ai">
-            AI评价
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="hr">
-            历史评价
-          </TabsTrigger>
-          <TabsTrigger className="h-10! min-w-0 px-1 text-xs" value="questions">
-            面试题
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent className="min-h-0 overflow-hidden" value="ai">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateAiEvaluation query={aiQuery} />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="hr">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="questions">
-          <ScrollArea className="h-full" scrollFade scrollbars="leave">
-            <CandidateQuestions query={questionsQuery} />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="detail">
-          <CandidateDetail query={overviewQuery} />
-        </TabsContent>
-        <TabsContent className="min-h-0 overflow-hidden" value="resume">
-          <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
-        </TabsContent>
-      </Tabs>
-    );
-  }
-
+  const actionsInHeader = headerActionsContainer !== undefined;
+  const questionsButton = showQuestions ? (
+    <Button
+      ref={questionsButtonRef}
+      aria-label="面试题"
+      className="max-md:[&_svg]:size-5"
+      aria-controls={questionsPanelId}
+      aria-expanded={questionsOpen}
+      onClick={() => onStateChange({ ...state, questionsOpen: !questionsOpen })}
+      size="sm"
+      variant={questionsOpen ? "secondary" : "ghost"}
+    >
+      <IconListDetails data-icon="inline-start" />
+      <span>面试题</span>
+    </Button>
+  ) : null;
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 lg:grid-cols-[clamp(21.75rem,25vw,25.75rem)_minmax(0,1fr)] lg:overflow-hidden">
-        <Tabs
-          className="min-h-[32rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
-          onValueChange={(leftTab) => {
-            if (isCandidateMaterialsLeftTab(leftTab)) {
-              onStateChange({ ...state, leftTab });
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+      {candidateSelector}
+      {actionsInHeader
+        ? headerActionsContainer && createPortal(questionsButton, headerActionsContainer)
+        : showQuestions && (
+            <div className="flex shrink-0 justify-end px-3 py-2">{questionsButton}</div>
+          )}
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-200 ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
+          desktopQuestionsOpen
+            ? "grid-cols-[minmax(0,1fr)_min(32%,30rem)]"
+            : "grid-cols-[minmax(0,1fr)_0px]",
+        )}
+      >
+        <section aria-label="候选人概览" className="min-h-0 min-w-0 overflow-hidden">
+          <CandidateEvaluations
+            compact={desktopQuestionsOpen}
+            showTimeline={showTimeline}
+            key={effectiveCandidateId}
+            aiQuery={aiQuery}
+            query={hrQuery}
+            resumePreview={
+              <CandidateResumePreview
+                candidate={overviewQuery.data?.candidate}
+                onOpen={() => {
+                  setResumeDialogCandidateId(effectiveCandidateId);
+                }}
+              >
+                <ResumePreview
+                  compact
+                  inviteToken={inviteToken}
+                  query={overviewQuery}
+                  toolbarAction={null}
+                />
+              </CandidateResumePreview>
             }
-          }}
-          value={state.leftTab}
-        >
-          {candidateSelector}
-          <TabsList
-            aria-label="候选人评价资料"
-            className="m-2 grid h-auto w-auto shrink-0 grid-cols-3 items-stretch gap-1 data-[orientation=horizontal]:h-auto"
+          />
+        </section>
+        {showQuestions ? (
+          <CandidateQuestionsPanel
+            id={questionsPanelId}
+            isMobile={isMobile}
+            open={questionsOpen}
+            onClose={closeQuestions}
           >
-            <TabsTrigger className="h-10! w-full px-3" value="ai">
-              AI 评价
-            </TabsTrigger>
-            <TabsTrigger className="h-10! w-full px-3" value="hr">
-              历史评价
-            </TabsTrigger>
-            <TabsTrigger className="h-10! w-full px-3" value="questions">
-              面试题
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent className="min-h-0 overflow-hidden" value="ai">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateAiEvaluation query={aiQuery} />
-            </ScrollArea>
-          </TabsContent>
-          <TabsContent className="min-h-0 overflow-hidden" value="hr">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateHrInformation key={effectiveCandidateId} query={hrQuery} />
-            </ScrollArea>
-          </TabsContent>
-          <TabsContent className="min-h-0 overflow-hidden" value="questions">
-            <ScrollArea className="h-full" scrollFade scrollbars="leave">
-              <CandidateQuestions query={questionsQuery} />
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-
-        <Tabs
-          className="min-h-[40rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
-          onValueChange={(centerTab) => {
-            if (isCandidateMaterialsCenterTab(centerTab)) {
-              onStateChange({ ...state, centerTab });
-            }
-          }}
-          value={state.centerTab}
-        >
-          <TabsList
-            aria-label="候选人简历资料"
-            className="m-2 grid h-auto w-auto shrink-0 grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto"
-          >
-            <TabsTrigger className="h-10! w-full px-3" value="detail">
-              详情
-            </TabsTrigger>
-            <TabsTrigger className="h-10! w-full px-3" value="resume">
-              简历
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent className="min-h-0 overflow-hidden" value="detail">
-            <CandidateDetail query={overviewQuery} />
-          </TabsContent>
-          <TabsContent className="min-h-0 overflow-hidden" value="resume">
-            <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
-          </TabsContent>
-        </Tabs>
+            <CandidateQuestions
+              query={questionsQuery}
+              inviteToken={inviteToken}
+              candidateId={effectiveCandidateId ?? ""}
+            />
+          </CandidateQuestionsPanel>
+        ) : null}
       </div>
+      <CandidateResumeDialog
+        key={effectiveCandidateId}
+        open={resumeDialogCandidateId === effectiveCandidateId}
+        onClose={() => setResumeDialogCandidateId(null)}
+        query={overviewQuery}
+        inviteToken={inviteToken}
+      />
     </div>
   );
 }

@@ -67,10 +67,10 @@ dev: ## 并行启动 TanStack Start + LiveKit agent worker + 简历解析 worker
 	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
 web-dev: ## 使用已有依赖缓存启动 TanStack Start dev server
-	bun run --filter @app/web dev
+	bun run --filter @app/web dev --host 0.0.0.0
 
 web-dev-fresh: ## 清理依赖缓存后启动 TanStack Start dev server
-	bun run --filter @app/web dev:fresh
+	bun run --filter @app/web dev:fresh --host 0.0.0.0
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
 	cd $(WORKER_DIR) && bun run dev

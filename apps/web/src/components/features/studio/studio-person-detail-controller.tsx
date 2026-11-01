@@ -35,8 +35,9 @@ import { StudioPersonDetailView } from "./studio-person-detail-view";
 import { useStudioPersonDetailMutations } from "./use-studio-person-detail-mutations";
 import { useStudioPersonDetailPermissions } from "./use-studio-person-detail-permissions";
 import { useStudioPersonDetailQueries } from "./use-studio-person-detail-queries";
+import { parseInterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
 
-export function useStudioPersonDetailController({
+function useStudioPersonDetailController({
   recordId,
   roundId,
   mode,
@@ -291,6 +292,9 @@ export function useStudioPersonDetailController({
   const selectedResultInterviewItems = getCollectedCandidateInfoItems({
     evaluation: selectedResultReport?.evaluationCriteriaResults,
     formSubmissions: [],
+    outcomes:
+      parseInterviewDataCollectionResults(selectedResultReport?.dataCollectionResults)?.questions ??
+      null,
   }).interviewItems;
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
@@ -302,7 +306,10 @@ export function useStudioPersonDetailController({
       setHumanInterviewQuestionDialogOpen(true);
       return;
     }
-    await handleAdvancePipelineStage(target);
+    const advanced = await handleAdvancePipelineStage(target);
+    if (!advanced) {
+      throw new Error("推进失败，请核对候选人当前状态后重试。");
+    }
   }
 
   function confirmHumanInterviewQuestions(
@@ -368,9 +375,7 @@ export function useStudioPersonDetailController({
     },
     onRequestClose,
     onRequestReactivate,
-    onResetRound: (targetRoundId) => {
-      void handleResetRound(targetRoundId);
-    },
+    onResetRound: handleResetRound,
     onViewCurrentStage: () => {
       if (actionBarPipelineStage) {
         setActiveTab(tabForPipelineStage(actionBarPipelineStage));
@@ -413,6 +418,7 @@ export function useStudioPersonDetailController({
     effectiveSelectedResultConversationId,
     enabled,
     floatingActionBar: header.floatingActionBar,
+    floatingActionBarPlacement: header.floatingActionBarPlacement,
     formSubmissions,
     handleReassessResume,
     handleResetRound,
@@ -465,7 +471,6 @@ export function useStudioPersonDetailController({
     setMetadataReport,
     shell,
     showAgentInstructions,
-    showRecruitingMeetings: mode === "resume" && !isPublic && !isReview,
     showTimelineRail: header.showTimelineRail,
     slug,
     tabContentRootRef,
@@ -477,8 +482,17 @@ export function useStudioPersonDetailController({
 
 export type StudioPersonDetailViewModel = ReturnType<typeof useStudioPersonDetailController>;
 
-export function StudioPersonDetailPanel(
-  props: Parameters<typeof useStudioPersonDetailController>[0],
-) {
+function StudioPersonDetailSession(props: StudioPersonDetailControllerProps) {
   return <StudioPersonDetailView model={useStudioPersonDetailController(props)} />;
+}
+
+export function StudioPersonDetailPanel(props: StudioPersonDetailControllerProps) {
+  const slug = useOptionalWorkspaceSlug();
+  // A departed candidate's pending callbacks can only update its unmounted session.
+  return (
+    <StudioPersonDetailSession
+      key={`${slug}:${props.mode}:${props.recordId}:${props.roundId}:${props.accessMode}`}
+      {...props}
+    />
+  );
 }

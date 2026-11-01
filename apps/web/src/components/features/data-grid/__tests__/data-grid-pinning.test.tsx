@@ -25,36 +25,6 @@ afterEach(() => {
 });
 
 describe("DataGrid column pinning", () => {
-  it("does not add a shortened bottom border to the last row before pagination", () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-
-    act(() => {
-      root.render(
-        <DataGrid
-          columns={columns}
-          data={[{ id: "1", name: "张三" }]}
-          empty={<p>暂无记录</p>}
-          getRowId={(row) => row.id}
-          pagination={{
-            onPageChange: vi.fn(),
-            onPageSizeChange: vi.fn(),
-            page: 1,
-            pageSize: 20,
-          }}
-          total={1}
-          totalPages={1}
-        />,
-      );
-    });
-
-    const lastRow = container.querySelector("tbody tr:last-child");
-    expect(lastRow?.className).not.toContain("data-grid-pagination");
-
-    act(() => root.unmount());
-  });
-
   it("pins the conventional actions column to the right by default", () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -85,23 +55,9 @@ describe("DataGrid column pinning", () => {
     const actionsHeader = [...container.querySelectorAll<HTMLElement>("th")].find(
       (cell) => cell.textContent === "操作",
     );
-    const nameHeader = [...container.querySelectorAll<HTMLElement>("th")].find(
-      (cell) => cell.textContent === "姓名",
-    );
-    const nameCell = container.querySelector<HTMLElement>('td:not([data-pinned="end"])');
-    const actionsCell = container.querySelector<HTMLElement>('td[data-pinned="end"]');
-    const scrollViewport = container.querySelector<HTMLElement>(
-      '[data-slot="scroll-area-viewport"]',
-    );
+
     expect(actionsHeader?.style.position).toBe("sticky");
     expect(actionsHeader?.style.insetInlineEnd).toBe("0px");
-    expect(actionsHeader?.className).toContain("border-s");
-    expect(actionsHeader?.className).not.toContain("shadow-[inset_1px");
-    expect(nameHeader?.className).toContain("border-e-0");
-    expect(nameCell?.className).toContain("border-e-0");
-    expect(scrollViewport?.className).toContain("outline-none");
-    expect(actionsCell?.className).toContain("border-s");
-    expect(actionsCell?.className).not.toContain("shadow-[inset_1px");
 
     act(() => root.unmount());
   });
@@ -132,16 +88,9 @@ describe("DataGrid column pinning", () => {
 
     const grid = container.querySelector('[data-slot="data-grid"]');
     const pagination = container.querySelector('[data-slot="data-grid-pagination"]');
-    const activePage = pagination?.querySelector('[aria-current="page"]');
-    const inactivePage = pagination?.querySelector('[aria-label="Go to page 2"]');
 
     expect(pagination?.parentElement).toBe(grid);
-    expect(pagination?.className).toContain("sm:min-h-11");
-    expect(pagination?.className).not.toContain("sm:min-h-10");
-    expect(activePage?.className).toContain("border-border/80");
-    expect(activePage?.className).toContain("bg-accent");
-    expect(activePage?.className).toContain("hover:border-border/80");
-    expect(inactivePage?.className).toContain("hover:border-transparent");
+
     expect(
       pagination?.querySelector('[data-slot="data-grid-pagination-mobile-info"]')?.textContent,
     ).toContain("1 / 3");

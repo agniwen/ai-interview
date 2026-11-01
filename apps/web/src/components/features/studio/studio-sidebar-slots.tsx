@@ -1,18 +1,16 @@
 "use client";
 
+import type { IconRobot } from "@tabler/icons-react";
 import {
-  IconBuilding,
   IconCalendarEvent,
   IconChartBar,
   IconChevronRight,
-  IconClipboardList,
   IconFileText,
   IconLayoutGrid,
   IconListCheck,
-  IconMailCheck,
   IconMessageChatbot,
-  IconRobot,
   IconShieldCheck,
+  IconSitemap,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -46,6 +44,7 @@ import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { statement } from "@app/shared/permissions";
+import { cn } from "@app/shared/utils";
 
 export interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */
@@ -54,7 +53,9 @@ export interface NavItem {
   title: string;
   /** 仅当 page action 通过 useHasPermission 时显示。 */
   action: (typeof statement)["page"][number];
+  alternateAction?: (typeof statement)["page"][number];
   adminOnly?: boolean;
+  offerApprovalManageOnly?: boolean;
   resource: "page";
 }
 
@@ -82,24 +83,19 @@ const navGroups: NavGroup[] = [
       },
       {
         action: "interviews",
-        icon: IconRobot,
+        alternateAction: "calendar",
+        icon: IconCalendarEvent,
         path: "/studio/interviews",
         resource: "page",
-        title: "AI初面",
+        title: "面试管理",
       },
       {
-        action: "interviews",
-        icon: IconCalendarEvent,
-        path: "/studio/calendar",
-        resource: "page",
-        title: "日程管理",
-      },
-      {
-        action: "dashboard",
+        action: "recruitingLedger",
+        alternateAction: "dashboard",
         icon: IconChartBar,
-        path: "/studio/dashboard",
+        path: "/studio/recruiting-ledger",
         resource: "page",
-        title: "数据看板",
+        title: "招聘台账",
       },
     ],
     label: "数据",
@@ -107,47 +103,28 @@ const navGroups: NavGroup[] = [
   {
     items: [
       {
-        action: "departments",
-        icon: IconBuilding,
-        path: "/studio/departments",
-        resource: "page",
-        title: "部门管理",
-      },
-      {
         action: "interviewers",
         icon: IconUserCircle,
         path: "/studio/interviewers",
         resource: "page",
-        title: "AI面试官管理",
+        title: "面试官 Agent",
       },
       {
         action: "jobDescriptions",
         icon: IconFileText,
         path: "/studio/job-descriptions",
         resource: "page",
-        title: "岗位设置",
+        title: "岗位",
+      },
+      {
+        action: "questionBank",
+        icon: IconListCheck,
+        path: "/studio/question-bank",
+        resource: "page",
+        title: "面试题",
       },
     ],
     label: "招聘配置",
-  },
-  {
-    items: [
-      {
-        action: "forms",
-        icon: IconClipboardList,
-        path: "/studio/forms",
-        resource: "page",
-        title: "表单题",
-      },
-      {
-        action: "interviewQuestions",
-        icon: IconListCheck,
-        path: "/studio/interview-questions",
-        resource: "page",
-        title: "沟通题",
-      },
-    ],
-    label: "题库",
   },
   {
     items: [
@@ -166,18 +143,19 @@ const navGroups: NavGroup[] = [
         title: "工作区管理",
       },
       {
-        action: "mailIngestAccounts",
-        icon: IconMailCheck,
-        path: "/studio/mail-ingest-accounts",
-        resource: "page",
-        title: "邮箱监听",
-      },
-      {
         action: "permissions",
         icon: IconShieldCheck,
         path: "/studio/permissions",
         resource: "page",
         title: "权限管理",
+      },
+      {
+        action: "offerApprovalTemplates",
+        icon: IconSitemap,
+        offerApprovalManageOnly: true,
+        path: "/studio/offer-approval-templates",
+        resource: "page",
+        title: "审批流配置",
       },
       {
         action: "globalConfig",
@@ -193,8 +171,8 @@ const navGroups: NavGroup[] = [
 
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 const RECRUITING_BOARD_PATH = "/studio/resumes";
-export const STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS =
-  "relative z-10 border border-transparent transition-[background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:border-sidebar-border/60 data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
+const STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS =
+  "relative z-10 transition-[background-color,box-shadow,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:font-medium data-[active=false]:hover:bg-transparent! motion-reduce:transition-none";
 
 export function buildRecruitingBoardSearch(
   previous: SearchParamsRecord,
@@ -217,12 +195,22 @@ export function isStudioSidebarParentActive(
   return active && (!isRecruitingBoard || !selectedRecruitingPreset);
 }
 
-export function shouldToggleStudioSidebarSubmenu(
-  isRecruitingBoard: boolean,
-  isParentActive: boolean,
+/**
+ * 只有正停在招聘台列表页时，点父级才展开 / 收起子菜单；
+ * 从候选人详情等招聘台子页面点击应直接跳回列表。
+ */
+export function shouldToggleStudioSidebarSubmenu({
+  isParentActive,
+  isRecruitingBoard,
   modifiedNavigation = false,
-): boolean {
-  return isRecruitingBoard && isParentActive && !modifiedNavigation;
+  onListPage,
+}: {
+  isParentActive: boolean;
+  isRecruitingBoard: boolean;
+  modifiedNavigation?: boolean;
+  onListPage: boolean;
+}): boolean {
+  return isRecruitingBoard && isParentActive && onListPage && !modifiedNavigation;
 }
 
 export function resolveStudioSidebarNavItem(pathname: string): NavItem | undefined {
@@ -237,26 +225,36 @@ function SidebarNavItem({
   active,
   href,
   onHover,
+  onListPage,
   selectedRecruitingPreset,
 }: {
   item: NavItem;
   active: boolean;
   href: string;
+  /** 当前路径正好是该菜单的列表页（不含详情等子路径）。 */
+  onListPage: boolean;
   onHover: (target: HTMLElement) => void;
   selectedRecruitingPreset: string | undefined;
 }) {
   // Hook must be called unconditionally
-  const allowed = useHasPermission(item.resource, item.action);
+  const primaryAllowed = useHasPermission(item.resource, item.action);
+  const alternateAllowed = useHasPermission(item.resource, item.alternateAction ?? item.action);
+  const allowed = primaryAllowed || alternateAllowed;
+  const canManageOfferApproval = useHasPermission("offerApproval", "manage");
   const memberRole = useWorkspaceMemberRole();
   const { menuOpen: sidebarMenuOpen, setMenuOpen: setSidebarMenuOpen } = useSidebarPersistence();
 
-  if (!allowed || (item.adminOnly && memberRole !== "owner" && memberRole !== "admin")) {
+  if (
+    !allowed ||
+    (item.offerApprovalManageOnly && !canManageOfferApproval) ||
+    (item.adminOnly && memberRole !== "owner" && memberRole !== "admin")
+  ) {
     return null;
   }
 
   const Icon = item.icon;
   const isRecruitingBoard = item.path === RECRUITING_BOARD_PATH;
-  const submenuOpen = sidebarMenuOpen[item.path] ?? true;
+  const submenuOpen = sidebarMenuOpen[item.path] ?? false;
   const isParentActive = isStudioSidebarParentActive(
     active,
     isRecruitingBoard,
@@ -264,7 +262,10 @@ function SidebarNavItem({
   );
   const menuButton = (
     <SidebarMenuButton
-      className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/60 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${isParentActive ? "" : " hover:bg-transparent!"}`}
+      className={cn(
+        "relative z-10 cursor-default select-none transition-[width,height,padding,background-color,box-shadow,color,transform] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+        !isParentActive && "hover:bg-transparent!",
+      )}
       isActive={isParentActive}
       onPointerEnter={(event) => onHover(event.currentTarget)}
       render={
@@ -277,18 +278,19 @@ function SidebarNavItem({
               event.metaKey ||
               event.shiftKey;
             if (
-              !shouldToggleStudioSidebarSubmenu(
-                isRecruitingBoard,
+              !shouldToggleStudioSidebarSubmenu({
                 isParentActive,
+                isRecruitingBoard,
                 modifiedNavigation,
-              )
+                onListPage,
+              })
             ) {
               return;
             }
             event.preventDefault();
             setSidebarMenuOpen((current) => ({
               ...current,
-              [item.path]: !(current[item.path] ?? true),
+              [item.path]: !(current[item.path] ?? false),
             }));
           }}
           search={
@@ -392,6 +394,7 @@ function StudioSidebarNavigation() {
                   active={isActive(item.path)}
                   href={buildHref(item.path)}
                   onHover={moveToMenuItem}
+                  onListPage={pathname === buildHref(item.path)}
                   selectedRecruitingPreset={selectedRecruitingPreset}
                 />
               ))}

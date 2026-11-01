@@ -356,7 +356,6 @@ export function FileUpload({
         ) : null}
       </div>
       <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-muted-foreground text-xs">
-        {/* <IconUpload className="size-3.5" /> */}
         <span>{isDragging ? draggingLabel : browseLabel}</span>
       </div>
       {fileInput}

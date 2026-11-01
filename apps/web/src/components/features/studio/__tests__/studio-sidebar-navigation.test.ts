@@ -6,9 +6,17 @@ import {
 import {
   buildRecruitingBoardSearch,
   isStudioSidebarParentActive,
-  STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS,
   shouldToggleStudioSidebarSubmenu,
 } from "../studio-sidebar-slots";
+
+/** 停在招聘台列表页时的父级点击判定。 */
+const toggles = (isRecruitingBoard: boolean, isParentActive: boolean, modifiedNavigation = false) =>
+  shouldToggleStudioSidebarSubmenu({
+    isParentActive,
+    isRecruitingBoard,
+    modifiedNavigation,
+    onListPage: true,
+  });
 
 describe("studio sidebar recruiting board presets", () => {
   it("exposes each top-level recruiting stage as a fixed board view", () => {
@@ -70,17 +78,20 @@ describe("studio sidebar recruiting board presets", () => {
   });
 
   it("toggles from the whole parent row only when the recruiting parent is active", () => {
-    expect(shouldToggleStudioSidebarSubmenu(true, true)).toBe(true);
-    expect(shouldToggleStudioSidebarSubmenu(true, false)).toBe(false);
-    expect(shouldToggleStudioSidebarSubmenu(false, true)).toBe(false);
-    expect(shouldToggleStudioSidebarSubmenu(false, false)).toBe(false);
-    expect(shouldToggleStudioSidebarSubmenu(true, true, true)).toBe(false);
+    expect(toggles(true, true)).toBe(true);
+    expect(toggles(true, false)).toBe(false);
+    expect(toggles(false, true)).toBe(false);
+    expect(toggles(false, false)).toBe(false);
+    expect(toggles(true, true, true)).toBe(false);
   });
 
-  it("never transitions an active submenu through a transparent hover background", () => {
-    expect(STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS).toContain(
-      "data-[active=false]:hover:bg-transparent!",
-    );
-    expect(STUDIO_SIDEBAR_SUBMENU_BUTTON_CLASS).not.toMatch(/(?:^|\s)hover:bg-transparent!/);
+  it("navigates back to the board instead of toggling from a candidate detail page", () => {
+    expect(
+      shouldToggleStudioSidebarSubmenu({
+        isParentActive: true,
+        isRecruitingBoard: true,
+        onListPage: false,
+      }),
+    ).toBe(false);
   });
 });

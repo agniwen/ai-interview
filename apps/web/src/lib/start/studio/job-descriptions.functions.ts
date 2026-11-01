@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { DepartmentRecord } from "@app/shared/departments";
+import type { DepartmentListRecord } from "@app/shared/departments";
 import type { InterviewerListRecord } from "@app/shared/interviewers";
-import type { JobDescriptionMetrics } from "@app/shared/job-descriptions";
 import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioJobDescriptionsData } from "./job-descriptions.server";
 import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
@@ -10,9 +9,8 @@ export type StudioJobDescriptionsState =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
-      departments: DepartmentRecord[];
+      departments: DepartmentListRecord[];
       interviewers: InterviewerListRecord[];
-      metrics: JobDescriptionMetrics;
       status: "ready";
     };
 

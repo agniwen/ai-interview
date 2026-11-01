@@ -74,8 +74,9 @@ WORKDIR /app
 # only when deploying this image against LiveKit Cloud.
 ENV INTERVIEW_SELF_HOSTED=1
 ENV AGENT_REPORT_OUTBOX_DIR=/app/.data/report-outbox
-RUN mkdir -p /app/.data/report-outbox && chown -R appuser:appuser /app/.data
-VOLUME ["/app/.data/report-outbox"]
+ENV HUMAN_TRANSCRIPTION_OUTBOX_DIR=/app/.data/human-transcription
+RUN mkdir -p /app/.data/human-transcription /app/.data/report-outbox && chown -R appuser:appuser /app/.data
+VOLUME ["/app/.data/report-outbox", "/app/.data/human-transcription"]
 
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root

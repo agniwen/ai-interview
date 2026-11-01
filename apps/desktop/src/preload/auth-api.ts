@@ -1,4 +1,4 @@
-export type OAuthOpenResult =
+type OAuthOpenResult =
   | { ok: true; reason: "success" | "closed" }
   | { ok: false; reason: "error"; message: string };
 

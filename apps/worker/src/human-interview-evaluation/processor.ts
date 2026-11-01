@@ -3,7 +3,7 @@ import type {
   createHumanInterviewEvaluationWorkerDao,
   generateHumanInterviewEvaluation,
 } from "@app/meeting-processing/human-interview";
-import type { HumanInterviewEvaluationJobData } from "@app/meeting-processing-queue/human-interview-evaluation";
+import type { HumanInterviewEvaluationJobData } from "@app/job-queues/human-interview-evaluation";
 import { Cause, Context, Data, Effect, Layer } from "effect";
 
 export interface HumanInterviewEvaluationProcessorDependencies {
@@ -20,12 +20,12 @@ export interface HumanInterviewEvaluationProcessorDependencies {
   >["publishHumanInterviewEvaluation"];
 }
 
-export class HumanInterviewEvaluationProcessor extends Context.Service<
+class HumanInterviewEvaluationProcessor extends Context.Service<
   HumanInterviewEvaluationProcessor,
   HumanInterviewEvaluationProcessorDependencies
 >()("@app/worker/HumanInterviewEvaluationProcessor") {}
 
-export const humanInterviewEvaluationProcessorLayer = (
+const humanInterviewEvaluationProcessorLayer = (
   dependencies: HumanInterviewEvaluationProcessorDependencies,
 ) => Layer.succeed(HumanInterviewEvaluationProcessor, dependencies);
 
@@ -44,7 +44,7 @@ function attempt<A>(
   });
 }
 
-export function runHumanInterviewEvaluationProcessingEffect(
+function runHumanInterviewEvaluationProcessingEffect(
   input: HumanInterviewEvaluationJobData,
   context: { attempt: number; maxAttempts: number },
 ) {
@@ -55,7 +55,7 @@ export function runHumanInterviewEvaluationProcessingEffect(
       if (!source) {
         return;
       }
-      const evaluation = yield* attempt("generate", () =>
+      const { evaluation, reviewFindings } = yield* attempt("generate", () =>
         dependencies.generate({
           ...source,
           salaryRange: null,
@@ -66,6 +66,7 @@ export function runHumanInterviewEvaluationProcessingEffect(
           evaluation,
           meetingSessionId: input.meetingSessionId,
           organizationId: input.organizationId,
+          reviewFindings,
           roundId: input.roundId,
           transcriptRevisionId: input.transcriptRevisionId,
         }),
@@ -81,7 +82,9 @@ export function runHumanInterviewEvaluationProcessingEffect(
       return yield* Effect.failCause(outcome.cause);
     }
     const failure = failureReason.error;
-    if (context.attempt < context.maxAttempts) {
+    const permanent =
+      failure.cause instanceof Error && failure.cause.name === "HumanInterviewEvaluationInputError";
+    if (!permanent && context.attempt < context.maxAttempts) {
       return yield* Effect.fail(failure);
     }
     const message =

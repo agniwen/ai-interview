@@ -5,7 +5,6 @@ import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@app/shared/studio-resumes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { ResumeLibraryCard } from "../resume-library-card";
-import { ResumeLibraryEvaluationSummary } from "../resume-library-evaluation-summary";
 
 function renderWithQueryClient(element: ReactElement) {
   return renderToStaticMarkup(
@@ -14,9 +13,12 @@ function renderWithQueryClient(element: ReactElement) {
 }
 
 const record: ResumeLibraryListRecord = {
+  candidateAvatarVersion: null,
   candidateEmail: null,
   candidateName: "测试候选人",
   candidatePhone: null,
+  closeReason: null,
+  closedFromNode: null,
   createdAt: "2026-08-04T00:00:00.000Z",
   createdBy: null,
   creatorImage: null,
@@ -37,6 +39,7 @@ const record: ResumeLibraryListRecord = {
   outcome: "in_pipeline",
   pipelineStage: "screening",
   qualitativeRecommendationLevel: null,
+  qualitativeResumeFocus: null,
   qualitativeResumeSummary: null,
   resumeEvaluationArtifactMode: "structured",
   resumeEvaluationAttemptMode: "structured",
@@ -69,24 +72,63 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
-  it("renders qualitative recommendations as colored text with the sparkle icon", () => {
-    const content = renderWithQueryClient(
-      <ResumeLibraryEvaluationSummary
-        onOpenDetail={vi.fn()}
-        record={{
-          ...record,
-          qualitativeRecommendationLevel: "undecided",
-          resumeEvaluationArtifactMode: "qualitative",
-        }}
-        summary="候选人的核心经验仍需进一步确认"
-      />,
-    );
-
-    expect(content).toContain("待定");
-    expect(content.match(/text-yellow-700/g)).toHaveLength(2);
-    expect(content).not.toContain('data-slot="badge"');
-    expect(content).toContain("block w-full line-clamp-3");
-  });
+  it.each(["second_interview", "final_interview"] as const)(
+    "distinguishes ended meetings awaiting evaluation from scheduled meetings in %s",
+    (stage) => {
+      const noop = vi.fn();
+      for (const awaitingEvaluation of [true, false, undefined]) {
+        const content = renderWithQueryClient(
+          <ResumeLibraryCard
+            canCreateInterview
+            canDeleteResumeLibrary={false}
+            canForceReparse={false}
+            canRetryResumeParse={false}
+            canUpdateResumeLibrary
+            currentMemberRole="member"
+            currentUserId="user-1"
+            onCopyDetailLink={noop}
+            onDelete={noop}
+            onEdit={noop}
+            onForceReparse={noop}
+            onLaunchInterview={noop}
+            onOpenDetail={noop}
+            onPreviewResume={noop}
+            onRetryParse={noop}
+            onSelectChange={noop}
+            onShowDuplicateMatches={noop}
+            onTransition={noop}
+            record={{
+              ...record,
+              pipelineStage: stage,
+              stageProgress: {
+                ...record.stageProgress,
+                humanInterview: {
+                  activeRound: {
+                    awaitingEvaluation,
+                    id: "round-1",
+                    label: "业务面试",
+                    outcome: null,
+                    scheduledAt: "2026-10-27T07:00:00.000Z",
+                    sortOrder: 0,
+                    status: "pending",
+                  },
+                  completedRounds: 0,
+                  completedRoundsMissingFeedback: 0,
+                  failedRounds: 0,
+                  passedRounds: 0,
+                  totalRounds: 1,
+                },
+              },
+            }}
+            retrying={false}
+            selected={false}
+          />,
+        );
+        expect(content.includes("已面试 · 待评价")).toBe(awaitingEvaluation === true);
+        expect(content.includes("已安排")).toBe(awaitingEvaluation !== true);
+      }
+    },
+  );
 
   it.each([null, "fail", "pass"] as const)(
     "only exposes AI launch after manual screening passes (%s)",
@@ -339,67 +381,8 @@ describe("ResumeLibraryCard", () => {
       />,
     );
 
-    expect(content).toMatch(
-      /<p class="mt-3"[^>]*>.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/span><\/p>/,
-    );
-    expect(content).toContain("block w-full line-clamp-3 text-[13px]");
     expect(content).toContain('title="未通过门槛 · 68 分 AI 生成的候选人评价"');
     expect(content).not.toContain("</button> · AI 生成的候选人评价");
-    expect(content).not.toContain('<span class="sr-only">AI评分</span>');
-  });
-
-  it("uses a compact profile hover trigger below the largest breakpoint", () => {
-    const noop = vi.fn();
-    const content = renderWithQueryClient(
-      <ResumeLibraryCard
-        canCreateInterview={false}
-        canDeleteResumeLibrary={false}
-        canForceReparse={false}
-        canRetryResumeParse={false}
-        canUpdateResumeLibrary={false}
-        currentMemberRole="viewer"
-        currentUserId={null}
-        onCopyDetailLink={noop}
-        onDelete={noop}
-        onEdit={noop}
-        onForceReparse={noop}
-        onLaunchInterview={noop}
-        onOpenDetail={noop}
-        onPreviewResume={noop}
-        onRetryParse={noop}
-        onSelectChange={noop}
-        onShowDuplicateMatches={noop}
-        onTransition={noop}
-        record={{
-          ...record,
-          resumeProfileSnapshot: {
-            ...EMPTY_RESUME_PROFILE_SNAPSHOT,
-            education: [{ period: "2016–2020", primary: "浙江大学", secondary: "计算机科学" }],
-            work: [{ period: "2021–至今", primary: "字节跳动", secondary: "高级前端工程师" }],
-          },
-          resumeSkills: ["增长实验", "用户分层", "激励机制", "生命周期运营", "Discord", "Mod 管理"],
-        }}
-        retrying={false}
-        selected={false}
-      />,
-    );
-
-    expect(content).toContain('aria-label="更多工作与教育经历"');
-    expect(content).toContain(">更多</span>");
-    expect(content).toContain("xl:hidden");
-    expect(content).toContain("xl:block");
-    expect(content).toContain("xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)]");
-    expect(content).not.toContain("2xl:hidden");
-    expect(content).toContain("line-clamp-3");
-    expect(content).toContain("text-[13px]");
-    expect(content).toContain("leading-[19px]");
-    expect(content).toContain("flex-nowrap");
-    expect(content).toContain(
-      "[mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]",
-    );
-    expect(content).not.toContain("flex-wrap gap-1.5 overflow-hidden");
-    expect(content).toContain("字节跳动");
-    expect(content).toContain("浙江大学");
   });
 
   it("keeps showing a labeled legacy score after the job upgrades", () => {
@@ -492,4 +475,45 @@ describe("ResumeLibraryCard", () => {
       expect(content).toContain(replacementStatusLabel);
     },
   );
+
+  it("holds the excerpt space with a skeleton only while an evaluation is still pending", () => {
+    const noop = vi.fn();
+    const renderCard = (overrides: Partial<typeof record>) =>
+      renderWithQueryClient(
+        <ResumeLibraryCard
+          canCreateInterview={false}
+          canDeleteResumeLibrary={false}
+          canForceReparse={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary={false}
+          currentMemberRole="viewer"
+          currentUserId={null}
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onForceReparse={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{ ...record, resumeEvaluationArtifactMode: "qualitative", ...overrides }}
+          retrying={false}
+          selected={false}
+        />,
+      );
+    const skeleton = 'data-slot="studio-list-card-evaluation-focus-skeleton"';
+
+    expect(renderCard({ resumeReviewStatus: "processing" })).toContain(skeleton);
+
+    const reEvaluating = renderCard({
+      qualitativeRecommendationLevel: "recommended",
+      qualitativeResumeFocus: { format: "markdown", text: "**主导**增长项目" },
+      resumeReviewStatus: "queued",
+    });
+    expect(reEvaluating).not.toContain(skeleton);
+    expect(reEvaluating).toContain("<strong>主导</strong>");
+  });
 });

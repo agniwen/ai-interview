@@ -16,7 +16,7 @@ export const STRUCTURED_RULE_STATUS_CLASSES = [
 
 export type StructuredRuleStatus = (typeof STRUCTURED_RULE_STATUS_CLASSES)[number];
 
-export interface StructuredResumeEvalOutput {
+interface StructuredResumeEvalOutput {
   artifactSchemaValid: boolean;
   compositeScore: number;
   deterministicInvariantsValid: boolean;

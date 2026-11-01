@@ -12,7 +12,6 @@ import type {
   BulkResumeBatchDto,
   BulkResumeUploadFileDescriptor,
   CreateBulkResumeBatchInput,
-  ProcessNextResult,
 } from "@app/shared/bulk-resume-upload";
 import type { UploadTaskInboxPage } from "@app/shared/upload-task-inbox";
 import { apiFetch } from "@/lib/client/api/client";
@@ -26,12 +25,21 @@ import { rpcFetch } from "../rpc-fetch";
 export function uploadResumeForBulk(
   slug: string,
   file: File,
+  options?: { requestId: string; signal?: AbortSignal },
 ): Promise<BulkResumeUploadFileDescriptor> {
   const fd = new FormData();
   fd.append("file", file);
+  if (options) {
+    fd.append("requestId", options.requestId);
+  }
   return apiFetch<BulkResumeUploadFileDescriptor>(
     `/api/w/${slug}/studio/resume-upload-batches/uploads`,
-    { body: fd, method: "POST" },
+    {
+      body: fd,
+      headers: { "x-request-id": crypto.randomUUID() },
+      method: "POST",
+      signal: options?.signal,
+    },
   );
 }
 
@@ -42,12 +50,16 @@ export function uploadResumeForBulk(
 export function createBulkResumeBatch(
   slug: string,
   input: CreateBulkResumeBatchInput,
+  options?: { signal?: AbortSignal },
 ): Promise<BulkResumeBatchDetailDto> {
   return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].$post({
-      json: input,
-      param: { slug },
-    }),
+    rpc.api.w[":slug"].studio["resume-upload-batches"].$post(
+      {
+        json: input,
+        param: { slug },
+      },
+      { headers: { "x-request-id": crypto.randomUUID() }, init: { signal: options?.signal } },
+    ),
     "创建批次失败",
   );
 }
@@ -60,17 +72,6 @@ export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[
   return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"].$get({ param: { slug } }),
     "加载批次列表失败",
-  );
-}
-
-/**
- * 获取当前活跃批次详情列表；无活跃批次时返回空数组。
- * Get active batch details; returns an empty array when there are no active batches.
- */
-export function getActiveBulkResumeBatches(slug: string): Promise<BulkResumeBatchDetailDto[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].active.$get({ param: { slug } }),
-    "加载活跃批次失败",
   );
 }
 
@@ -87,13 +88,6 @@ export function getUploadTaskInboxPage(
   );
 }
 
-export async function getActiveBulkResumeBatch(
-  slug: string,
-): Promise<BulkResumeBatchDetailDto | null> {
-  const [first] = await getActiveBulkResumeBatches(slug);
-  return first ?? null;
-}
-
 /**
  * 获取指定批次详情。
  * Get a specific batch by id.
@@ -107,22 +101,6 @@ export function getBulkResumeBatchDetail(
       param: { id: batchId, slug },
     }),
     "加载批次详情失败",
-  );
-}
-
-/**
- * 处理批次中的下一个文件。
- * Process the next item in the batch.
- */
-export function processNextBulkResumeBatch(
-  slug: string,
-  batchId: string,
-): Promise<ProcessNextResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"]["process-next"].$post({
-      param: { id: batchId, slug },
-    }),
-    "处理失败",
   );
 }
 
@@ -155,21 +133,5 @@ export function cancelBulkResumeBatch(
       param: { id: batchId, slug },
     }),
     "取消批次失败",
-  );
-}
-
-/**
- * 删除批次。
- * Delete a batch.
- */
-export function deleteBulkResumeBatch(
-  slug: string,
-  batchId: string,
-): Promise<{ success: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].$delete({
-      param: { id: batchId, slug },
-    }),
-    "删除批次失败",
   );
 }

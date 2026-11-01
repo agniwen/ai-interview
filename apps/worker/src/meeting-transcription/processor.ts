@@ -1,10 +1,6 @@
 // oxlint-disable max-classes-per-file, func-names -- Effect services and tagged errors are class-based; Effect.gen uses generator callbacks.
-import { randomUUID } from "node:crypto";
-import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import {
+  cropRecoveryChunks,
   assertMeetingTranscriptionFfmpegAvailable,
   candidateExclusionRanges,
   isMixedMeetingRecordingSource,
@@ -12,6 +8,11 @@ import {
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
 } from "@app/meeting-media";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type {
   createMeetingTranscriptionDao,
@@ -28,7 +29,7 @@ import {
 import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
 import type { createRequestAutomaticMeetingIntelligence } from "@app/meeting-processing/intelligence";
 import type { createRequestAutomaticHumanInterviewEvaluation } from "@app/meeting-processing/human-interview";
-import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
+import type { MeetingTranscriptionJobData } from "@app/job-queues/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@app/shared/meeting-transcription";
 import type {
   MeetingTranscriptionSourceTrack,
@@ -56,6 +57,8 @@ const MAX_TOTAL_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
 const MIN_DISK_HEADROOM_BYTES = 512 * 1024 * 1024;
 // 启动恢复可删除 24 小时前遗留目录，同时避免触碰仍可能运行的近期作业。 / Recovery may delete temp directories older than 24 hours while leaving potentially active recent jobs untouched.
 const STALE_DIRECTORY_AGE_MS = 24 * 60 * 60 * 1000;
+// 身份不明发言不作为候选人证据；断线重连等零星片段累计不超过 30 秒时无需人工复核。 / Unattributed speech is never candidate evidence, so brief reconnect fragments up to 30 seconds do not require human review.
+const MAX_UNREVIEWED_UNKNOWN_SPEECH_MS = 30 * 1000;
 
 interface SourceAsset {
   recordingIdentity?: RecordingIdentity | null;
@@ -72,7 +75,7 @@ interface SourceAsset {
 interface TranscriptionSource {
   assets: SourceAsset[];
   id: string;
-  manifestSha256: string;
+  manifestSha256: string | null;
   organizationId: string;
 }
 
@@ -102,6 +105,7 @@ function parseMeetingTranscriptionSourceTrack(track: string): MeetingTranscripti
 }
 
 export interface MeetingTranscriptionDependencies {
+  cropRecoveryChunks?: typeof cropRecoveryChunks;
   claim: ReturnType<typeof createMeetingTranscriptionDao>["claimMeetingTranscriptionRun"];
   claimChunk: ReturnType<typeof createMeetingTranscriptionDao>["claimMeetingTranscriptionChunk"];
   createRunId: () => string;
@@ -138,14 +142,13 @@ export interface MeetingTranscriptionDependencies {
   ) => Promise<Result>;
 }
 
-export class MeetingTranscriptionProcessor extends Context.Service<
+class MeetingTranscriptionProcessor extends Context.Service<
   MeetingTranscriptionProcessor,
   MeetingTranscriptionDependencies
 >()("@app/worker/MeetingTranscriptionProcessor") {}
 
-export const meetingTranscriptionProcessorLayer = (
-  dependencies: MeetingTranscriptionDependencies,
-) => Layer.succeed(MeetingTranscriptionProcessor, dependencies);
+const meetingTranscriptionProcessorLayer = (dependencies: MeetingTranscriptionDependencies) =>
+  Layer.succeed(MeetingTranscriptionProcessor, dependencies);
 
 class MeetingTranscriptionFailure extends Data.TaggedError("MeetingTranscriptionFailure")<{
   readonly cause: unknown;
@@ -414,7 +417,7 @@ async function runMeetingTranscriptionProcessingPromise(
   let recognitionHintsPromise: Promise<MeetingRecognitionHints | undefined> | undefined;
   const loadRecognitionHints = () => {
     recognitionHintsPromise ??= (async () => {
-      if (!input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")) {
+      if (!/^qwen-audio-3\.[01]-asr-flash-filetrans(?:$|-)/u.test(input.model)) {
         return;
       }
       try {
@@ -534,7 +537,7 @@ async function runMeetingTranscriptionProcessingPromise(
         return { chunks };
       }
       const chunks = await dependencies.prepareChunks({
-        chunkDurationMs: input.model.startsWith("qwen-audio-3.0-asr-flash-filetrans")
+        chunkDurationMs: /^qwen-audio-3\.[01]-asr-flash-filetrans(?:$|-)/u.test(input.model)
           ? MAX_DURATION_MS
           : undefined,
         directory,
@@ -585,7 +588,13 @@ async function runMeetingTranscriptionProcessingPromise(
           startMs: 0,
         });
       }
-      for (const chunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
+      const recoveryChunks: FinalTranscriptionAudioChunk[] = [];
+      for (const mixedChunk of prepared.chunks.filter(isMixedMeetingRecordingSource)) {
+        recoveryChunks.push(
+          ...(await (dependencies.cropRecoveryChunks ?? cropRecoveryChunks)(mixedChunk, ranges)),
+        );
+      }
+      for (const chunk of recoveryChunks) {
         if (!ranges.some((range) => range.startMs < chunk.endMs && range.endMs > chunk.startMs)) {
           continue;
         }
@@ -670,13 +679,18 @@ async function runMeetingTranscriptionProcessingPromise(
       ),
     );
     const transcript = mergeMeetingTranscriptionChunkResults(chunkResults, exclusions);
+    const unknownSpeechMs = transcript.turns
+      .filter((turn) => turn.attribution?.role === "unknown")
+      .reduce((total, turn) => total + turn.endMs - turn.startMs, 0);
     let warning: string | undefined;
     if (
       identityRecording &&
-      (hasUnrecoveredAudio || transcript.turns.some((turn) => turn.attribution?.role === "unknown"))
+      (hasUnrecoveredAudio ||
+        failedRanges.length > 0 ||
+        unknownSpeechMs > MAX_UNREVIEWED_UNKNOWN_SPEECH_MS)
     ) {
       warning =
-        "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；待确认发言不作为候选人能力证据。";
+        "部分录音或转录存在缺失，已保留可用内容并尝试全场录音补救；身份未知的发言不作为候选人能力证据。";
     }
     const published = await dependencies.publish({
       ...input,
@@ -750,7 +764,7 @@ async function runMeetingTranscriptionProcessingPromise(
   }
 }
 
-export function runMeetingTranscriptionProcessingEffect(
+function runMeetingTranscriptionProcessingEffect(
   input: MeetingTranscriptionJobData,
   context: { attempt: number; maxAttempts: number },
 ) {

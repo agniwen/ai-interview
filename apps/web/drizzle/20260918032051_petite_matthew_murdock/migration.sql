@@ -1,0 +1,6 @@
+ALTER TABLE "human_transcription_run" ADD COLUMN "source_snapshot" jsonb;--> statement-breakpoint
+CREATE UNIQUE INDEX "human_transcription_run_id_org_uq" ON "human_transcription_run" ("id","organization_id");--> statement-breakpoint
+ALTER TABLE "human_transcription_run" ADD CONSTRAINT "human_transcription_run_meeting_org_fk" FOREIGN KEY ("meeting_id","organization_id") REFERENCES "human_interview_meeting"("id","organization_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "meeting_session" ADD CONSTRAINT "meeting_session_realtime_run_org_fk" FOREIGN KEY ("realtime_run_id","organization_id") REFERENCES "human_transcription_run"("id","organization_id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "meeting_transcript_revision" ADD CONSTRAINT "meeting_transcript_realtime_run_org_fk" FOREIGN KEY ("realtime_run_id","organization_id") REFERENCES "human_transcription_run"("id","organization_id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "meeting_transcript_revision" ADD CONSTRAINT "meeting_transcript_snapshot_binding_check" CHECK ("source_snapshot" is null or ("source_snapshot"->>'runId' = "realtime_run_id" and "source_snapshot"->>'sha256' ~ '^[a-f0-9]{64}$'));

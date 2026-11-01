@@ -9,7 +9,7 @@ describe("Sentry development boundary", () => {
     const initializers = [
       source("../../instrument.client.ts"),
       source("../../instrument.server.ts"),
-      source("../../../../server/src/lib/server/sentry.ts"),
+      source("../../../../server/src/infrastructure/sentry.ts"),
       source("../../../../worker/src/sentry.ts"),
     ];
 

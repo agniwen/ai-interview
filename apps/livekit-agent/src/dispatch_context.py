@@ -132,11 +132,11 @@ def _questions(value: Any) -> tuple[DispatchQuestion, ...]:
     for index, raw_question in enumerate(value):
         path = f"questions[{index}]"
         expected_keys = {
-                "content",
-                "difficulty",
-                "evaluationFocus",
-                "followUpDirections",
-                "id",
+            "content",
+            "difficulty",
+            "evaluationFocus",
+            "followUpDirections",
+            "id",
         }
         if isinstance(raw_question, dict) and "followUpContract" in raw_question:
             expected_keys.add("followUpContract")
@@ -211,7 +211,10 @@ def parse_dispatch_context(raw_metadata: str) -> InterviewDispatchContext:
 
     root = _dispatch_root(decoded)
     schema_version = root["schemaVersion"]
-    if type(schema_version) is not int or schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+    if (
+        type(schema_version) is not int
+        or schema_version not in SUPPORTED_SCHEMA_VERSIONS
+    ):
         raise DispatchContextError("unsupported schemaVersion")
 
     session = _object(

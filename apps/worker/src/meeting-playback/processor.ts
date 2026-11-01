@@ -20,8 +20,8 @@ import type {
   registerMeetingPlaybackCleanupKey,
   removeMeetingPlaybackCleanupKey,
 } from "./dao";
-import type { MeetingPlaybackJobData } from "@app/meeting-processing-queue/meeting-playback";
-import type { MeetingTranscriptionJobData } from "@app/meeting-processing-queue/meeting-transcription";
+import type { MeetingPlaybackJobData } from "@app/job-queues/meeting-playback";
+import type { MeetingTranscriptionJobData } from "@app/job-queues/meeting-transcription";
 import { Context, Data, Effect, Layer } from "effect";
 import { retryTransientPromise } from "../effect/retry";
 import { cleanupPreservingPrimary } from "../effect/cleanup";
@@ -59,7 +59,7 @@ function execFileStream(error: ExecFileFailure, key: ExecFileOutputKey): string 
 }
 
 // 合并 ffmpeg stderr/stdout 并截断到数据库字段上限，使媒体失败仍保留可诊断信息。 / Combines ffmpeg stderr/stdout and truncates to the database limit so media failures remain diagnosable.
-export function describeMeetingPlaybackError(cause: unknown): string {
+function describeMeetingPlaybackError(cause: unknown): string {
   if (!(cause instanceof Error)) {
     return "Meeting playback processing failed";
   }
@@ -101,12 +101,12 @@ export interface MeetingPlaybackDependencies {
   }) => Promise<boolean>;
 }
 
-export class MeetingPlaybackProcessor extends Context.Service<
+class MeetingPlaybackProcessor extends Context.Service<
   MeetingPlaybackProcessor,
   MeetingPlaybackDependencies
 >()("@app/worker/MeetingPlaybackProcessor") {}
 
-export const meetingPlaybackProcessorLayer = (dependencies: MeetingPlaybackDependencies) =>
+const meetingPlaybackProcessorLayer = (dependencies: MeetingPlaybackDependencies) =>
   Layer.succeed(MeetingPlaybackProcessor, dependencies);
 
 class MeetingPlaybackFailure extends Data.TaggedError("MeetingPlaybackFailure")<{
@@ -236,7 +236,7 @@ export function createDefaultMeetingPlaybackDependencies(
         { enqueueMeetingTranscriptionJobs },
       ] = await Promise.all([
         import("../meeting-processing-daos"),
-        import("@app/meeting-processing-queue/meeting-transcription"),
+        import("@app/job-queues/meeting-transcription"),
       ]);
       await continueAfterMeetingPlayback(input, {
         enqueueJobs: enqueueMeetingTranscriptionJobs,
@@ -433,7 +433,7 @@ async function runMeetingPlaybackProcessingPromise(
   }
 }
 
-export function runMeetingPlaybackProcessingEffect(input: MeetingPlaybackJobData) {
+function runMeetingPlaybackProcessingEffect(input: MeetingPlaybackJobData) {
   return Effect.gen(function* () {
     const dependencies = yield* MeetingPlaybackProcessor;
     yield* Effect.tryPromise({

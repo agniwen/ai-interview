@@ -71,7 +71,7 @@ export function MarkdownEditorToolbar({ editor, disabled, compact = false }: Pro
     <div
       className={cn(
         "flex flex-wrap items-center gap-0.5 px-3 py-1.5",
-        compact ? "border-t bg-transparent" : "border-b bg-background",
+        compact ? "border-t bg-transparent" : "border-b bg-control",
       )}
     >
       <IconBtn

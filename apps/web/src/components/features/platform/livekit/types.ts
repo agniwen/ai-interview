@@ -9,7 +9,7 @@ export interface LiveKitRoomRecord {
   sid: string;
 }
 
-export interface LiveKitTrackRecord {
+interface LiveKitTrackRecord {
   height: number;
   mimeType: string;
   muted: boolean;
@@ -40,12 +40,4 @@ export interface LiveKitMetricRecord {
   name: string;
   type: string | null;
   value: number | string;
-}
-
-export interface PaginatedResult<T> {
-  page: number;
-  pageSize: number;
-  records: T[];
-  total: number;
-  totalPages: number;
 }

@@ -39,7 +39,7 @@ function WaitRoute() {
   return (
     <div className="min-h-dvh bg-background">
       <header className="flex items-center justify-between px-6 py-4">
-        <span className="text-muted-foreground text-sm">AI Hiring Copilot</span>
+        <span className="text-muted-foreground text-sm">Hireseer</span>
         <ThemeToggle />
       </header>
       <main className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-md flex-col items-center justify-center gap-8 px-6 text-center">
@@ -56,7 +56,6 @@ function WaitRoute() {
         <div className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left">
           <Avatar
             className="size-10 shrink-0"
-            generatedSize={40}
             label={`${userName}的头像`}
             seed={`user:${state.user.email}`}
           >

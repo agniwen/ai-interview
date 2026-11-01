@@ -1,5 +1,8 @@
 import type { RecruitingBoardView } from "@app/shared/recruiting-board";
+import type { JobRecruitingStatus } from "@app/db-schema/job-recruiting-status";
 import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboard";
+import type { RecruitingLedgerResult } from "@app/shared/studio-recruiting-ledger";
+import type { HrStatisticPeriod, HrStatisticsResponse } from "@app/shared/recruiting-hr-statistics";
 /**
  * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
@@ -10,9 +13,8 @@ import type { DashboardRecruitingActionScope } from "@app/shared/studio-dashboar
  * convention as studio-interviews.
  */
 
-import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
+import type { InterviewQuestion } from "@app/db-schema/interview/types";
 import type { AiInterviewLinkValidity } from "@app/shared/interview/ai-interview-invitation";
-import type { MeetingLibraryItem } from "@app/shared/meeting-recording";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
@@ -31,7 +33,7 @@ import type {
   StructuredResumeGrade,
 } from "@app/db-schema/structured-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@app/shared/structured-resume-scoring";
-import { rpc } from "@/lib/client/rpc";
+import { rpc, studioResumesRpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
 
@@ -182,15 +184,100 @@ export function fetchStudioResumes(
   );
 }
 
+export interface RecruitingLedgerParams {
+  boardView?: RecruitingBoardView;
+  createdFrom?: string;
+  createdTo?: string;
+  departmentIds?: string[];
+  jobDescriptionIds?: string[];
+  joiningFrom?: string;
+  joiningTo?: string;
+  page?: number;
+  pageSize?: number;
+  recommendationLevels?: string[];
+  recruitingStatuses?: JobRecruitingStatus[];
+  responsibleHrIds?: string[];
+  search?: string;
+  sortBy?: "createdAt" | "candidateName" | "joiningDate" | "updatedAt";
+  sortOrder?: "asc" | "desc";
+}
+
+export function fetchRecruitingLedger(
+  slug: string,
+  params: RecruitingLedgerParams = {},
+): Promise<RecruitingLedgerResult> {
+  return rpcFetch(
+    studioResumesRpc(slug).ledger.$get({
+      query: {
+        boardView: params.boardView,
+        createdFrom: params.createdFrom,
+        createdTo: params.createdTo,
+        departmentIds: params.departmentIds?.join(","),
+        jdIds: params.jobDescriptionIds?.join(","),
+        joiningFrom: params.joiningFrom,
+        joiningTo: params.joiningTo,
+        page: params.page === undefined ? undefined : String(params.page),
+        pageSize: params.pageSize === undefined ? undefined : String(params.pageSize),
+        recommendationLevels: params.recommendationLevels?.join(","),
+        recruitingStatuses: params.recruitingStatuses?.join(","),
+        responsibleHrIds: params.responsibleHrIds?.join(","),
+        search: params.search,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder,
+      },
+    }),
+    "加载招聘台账失败",
+  );
+}
+
+export function fetchHrStatistics(
+  slug: string,
+  params: {
+    departmentIds?: string[];
+    from?: string;
+    jobIds?: string[];
+    period: HrStatisticPeriod;
+    responsibleHrIds?: string[];
+    to?: string;
+  },
+): Promise<HrStatisticsResponse> {
+  return rpcFetch(
+    studioResumesRpc(slug).ledger["hr-statistics"].$get({
+      query: {
+        departmentIds: params.departmentIds?.join(","),
+        from: params.from,
+        jdIds: params.jobIds?.join(","),
+        period: params.period,
+        responsibleHrIds: params.responsibleHrIds?.join(","),
+        to: params.to,
+      },
+    }),
+    "加载 HR 统计失败",
+  );
+}
+
+export function updateRecruitingLedgerInformationSync(
+  slug: string,
+  recordId: string,
+  synced: boolean,
+): Promise<{ informationSyncStatus: "not_synced" | "synced" }> {
+  return rpcFetch(
+    studioResumesRpc(slug).ledger[":recordId"]["information-sync"].$patch({
+      json: { synced },
+      param: { recordId },
+    }),
+    "更新信息同步标签失败",
+  );
+}
+
 export function fetchStudioResumeMetrics(
   slug: string,
-  scope: "team" | "personal" = "team",
   boardPreset?: string,
 ): Promise<ResumeLibraryMetrics> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.resumes.metrics.$get({
       param: { slug },
-      query: { boardPreset, scope },
+      query: { boardPreset },
     }),
     "加载招聘指标失败",
   );
@@ -240,13 +327,6 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
     "加载简历详情失败",
     { allow404: true },
   );
-}
-
-export function fetchStudioResumeMeetings(slug: string, id: string): Promise<MeetingLibraryItem[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].meetings.$get({ param: { id, slug } }),
-    "加载候选人关联会议失败",
-  ).then((payload) => payload.records);
 }
 
 /**
@@ -373,29 +453,6 @@ export function fetchStudioResumeReviewRounds(
 }
 
 /**
- * 基于解析后的简历画像做语义查重。
- * Look up potential duplicates through semantic resume similarity.
- */
-export function fetchResumeDedup(
-  slug: string,
-  input: {
-    name: string | null;
-    email: string | null;
-    phone: string | null;
-    resumeProfile?: ResumeProfile | null;
-  },
-  options?: { signal?: AbortSignal },
-): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes["dedup-check"].$post(
-      { json: input, param: { slug } },
-      { init: { signal: options?.signal } },
-    ),
-    "查重失败",
-  );
-}
-
-/**
  * 从招聘台「发起 AI 面试」：创建一条默认排期。候选人定制题仅供真人
  * 面试官参考，不会写进 AI 面试上下文。
  *
@@ -435,20 +492,6 @@ export function submitResumeReviewEvaluation(
       param: { id, slug },
     }),
     "提交评估失败",
-  );
-}
-
-export function updateResumeEvaluationStatus(
-  slug: string,
-  id: string,
-  status: ResumeEvaluationStatus | null,
-): Promise<ResumeLibraryDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].evaluation.$patch({
-      json: { status },
-      param: { id, slug },
-    }),
-    "更新评估状态失败",
   );
 }
 

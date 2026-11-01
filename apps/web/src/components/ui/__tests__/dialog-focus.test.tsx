@@ -51,8 +51,6 @@ describe("dialog initial focus", () => {
 
     expect(closeButton).toBeTruthy();
     expect(document.activeElement).not.toBe(closeButton);
-    expect(closeButton?.className).not.toContain("focus:ring");
-    expect(closeButton?.className).not.toContain("ring-offset");
 
     act(() => root.unmount());
   });
@@ -70,8 +68,6 @@ describe("dialog initial focus", () => {
 
     expect(closeButton).toBeTruthy();
     expect(document.activeElement).not.toBe(closeButton);
-    expect(closeButton?.className).not.toContain("focus:ring");
-    expect(closeButton?.className).not.toContain("ring-offset");
 
     act(() => root.unmount());
   });

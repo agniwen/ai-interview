@@ -1,14 +1,12 @@
 import type { ReactNode } from "react";
 import { DetailBodySkeleton, DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import { StudioDateGroupHeaderSkeleton } from "./studio-date-group-virtual-list";
-import { ResumeLibraryCardSkeleton } from "./resumes/resume-library-card-skeleton";
-import { ResumeLibraryMetricsSkeleton } from "./resumes/resume-library-metrics-skeleton";
 import { StudioSummaryCardsSkeleton } from "./studio-summary-cards";
-import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description-charts-skeleton";
 import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
 import { DashboardPanelsSkeleton } from "./dashboard-page-skeleton";
 import { ResumePoolCardSkeleton } from "./resume-pool/resume-pool-card-skeleton";
-import { DataGridContentSkeleton } from "@/components/features/data-grid";
+import { InterviewerAgentCardSkeleton } from "./interviewers/interviewer-agent-card";
+import { DataCardListSkeleton, DataGridContentSkeleton } from "@/components/features/data-grid";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PageShell({ children, label }: { children: ReactNode; label: string }) {
@@ -64,11 +62,11 @@ function ToolbarSkeleton({
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2" data-slot="list-toolbar-skeleton">
       {filterCount > 2 ? (
-        <Skeleton className="h-9 w-28 rounded-lg" data-slot="filter-control-skeleton" />
+        <Skeleton className="h-8 w-28 rounded-lg" data-slot="filter-control-skeleton" />
       ) : (
         Array.from({ length: filterCount }, (_, index) => (
           <Skeleton
-            className="h-9 w-full rounded-lg sm:w-60"
+            className="h-8 w-full rounded-lg sm:w-60"
             data-slot="filter-control-skeleton"
             key={index}
           />
@@ -78,21 +76,10 @@ function ToolbarSkeleton({
         className="flex min-w-0 flex-wrap items-center gap-2"
         data-slot="toolbar-actions-skeleton"
       >
-        <Skeleton className="h-9 w-28 rounded-lg" data-slot="clear-filter-skeleton" />
-        <Skeleton className="h-9 w-20 rounded-lg" data-slot="refresh-skeleton" />
-        {primaryAction ? <Skeleton className="h-9 w-28 rounded-lg" /> : null}
+        <Skeleton className="h-8 w-28 rounded-lg" data-slot="clear-filter-skeleton" />
+        <Skeleton className="h-8 w-20 rounded-lg" data-slot="refresh-skeleton" />
+        {primaryAction ? <Skeleton className="h-8 w-28 rounded-lg" /> : null}
       </div>
-    </div>
-  );
-}
-
-function RecruitingListSkeleton() {
-  return (
-    <div className="grid">
-      <StudioDateGroupHeaderSkeleton />
-      {Array.from({ length: 4 }).map((_, index) => (
-        <ResumeLibraryCardSkeleton key={index} />
-      ))}
     </div>
   );
 }
@@ -105,18 +92,6 @@ function ResumePoolCardsSkeleton() {
         <ResumePoolCardSkeleton key={index} />
       ))}
     </div>
-  );
-}
-
-export function RecruitingPageSkeleton() {
-  return (
-    <PageShell label="招聘台">
-      <HeaderSkeleton />
-      <ResumeLibraryMetricsSkeleton />
-      <TabsSkeleton count={6} />
-      <ToolbarSkeleton filterCount={4} />
-      <RecruitingListSkeleton />
-    </PageShell>
   );
 }
 
@@ -134,19 +109,22 @@ export function ResumePoolPageSkeleton() {
 export function StudioTablePageSkeleton({
   columnCount = 5,
   filterCount = 2,
+  header = true,
   label = "数据列表",
   summary = false,
 }: {
   columnCount?: number;
   filterCount?: number;
+  /** 嵌在已有标题的布局（如带标签的页面）里时关闭。Off inside layouts that already render a header. */
+  header?: boolean;
   label?: string;
   summary?: boolean;
 }) {
   return (
     <PageShell label={label}>
-      <HeaderSkeleton />
+      {header ? <HeaderSkeleton /> : null}
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
-        {summary ? <StudioSummaryCardsSkeleton /> : null}
+        {summary ? <StudioSummaryCardsSkeleton compact /> : null}
         <ToolbarSkeleton filterCount={filterCount} />
         <DataGridContentSkeleton columnCount={columnCount} />
       </div>
@@ -154,11 +132,35 @@ export function StudioTablePageSkeleton({
   );
 }
 
+export function QuestionBankPageSkeleton() {
+  return (
+    <PageShell label="面试题">
+      <HeaderSkeleton />
+      <TabsSkeleton count={2} />
+      <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
+        <ToolbarSkeleton filterCount={3} />
+        <DataGridContentSkeleton columnCount={8} />
+      </div>
+    </PageShell>
+  );
+}
+
+export function InterviewerAgentsPageSkeleton() {
+  return (
+    <PageShell label="面试官 Agent">
+      <HeaderSkeleton />
+      <div className="flex flex-col gap-4" data-slot="data-card-list-shell-skeleton">
+        <ToolbarSkeleton />
+        <DataCardListSkeleton cardSkeleton={<InterviewerAgentCardSkeleton />} />
+      </div>
+    </PageShell>
+  );
+}
+
 export function JobDescriptionsPageSkeleton() {
   return (
-    <PageShell label="岗位设置">
+    <PageShell label="岗位">
       <HeaderSkeleton />
-      <JobDescriptionChartsSkeleton />
       <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
         <ToolbarSkeleton filterCount={3} />
         <DataGridContentSkeleton columnCount={9} />
@@ -189,7 +191,6 @@ export function MembersPageSkeleton() {
   return (
     <PageShell label="工作区管理">
       <HeaderSkeleton />
-      <TabsSkeleton count={2} />
       <ToolbarSkeleton filterCount={2} />
       <DataGridContentSkeleton columnCount={5} rowCount={4} />
     </PageShell>

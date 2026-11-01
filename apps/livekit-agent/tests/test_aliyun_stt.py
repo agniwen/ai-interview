@@ -69,12 +69,12 @@ class _FakeHttpSession:
 def test_qwen_audio_streaming_is_the_default_aligned_stt():
     recognizer = STT(api_key="test-key")
 
-    assert recognizer._opts.model == "qwen-audio-3.0-asr-flash-streaming"
+    assert recognizer._opts.model == "qwen-audio-3.1-asr-flash-streaming"
     assert recognizer.capabilities.streaming is True
     assert recognizer.capabilities.interim_results is True
     assert recognizer.capabilities.aligned_transcript == "word"
     assert recognizer.capabilities.offline_recognize is False
-    assert recognizer.model == "qwen-audio-3.0-asr-flash-streaming"
+    assert recognizer.model == "qwen-audio-3.1-asr-flash-streaming"
     assert recognizer.provider == "aliyun"
 
 
@@ -97,19 +97,40 @@ def test_qwen_audio_request_only_sends_supported_parameters():
     request = recognizer._opts.get_run_task_params("task-id")
     parameters = request["payload"]["parameters"]
 
-    assert request["payload"]["model"] == "qwen-audio-3.0-asr-flash-streaming"
+    assert request["payload"]["model"] == "qwen-audio-3.1-asr-flash-streaming"
     assert parameters == {
         "format": "pcm",
         "sample_rate": 16000,
         "semantic_punctuation_enabled": False,
-        "max_sentence_silence": 1300,
+        "vad_model": "near_meeting_16k",
         "heartbeat": True,
         "language_hints": ["zh"],
     }
 
 
+def test_qwen_audio_3_0_keeps_its_legacy_silence_setting():
+    recognizer = STT(
+        api_key="test-key",
+        model="qwen-audio-3.0-asr-flash-streaming",
+        max_sentence_silence=800,
+    )
+    parameters = recognizer._opts.get_run_task_params("task-id")["payload"][
+        "parameters"
+    ]
+    assert parameters["max_sentence_silence"] == 800
+    assert "vad_model" not in parameters
+    assert "disfluency_removal_enabled" not in parameters
+
+
+def test_qwen_audio_3_1_rejects_unknown_vad_model():
+    with pytest.raises(ValueError, match="VAD model"):
+        STT(api_key="test-key", vad_model="unknown")
+
+
 def test_qwen_audio_events_convert_milliseconds_and_include_timed_words():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -163,6 +184,8 @@ def test_qwen_audio_events_convert_milliseconds_and_include_timed_words():
 
 def test_heartbeat_does_not_emit_a_false_start_of_speech():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -189,6 +212,12 @@ def test_heartbeat_does_not_emit_a_false_start_of_speech():
 
 def test_interim_transcript_accepts_null_sentence_end_time():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
+    interim = []
+    stream.interim_handler = lambda task_id, sentence: interim.append(
+        (task_id, sentence)
+    )
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -226,10 +255,15 @@ def test_interim_transcript_accepts_null_sentence_end_time():
 
     assert transcript.start_time == 0.17
     assert transcript.end_time == 0.92
+    assert interim[0][0] == "request-id"
+    assert interim[0][1]["text"] == "候选人正在回答"
+    assert interim[0][1]["begin_time"] == 170
 
 
 def test_interim_transcript_accepts_null_word_end_time():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -324,6 +358,8 @@ async def test_stream_waits_for_task_started_before_sending_audio():
 
 def test_task_failed_becomes_a_livekit_api_error():
     stream = object.__new__(SpeechStream)
+    stream.final_handler = None
+    stream.interim_handler = None
     stream._event_ch = _EventChannel()
     stream._language = "zh"
     stream._request_id = "request-id"
@@ -347,3 +383,104 @@ def test_task_failed_becomes_a_livekit_api_error():
 
     assert error.value.request_id == "task-id"
     assert error.value.body["error_code"] == "CLIENT_ERROR"
+
+
+def test_human_recognition_hints_are_sent_without_changing_ai_defaults():
+    plain = STT(api_key="test-key")._opts.get_run_task_params("task")
+    assert plain["payload"]["input"] == {}
+    hinted = STT(
+        api_key="test-key", vocabulary={"PostgreSQL": 4}, context=["岗位：研发"]
+    )._opts.get_run_task_params("task")
+    assert hinted["payload"]["parameters"]["vocabulary"] == {"PostgreSQL": 4}
+    assert (
+        hinted["payload"]["input"]["context"][0]["content"][0]["text"] == "岗位：研发"
+    )
+
+
+class _RecordingWebSocket(_FakeWebSocket):
+    def __init__(self):
+        super().__init__()
+        self.sent_bytes = []
+
+    async def send_bytes(self, data):
+        await super().send_bytes(data)
+        self.sent_bytes.append(data)
+
+
+async def test_stream_sends_silence_while_input_audio_pauses(monkeypatch):
+    # DashScope fails a task after 23 seconds without any audio; heartbeat only
+    # keeps the connection open while silence is actually being sent.
+    monkeypatch.setattr("aliyun_stt.KEEPALIVE_IDLE_SECONDS", 0.02)
+    websocket = _RecordingWebSocket()
+    recognizer = STT(api_key="test-key", http_session=_FakeHttpSession(websocket))
+    stream = recognizer.stream(conn_options=DEFAULT_API_CONNECT_OPTIONS)
+
+    try:
+        while not websocket.sent_json:
+            await asyncio.sleep(0)
+        task_id = websocket.sent_json[0]["header"]["task_id"]
+        await websocket.messages.put(
+            SimpleNamespace(
+                data=json.dumps(
+                    {
+                        "header": {"event": "task-started", "task_id": task_id},
+                        "payload": {},
+                    }
+                ),
+                type=aiohttp.WSMsgType.TEXT,
+            )
+        )
+        while not websocket.sent_bytes:
+            await asyncio.sleep(0.01)
+        silence = list(websocket.sent_bytes)
+        stream.push_frame(rtc.AudioFrame.create(16000, 1, 1600))
+        stream.end_input()
+        await stream._task
+    finally:
+        await stream.aclose()
+
+    assert all(chunk == bytes(3200) for chunk in silence)
+    # Injected silence is not caller audio, so backlog accounting ignores it.
+    assert stream.sent_ms == 100
+    assert websocket.sent_json[-1]["header"]["action"] == "finish-task"
+
+
+def test_transcript_times_exclude_injected_silence():
+    stream = object.__new__(SpeechStream)
+    final = []
+    stream.final_handler = lambda _task, sentence: final.append(sentence)
+    stream.interim_handler = None
+    stream._event_ch = _EventChannel()
+    stream._language = "zh"
+    stream._request_id = "request-id"
+    stream._speaking = False
+    # Provider audio: 1s caller audio, then 5s injected silence, then speech.
+    stream._keepalive_segments = [(1000.0, 5000.0)]
+
+    stream._process_stream_event(
+        {
+            "header": {"event": "result-generated"},
+            "payload": {
+                "output": {
+                    "sentence": {
+                        "begin_time": 6200,
+                        "end_time": 6900,
+                        "text": "继续",
+                        "sentence_end": True,
+                        "words": [
+                            {"begin_time": 6200, "end_time": 6900, "text": "继续"}
+                        ],
+                    }
+                }
+            },
+        }
+    )
+
+    transcript = next(
+        event
+        for event in stream._event_ch.events
+        if event.type == stt.SpeechEventType.FINAL_TRANSCRIPT
+    ).alternatives[0]
+    assert transcript.start_time == 1.2
+    assert transcript.end_time == 1.9
+    assert (final[0]["begin_time"], final[0]["end_time"]) == (1200, 1900)

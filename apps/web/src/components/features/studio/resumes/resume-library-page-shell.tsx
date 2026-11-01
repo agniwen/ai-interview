@@ -1,89 +1,44 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { getRecruitingBoardPageTitle } from "@app/shared/recruiting-board";
+import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
+import { useMemo } from "react";
+import type { ReactNode } from "react";
+import { PageHeader } from "@/components/features/studio/page-header";
 import { RecruitingBoardTabs } from "./recruiting-board-tabs";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
-import type { ResumeLibraryMetrics } from "@app/shared/studio-resumes";
-import { PageHeader } from "@/components/features/studio/page-header";
-import { ResumeLibraryMetricsSection } from "@/components/features/studio/resumes/resume-library-metrics-section";
-import { studioResumeKeys } from "@/lib/client/api/query-keys";
-import type { ResumeMetricsScope } from "@/lib/client/atoms/resume-metrics-scope";
-import { Button } from "@/components/ui/button";
-import type { ReactNode } from "react";
 
 export function ResumeLibraryPageShell({
   children,
   fixedRecruitingGroup,
   grid,
   metrics,
-  metricsChartKey,
-  metricsError,
-  metricsFetching,
-  metricsScope,
-  metricsSwitching,
-  onMetricsRetry,
-  onMetricsScopeChange,
-  slug,
 }: {
   children: ReactNode;
   fixedRecruitingGroup?: string;
   grid: ResumeLibraryGridState;
   metrics: ResumeLibraryMetrics | undefined;
-  metricsChartKey: string;
-  metricsError: unknown;
-  metricsFetching: boolean;
-  metricsScope: ResumeMetricsScope;
-  metricsSwitching: boolean;
-  onMetricsRetry: () => Promise<void>;
-  onMetricsScopeChange: (scope: ResumeMetricsScope) => void;
-  slug: string;
 }) {
-  const queryClient = useQueryClient();
   const pageTitle = getRecruitingBoardPageTitle(fixedRecruitingGroup);
-  const handleMetricsRetry = async () => {
-    await onMetricsRetry();
-  };
+  const groupCountRows = metrics?.groupCounts;
+  const statusCountRows = metrics?.boardStatusCounts;
+  const groupCounts = useMemo(
+    () =>
+      groupCountRows ? new Map(groupCountRows.map((item) => [item.id, item.count])) : undefined,
+    [groupCountRows],
+  );
+  const viewCounts = useMemo(
+    () =>
+      statusCountRows ? new Map(statusCountRows.map((item) => [item.view, item.count])) : undefined,
+    [statusCountRows],
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-      <PageHeader
-        className="items-end sm:items-end"
-        actionRender={
-          <div className="flex items-center gap-1">
-            <Button
-              className="opacity-80 hover:opacity-100"
-              disabled={metricsFetching}
-              onClick={() => {
-                const next = metricsScope === "team" ? "personal" : "team";
-                // Clear target-scope cache so switch always hits the network and charts remount.
-                void queryClient.removeQueries({
-                  queryKey: studioResumeKeys.metrics(slug, next),
-                });
-                onMetricsScopeChange(next);
-              }}
-              suppressHydrationWarning
-              type="button"
-              size="xs"
-              variant="ghost"
-            >
-              {metricsScope === "team" ? "切换个人维度" : "切换到团队维度"}
-            </Button>
-          </div>
-        }
-        title={pageTitle}
-      />
-      <ResumeLibraryMetricsSection
-        chartKey={metricsChartKey}
-        error={metricsError}
-        isRefreshing={metricsFetching}
-        isSwitching={metricsSwitching}
-        metrics={metrics}
-        fixedRecruitingGroup={fixedRecruitingGroup}
-        onRefresh={handleMetricsRetry}
-        onRetry={onMetricsRetry}
-      />
+      <PageHeader className="items-end sm:items-end" title={pageTitle} />
       <RecruitingBoardTabs
+        counts={groupCounts}
         fixedGroupId={fixedRecruitingGroup}
         value={grid.filters.stage}
+        viewCounts={viewCounts}
         onChange={(value) => grid.setFilter("stage", value)}
       />
       {children}

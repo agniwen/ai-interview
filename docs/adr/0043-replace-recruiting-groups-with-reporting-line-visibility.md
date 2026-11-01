@@ -1,0 +1,17 @@
+---
+status: accepted
+---
+
+# Replace recruiting groups with reporting-line visibility
+
+Recruiting groups (with supervisor, lead, HR and viewer roles inside a group) no longer exist as a product capability. The extra layer was hard to explain next to workspace roles: regular members only gained recruiting permissions after being placed in a group, and visibility depended on group rank. In practice teams worked around it by granting the administrator role widely. Workspace roles are now the only source of action permissions. A `member` receives the built-in member matrix directly, and dynamic workspace roles keep their configured statements.
+
+Recruiting data visibility follows reporting lines set on the workspace management page. Each member has at most one direct manager in the workspace, so the lines form a forest. A member sees recruiting data created by themselves and by every direct or indirect report; managers above them are not visible, and peers are not visible by default. A member can be marked to share data with peers: peers under the same direct manager (top-level members count as peers of each other) then also see the recruiting data that member created themselves, but not that member's reports' data. This applies to AI interviews, the recruiting desk and interview management, and to every other creator-scoped recruiting view. Owners and admins see all recruiting data in the workspace. `noAccess` members and non-members see nothing. Visibility keeps using the existing creator-based `RecruitingVisibilityScope`, with the `restricted` user list computed from the reporting lines.
+
+A member can also have dotted-line managers. They are extra visibility grants only: a dotted-line manager sees the member's data and everything that member can see through their reports, while the reporting tree, direct reports and peer groups still follow the single direct manager. This covers people managed by more than one lead without turning the tree into a graph that shows people twice or makes peer groups ambiguous.
+
+Only members with `member:update` can change reporting lines, dotted-line managers or peer sharing. A direct or dotted-line manager must be a current workspace member and cannot be the member or anyone reachable below them through either kind of line, so visibility cannot form a cycle; changes are serialized per workspace. When a manager leaves the workspace, their direct reports move to that manager's own manager, or become top-level, and keep their peer-sharing choice.
+
+## Consequences
+
+Reporting settings (optional direct manager and peer sharing) are stored in `workspace_member_reporting`, keyed by workspace and member; dotted-line managers are stored in `workspace_member_dotted_manager`. Both reference workspace membership at each end, so removing a member drops their dotted-line grants. Members without a manager and without reports see only their own data until reporting lines are configured, so rollout needs the lines to be set up for teams that previously shared data through groups. The `recruiting_group` and `recruiting_group_member` tables remain in the schema, unused, until dropping them is separately confirmed. Workspace creation, invitations, invite links and platform-added members no longer create default group memberships. The workspace management page loads all members at once and shows them as an expandable reporting-line tree with virtual scrolling instead of a paginated list; the legacy `tab=groups` URL is ignored.

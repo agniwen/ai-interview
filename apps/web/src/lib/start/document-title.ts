@@ -1,8 +1,12 @@
-export const APPLICATION_NAME = "AI Hiring Copilot";
-export const ROOT_DOCUMENT_TITLE = `招聘 AI 协同工作台 · ${APPLICATION_NAME}`;
+const APPLICATION_NAME = "Hireseer";
+const AGENT_DISPLAY_NAME = `${APPLICATION_NAME} Agent`;
+export const ROOT_DOCUMENT_TITLE = APPLICATION_NAME;
 
 export function formatDocumentTitle(pageTitle: string): string {
   const normalizedTitle = pageTitle.trim();
+  if (normalizedTitle === APPLICATION_NAME || normalizedTitle.endsWith(AGENT_DISPLAY_NAME)) {
+    return normalizedTitle;
+  }
   const applicationSuffix = ` · ${APPLICATION_NAME}`;
   return normalizedTitle.endsWith(applicationSuffix)
     ? normalizedTitle
@@ -29,7 +33,7 @@ function resolveWorkspaceTitle(pathname: string): string | null {
   }
 
   if (area === "agent" || area === "chat") {
-    return page ? "招聘 Copilot · 对话" : "招聘 Copilot";
+    return page ? `对话 · ${AGENT_DISPLAY_NAME}` : AGENT_DISPLAY_NAME;
   }
 
   if (area !== "studio") {

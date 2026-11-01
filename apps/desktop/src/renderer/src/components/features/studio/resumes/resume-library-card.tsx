@@ -4,6 +4,7 @@ import { memo, useCallback, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -70,7 +71,7 @@ function describeCompactHumanLifecycle(
     return "未安排";
   }
   if (!progress.activeRound) {
-    return `${progress.passedRounds}/${progress.totalRounds}通过待决策`;
+    return `${progress.passedRounds}/${progress.totalRounds}通过${progress.inconclusiveRounds ? ` · ${progress.inconclusiveRounds}待定` : ""}待决策`;
   }
   const current = progress.activeRound.sortOrder + 1;
   if (progress.activeRound.scheduledAt) {
@@ -193,7 +194,7 @@ function hasProfileSnapshotContent(snapshot: ResumeLibraryProfileSnapshot | null
 
 function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
   const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
-  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
+  const educationLines = snapshot.education.slice(0, 2);
   const hasWorkGroup = workLines.length > 0 || snapshot.workHasMore;
   const hasEducationGroup = educationLines.length > 0 || snapshot.educationHasMore;
 
@@ -208,9 +209,6 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
           <div className="my-0.5 border-border/60 border-t" />
         ) : null}
         {educationLines.map(renderProfileLine)}
-        {snapshot.educationHasMore ? (
-          <p className="flex min-w-0 items-center text-muted-foreground text-sm">…</p>
-        ) : null}
       </div>
     </div>
   );
@@ -308,7 +306,6 @@ function ResumeLibraryCardComponent({
       <div className="flex gap-3 p-4">
         <Avatar
           className="mt-0.5 size-12"
-          generatedSize={48}
           label={`${record.candidateName}的头像`}
           seed={getCandidateAvatarSeed(record.candidateName)}
         >
@@ -387,7 +384,6 @@ function ResumeLibraryCardComponent({
                   <span className="shrink-0">上传人</span>
                   <Avatar
                     className="size-4! shrink-0"
-                    generatedSize={16}
                     label={`${textOrDash(record.creatorName)}的头像`}
                     seed={`recruiter:${textOrDash(record.creatorName)}`}
                     size="sm"
@@ -428,12 +424,9 @@ function ResumeLibraryCardComponent({
               {skills.length > 0 ? (
                 <div className="mt-3 flex h-6 gap-1.5 overflow-hidden mask-[linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
                   {skills.map((item) => (
-                    <span
-                      className="inline-flex max-w-52 shrink-0 truncate rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs"
-                      key={item}
-                    >
-                      {item}
-                    </span>
+                    <Badge className="max-w-52 px-2 py-0.5" key={item} variant="outline">
+                      <span className="truncate">{item}</span>
+                    </Badge>
                   ))}
                 </div>
               ) : null}

@@ -1,0 +1,121 @@
+import { z } from "zod";
+import {
+  candidateOutcomeSchema,
+  closedMetaSchema,
+  recruitingCloseReasonSchema,
+  recruitingNodeResultSchema,
+  recruitingNodeStatusSchema,
+  recruitingPipelineNodeSchema,
+  studioInterviewQuestionClientSchema,
+} from "@app/db-schema/studio-interviews";
+
+const expectedVersion = z.number().int().nonnegative();
+const reason = z.string().trim().min(1, "请填写调整原因").max(1000);
+const optionalId = z.string().min(1).nullable().optional();
+
+/** 人工动作必须提交所见版本；数据库事务负责最终的顺序、依据和归属核验。 */
+export const candidateTransitionInputSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("screening_advance"),
+    expectedVersion,
+    targetNode: z.enum(["ai_interview", "second_interview"]),
+  }),
+  z
+    .object({
+      action: z.literal("advance"),
+      expectedVersion,
+      interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
+      reason: reason.optional(),
+      skipNodes: z
+        .array(z.enum(["screening", "ai_interview", "second_interview"]))
+        .max(2)
+        .optional(),
+      targetNode: recruitingPipelineNodeSchema,
+    })
+    .refine(
+      (input) =>
+        !input.interviewQuestions ||
+        input.targetNode === "second_interview" ||
+        input.targetNode === "final_interview",
+      { message: "面试准备题目只能在进入真人面试时更新", path: ["interviewQuestions"] },
+    ),
+  z.object({
+    action: z.literal("review_income_proof"),
+    expectedVersion,
+    reason,
+    result: z.enum(["pass", "fail"]),
+  }),
+  z
+    .object({
+      action: z.literal("review_salary_negotiation"),
+      agreedBaseSalary: z.number().int().positive("谈定月薪必须大于 0").optional(),
+      expectedVersion,
+      overseasSalary: z.number().int().positive("出国工资必须大于 0").optional(),
+      probationSalary: z.number().int().positive("试用期工资必须大于 0").optional(),
+      reason,
+      result: z.enum(["pass", "fail"]),
+    })
+    .refine(
+      (input) =>
+        (input.result === "pass" && input.agreedBaseSalary !== undefined) ||
+        (input.result === "fail" &&
+          input.agreedBaseSalary === undefined &&
+          input.overseasSalary === undefined &&
+          input.probationSalary === undefined),
+      {
+        message: "谈薪通过必须填写谈定月薪，淘汰时不能填写薪资",
+        path: ["agreedBaseSalary"],
+      },
+    ),
+  z.object({
+    action: z.literal("reopen"),
+    expectedVersion,
+    reason,
+    targetNode: recruitingPipelineNodeSchema,
+    targetStatus: z.literal("pending"),
+  }),
+  z
+    .object({
+      action: z.literal("update_node"),
+      actualJoiningDate: z.iso.date().optional(),
+      closeReason: recruitingCloseReasonSchema.optional(),
+      effectiveAiRoundId: optionalId,
+      effectiveHumanRoundId: optionalId,
+      effectiveOfferId: optionalId,
+      expectedVersion,
+      node: recruitingPipelineNodeSchema,
+      reason: reason.optional(),
+      result: recruitingNodeResultSchema.nullable().optional(),
+      targetStatus: recruitingNodeStatusSchema.exclude(["inactive", "skipped"]),
+    })
+    .refine(
+      (input) =>
+        input.actualJoiningDate === undefined ||
+        (input.node === "onboarding" && input.result === "pass"),
+      {
+        message: "到岗日期只能在确认入职时填写",
+        path: ["actualJoiningDate"],
+      },
+    )
+    .refine(
+      (input) =>
+        input.node !== "onboarding" || input.result !== "pass" || Boolean(input.actualJoiningDate),
+      {
+        message: "确认入职必须填写到岗日期",
+        path: ["actualJoiningDate"],
+      },
+    )
+    .refine((input) => (input.targetStatus === "completed") === Boolean(input.result), {
+      message: "完成节点必须提供结论；未完成不能填写结论",
+      path: ["result"],
+    }),
+  z.object({
+    action: z.literal("close"),
+    closeReason: recruitingCloseReasonSchema,
+    details: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
+    expectedVersion,
+    outcome: candidateOutcomeSchema.exclude(["in_pipeline"]),
+    reason: reason.optional(),
+  }),
+]);
+export type CandidateTransitionInput = z.infer<typeof candidateTransitionInputSchema>;

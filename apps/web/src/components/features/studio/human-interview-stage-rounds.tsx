@@ -36,6 +36,7 @@ import {
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
@@ -53,7 +54,6 @@ import {
   toDateTimeLocalInputValue,
 } from "./human-interview-stage-utils";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
-import { HumanInterviewOutcomeDialog } from "./human-interview-outcome-dialog";
 import { HumanInterviewEmailButton } from "./human-interview-email-button";
 import {
   buildCandidateLinkCopy,
@@ -64,6 +64,7 @@ import {
 import { getCommonFeishuProviderIds, loadWorkspaceMembers } from "./human-interview-stage-dialogs";
 import type { WorkspaceMembersResult } from "./human-interview-stage-dialogs";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { getCandidateAvatarUrl } from "./candidate-avatar-image";
 
 interface RoundDateTimePickerProps {
   className: string;
@@ -118,6 +119,7 @@ async function copyMeetingLink(message: string, label: string) {
 
 // oxlint-disable-next-line complexity -- the card composes permission, meeting lifecycle, evaluation, and scheduling states.
 export function RoundCard({
+  candidateAvatar,
   round,
   canCreate,
   canDelete,
@@ -135,7 +137,10 @@ export function RoundCard({
   roundNumber,
   slug,
   dependencies = defaultRoundCardDependencies,
+  autoScrollDetails = true,
 }: {
+  /** 当前候选人的简历头像来源。Resume headshot source for this candidate. */
+  candidateAvatar?: { recordId: string; version: string | null };
   round: HumanInterviewRoundRecord;
   canCreate: boolean;
   canDelete: boolean;
@@ -153,9 +158,9 @@ export function RoundCard({
   roundNumber: number;
   slug: string;
   dependencies?: RoundCardDependencies;
+  autoScrollDetails?: boolean;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
-  const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
   const canWrite = disabled !== true;
   const canCreateMeeting =
     canCreate &&
@@ -166,7 +171,9 @@ export function RoundCard({
   const canCancelRound = canDelete && canCancelHumanInterviewRound(round, meeting, disabled);
   const canCompleteRound = canUpdate && canCompleteHumanInterviewRound(round, meeting, disabled);
   const canReviewRound = Boolean(
-    canUpdate && canWrite && round.status === "pending" && meeting?.status === "ended",
+    canUpdate &&
+    (round.status === "completed" || (canWrite && round.status === "pending")) &&
+    meeting?.status === "ended",
   );
 
   return (
@@ -179,9 +186,8 @@ export function RoundCard({
             </h4>
           </FrameTitle>
         </div>
-        {meeting?.status === "ended" ? meetingDetailLink : null}
       </FrameHeader>
-      <FramePanel className="flex flex-col gap-4">
+      <FramePanel className="flex flex-col gap-4 pb-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
           <RoundScheduledAtControl
             canUpdate={canUpdate}
@@ -200,21 +206,33 @@ export function RoundCard({
             <dt className="text-muted-foreground">状态</dt>
             <dd className="flex flex-wrap items-center gap-2">
               <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
-              {canUpdate &&
-              canWrite &&
-              round.status === "completed" &&
-              round.outcome === "inconclusive" ? (
-                <Button size="sm" variant="outline" onClick={() => setOutcomeDialogOpen(true)}>
-                  <IconPencil className="size-3" />
-                  修改
-                </Button>
-              ) : null}
             </dd>
           </dl>
         </div>
-        {meeting ? <MeetingAttendanceSummary meeting={meeting} note={statusBadge.note} /> : null}
+        {meeting ? (
+          <MeetingAttendanceSummary
+            candidateAvatarUrl={
+              candidateAvatar?.version
+                ? getCandidateAvatarUrl(
+                    slug,
+                    "resumes",
+                    candidateAvatar.recordId,
+                    candidateAvatar.version,
+                  )
+                : null
+            }
+            candidateRecordId={candidateAvatar?.recordId ?? null}
+            meeting={meeting}
+            note={statusBadge.note}
+          />
+        ) : null}
         {round.evaluation ? (
-          <RoundEvaluation evaluation={round.evaluation} round={round} compact />
+          <RoundEvaluation
+            evaluation={round.evaluation}
+            round={round}
+            compact
+            autoScrollDetails={autoScrollDetails}
+          />
         ) : null}
 
         {round.score !== null || round.cancelReason || (!round.evaluation && round.feedback) ? (
@@ -251,7 +269,9 @@ export function RoundCard({
           canEndMeeting={canUpdate && canEndHumanInterviewMeeting(meeting, disabled)}
           canOpenLinks={canOpenMeetingLinks(meeting)}
           canReviewRound={canReviewRound}
+          reviewCompleted={round.status === "completed"}
           meeting={meeting}
+          meetingDetailLink={meeting?.status === "ended" ? meetingDetailLink : null}
           onCancel={onCancel}
           onComplete={onComplete}
           onCreateMeeting={onCreateMeeting}
@@ -261,13 +281,6 @@ export function RoundCard({
           slug={slug}
         />
       </FramePanel>
-      {outcomeDialogOpen ? (
-        <HumanInterviewOutcomeDialog
-          round={round}
-          slug={slug}
-          onClose={() => setOutcomeDialogOpen(false)}
-        />
-      ) : null}
     </Frame>
   );
 }
@@ -313,12 +326,16 @@ function participantTime(
 }
 
 function AttendanceRow({
+  avatarSeed,
+  image,
   joinedAt,
   label,
   leftAt,
   meeting,
   participantRole,
 }: {
+  avatarSeed: string;
+  image?: string | null;
   joinedAt: string | null;
   label: string;
   leftAt: string | null;
@@ -330,9 +347,12 @@ function AttendanceRow({
   const time = participantTime(presence, joinedAt, leftAt);
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 py-1">
-      <div className="min-w-0 text-xs">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="ml-2 text-muted-foreground">{participantRole}</span>
+      <div className="flex min-w-0 items-center gap-2 text-xs">
+        <Avatar aria-hidden className="size-4.5 shrink-0" seed={avatarSeed}>
+          {image ? <AvatarImage alt="" src={image} /> : null}
+        </Avatar>
+        <span className="truncate font-medium text-foreground">{label}</span>
+        <span className="shrink-0 text-muted-foreground">{participantRole}</span>
       </div>
       <Badge className="shrink-0" variant={meta.tone}>
         {meta.label}
@@ -343,9 +363,13 @@ function AttendanceRow({
 }
 
 function MeetingAttendanceSummary({
+  candidateAvatarUrl,
+  candidateRecordId,
   meeting,
   note,
 }: {
+  candidateAvatarUrl: string | null;
+  candidateRecordId: string | null;
   meeting: HumanInterviewMeetingRecord;
   note?: string | null;
 }) {
@@ -361,6 +385,8 @@ function MeetingAttendanceSummary({
       <div className="grid gap-x-6 gap-y-2 lg:grid-cols-2">
         {meeting.rounds.map((candidate) => (
           <AttendanceRow
+            avatarSeed={candidate.candidateName || "未命名候选人"}
+            image={candidate.interviewRecordId === candidateRecordId ? candidateAvatarUrl : null}
             joinedAt={candidate.joinedAt}
             key={candidate.roundId}
             label={candidate.candidateName}
@@ -371,6 +397,8 @@ function MeetingAttendanceSummary({
         ))}
         {meeting.interviewers.map((interviewer) => (
           <AttendanceRow
+            avatarSeed={interviewer.id}
+            image={interviewer.image}
             joinedAt={interviewer.joinedAt}
             key={interviewer.id}
             label={interviewer.name}
@@ -414,24 +442,85 @@ function InterviewerAssignmentList({
   );
 }
 
-function RoundScheduledAtControl({
+function ScheduleEditActions({
+  expanded,
+  pending,
+  onCancel,
+}: {
+  expanded: boolean;
+  pending: boolean;
+  onCancel: () => void;
+}) {
+  if (expanded) {
+    return (
+      <div className="flex justify-end gap-2 pt-1">
+        <Button disabled={pending} onClick={onCancel} type="button" variant="outline">
+          取消
+        </Button>
+        <Button disabled={pending} type="submit">
+          {pending ? <IconLoader2 className="size-4 animate-spin" /> : null}
+          {pending ? "保存中…" : "保存修改"}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        aria-label="保存会议安排"
+        className="h-7 w-7 p-0"
+        disabled={pending}
+        size="icon"
+        title="保存会议安排"
+        type="submit"
+      >
+        {pending ? (
+          <IconLoader2 className="size-3.5 animate-spin" />
+        ) : (
+          <IconCheck className="size-3.5" />
+        )}
+      </Button>
+      <Button
+        aria-label="取消调整时间"
+        className="h-7 w-7 p-0"
+        disabled={pending}
+        onClick={onCancel}
+        size="icon"
+        title="取消修改会议安排"
+        type="button"
+        variant="outline"
+      >
+        <IconX className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+export function RoundScheduledAtControl({
   round,
   meeting,
   canUpdate,
   disabled,
   onRescheduled,
   slug,
-  dependencies,
+  dependencies = defaultRoundCardDependencies,
+  initiallyEditing = false,
+  onCancel,
 }: {
   round: HumanInterviewRoundRecord;
   meeting: HumanInterviewMeetingRecord | null;
   canUpdate: boolean;
   disabled?: boolean;
-  dependencies: RoundCardDependencies;
+  dependencies?: RoundCardDependencies;
+  initiallyEditing?: boolean;
+  onCancel?: () => void;
   onRescheduled: () => void;
   slug: string;
 }) {
-  const [editing, setEditing] = useState(false);
+  const fieldClassName = initiallyEditing ? "flex flex-col" : "contents";
+  const labelClassName = initiallyEditing ? "mb-2" : "sr-only";
+  const pickerClassName = initiallyEditing ? "w-full" : "h-7 w-[13.5rem] text-xs";
+  const [editing, setEditing] = useState(initiallyEditing);
   const [scheduledAt, setScheduledAt] = useState(() =>
     toDateTimeLocalInputValue(round.scheduledAt),
   );
@@ -444,7 +533,7 @@ function RoundScheduledAtControl({
     ),
   );
   const membersQuery = useQuery({
-    enabled: editing && meeting !== null,
+    enabled: editing,
     queryFn: () => dependencies.loadWorkspaceMembers(slug),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
@@ -468,12 +557,15 @@ function RoundScheduledAtControl({
   const validUntilInputId = `human-round-${round.id}-valid-until`;
   const mutation = useMutation({
     mutationFn: async () => {
+      if (!canReschedule) {
+        throw new Error("面试已结束或正在进行，不可编辑");
+      }
       const nextScheduledAt = dateTimeLocalInputToISOString(scheduledAt);
       const nextValidUntil = dateTimeLocalInputToISOString(validUntil);
       if (!nextScheduledAt) {
         throw new Error("请输入有效的面试时间");
       }
-      if (meeting && interviewerIds.length === 0) {
+      if (interviewerIds.length === 0) {
         throw new Error("请至少选择一位面试官");
       }
       try {
@@ -484,6 +576,7 @@ function RoundScheduledAtControl({
               validUntil: nextValidUntil,
             })
           : dependencies.patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
+              interviewerIds,
               scheduledAt: nextScheduledAt,
               validUntil: nextValidUntil,
             }));
@@ -536,6 +629,7 @@ function RoundScheduledAtControl({
       ),
     );
     setEditing(false);
+    onCancel?.();
   }
 
   function handleScheduledAtChange(value: string) {
@@ -550,75 +644,63 @@ function RoundScheduledAtControl({
     mutation.mutate();
   }
 
-  if (editing) {
+  if (editing && canReschedule) {
     return (
-      <form className="inline-flex min-h-7 flex-wrap items-center gap-1.5" onSubmit={handleSubmit}>
-        <Label className="sr-only" htmlFor={inputId}>
-          面试时间
-        </Label>
-        {dependencies.renderDateTimePicker({
-          className: "h-7 w-[13.5rem] text-xs",
-          disabled: mutation.isPending,
-          id: inputId,
-          onValueChange: handleScheduledAtChange,
-          required: true,
-          value: scheduledAt,
-        })}
-        <Label className="sr-only" htmlFor={validUntilInputId}>
-          有效时间至
-        </Label>
-        {dependencies.renderDateTimePicker({
-          className: "h-7 w-[13.5rem] text-xs",
-          disabled: mutation.isPending,
-          id: validUntilInputId,
-          onValueChange: setValidUntil,
-          value: validUntil,
-        })}
-        {meeting ? (
-          <div className="min-w-64">
-            <Label className="sr-only" htmlFor={`human-round-${round.id}-interviewers`}>
-              面试官
-            </Label>
-            <SearchableMultiSelect
-              disabled={mutation.isPending || membersQuery.isLoading}
-              emptyMessage="找不到匹配的成员"
-              id={`human-round-${round.id}-interviewers`}
-              onChange={setInterviewerIds}
-              options={memberOptions}
-              placeholder={membersQuery.isLoading ? "加载面试官…" : "选择面试官（可多选）"}
-              searchPlaceholder="搜索成员…"
-              selectedDisplay="count"
-              selectedFormat={(count) => `已选 ${count} 位面试官`}
-              value={interviewerIds}
-            />
-          </div>
-        ) : null}
-        <Button
-          aria-label="保存会议安排"
-          className="h-7 w-7 p-0"
-          disabled={mutation.isPending}
-          size="icon"
-          title="保存会议安排"
-          type="submit"
-        >
-          {mutation.isPending ? (
-            <IconLoader2 className="size-3.5 animate-spin" />
-          ) : (
-            <IconCheck className="size-3.5" />
-          )}
-        </Button>
-        <Button
-          aria-label="取消调整时间"
-          className="h-7 w-7 p-0"
-          disabled={mutation.isPending}
-          onClick={cancelEditing}
-          size="icon"
-          title="取消修改会议安排"
-          type="button"
-          variant="outline"
-        >
-          <IconX className="size-3.5" />
-        </Button>
+      <form
+        className={
+          initiallyEditing
+            ? "flex flex-col gap-5"
+            : "inline-flex min-h-7 flex-wrap items-center gap-1.5"
+        }
+        onSubmit={handleSubmit}
+      >
+        <div className={fieldClassName}>
+          <Label className={labelClassName} htmlFor={inputId}>
+            面试时间
+          </Label>
+          {dependencies.renderDateTimePicker({
+            className: pickerClassName,
+            disabled: mutation.isPending,
+            id: inputId,
+            onValueChange: handleScheduledAtChange,
+            required: true,
+            value: scheduledAt,
+          })}
+        </div>
+        <div className={fieldClassName}>
+          <Label className={labelClassName} htmlFor={validUntilInputId}>
+            有效时间至
+          </Label>
+          {dependencies.renderDateTimePicker({
+            className: pickerClassName,
+            disabled: mutation.isPending,
+            id: validUntilInputId,
+            onValueChange: setValidUntil,
+            value: validUntil,
+          })}
+        </div>
+        <div className="min-w-0">
+          <Label className={labelClassName} htmlFor={`human-round-${round.id}-interviewers`}>
+            面试官
+          </Label>
+          <SearchableMultiSelect
+            disabled={mutation.isPending || membersQuery.isLoading}
+            emptyMessage="找不到匹配的成员"
+            id={`human-round-${round.id}-interviewers`}
+            onChange={setInterviewerIds}
+            options={memberOptions}
+            placeholder={membersQuery.isLoading ? "加载面试官…" : "选择面试官（可多选）"}
+            searchPlaceholder="搜索成员…"
+            selectedDisplay="items"
+            showSelectedAvatars
+            value={interviewerIds}
+          />
+        </div>
+        <ScheduleEditActions
+          expanded={initiallyEditing}
+          pending={mutation.isPending}
+          onCancel={cancelEditing}
+        />
       </form>
     );
   }
@@ -658,9 +740,11 @@ function RoundCardActions({
   roundId,
   recordId,
   meeting,
+  meetingDetailLink,
   canCreateMeeting,
   canOpenLinks,
   canReviewRound,
+  reviewCompleted,
   canEndMeeting,
   canCancelRound,
   canCompleteRound,
@@ -676,9 +760,11 @@ function RoundCardActions({
   roundId: string;
   recordId: string;
   meeting: HumanInterviewMeetingRecord | null;
+  meetingDetailLink?: ReactNode;
   canCreateMeeting: boolean;
   canOpenLinks: boolean;
   canReviewRound: boolean;
+  reviewCompleted: boolean;
   canEndMeeting: boolean;
   canCancelRound: boolean;
   canCompleteRound: boolean;
@@ -697,7 +783,8 @@ function RoundCardActions({
     canEndMeeting ||
     canCancelRound ||
     canCompleteRound ||
-    canReviewRound;
+    canReviewRound ||
+    Boolean(meetingDetailLink);
   if (!hasActions) {
     return null;
   }
@@ -755,10 +842,11 @@ function RoundCardActions({
           结束会议
         </Button>
       ) : null}
+      {meetingDetailLink}
       {canReviewRound ? (
         <Button onClick={handleReview} size="sm">
           <IconChecklist className="size-4" />
-          评价并完成
+          {reviewCompleted ? "补充评价" : "评价并完成"}
         </Button>
       ) : null}
       {canCompleteRound ? (

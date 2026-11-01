@@ -31,7 +31,9 @@ export function getNextBusinessInterviewLabel(
   return formatBusinessInterviewLabel(
     rounds.filter(
       (round) =>
-        round.status === "completed" && round.outcome === "pass" && round.label !== "CEO面试",
+        round.status === "completed" &&
+        (round.outcome === "pass" || round.outcome === "inconclusive") &&
+        round.label !== "CEO面试",
     ).length + 1,
   );
 }

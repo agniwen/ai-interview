@@ -88,7 +88,7 @@ export interface ResumeReviewEvalDataset {
   samples: ResumeReviewEvalSample[];
 }
 
-export interface ActionCounts {
+interface ActionCounts {
   hold: number;
   interview: number;
   reject: number;
@@ -112,7 +112,7 @@ export interface EvalSliceMetrics {
   sampleCount: number;
 }
 
-export interface DimensionDelta {
+interface DimensionDelta {
   delta: number | null;
   negativeMean: number | null;
   positiveMean: number | null;

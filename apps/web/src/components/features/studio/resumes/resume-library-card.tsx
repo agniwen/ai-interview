@@ -8,7 +8,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -23,8 +23,27 @@ import type {
   ResumeLibraryProfileSnapshotLine,
 } from "@app/shared/studio-resumes";
 import { cn } from "@app/shared/utils";
+import {
+  StudioListCardAvatarWithVerdict,
+  StudioListCardProfileSnapshotSkeleton,
+} from "@/components/features/studio/studio-list-card-evaluation";
+import {
+  STUDIO_LIST_CARD_ACTIONS_CELL_CLASS,
+  STUDIO_LIST_CARD_BODY_GRID_CLASS,
+  STUDIO_LIST_CARD_META_ROW_CLASS,
+  STUDIO_LIST_CARD_NAME_CLASS,
+  STUDIO_LIST_CARD_PROFILE_CELL_CLASS,
+  STUDIO_LIST_CARD_TITLE_ROW_CLASS,
+  StudioListCardProfileColumn,
+  StudioListCardProfileStrip,
+  StudioListCardProfileStripSkeleton,
+} from "@/components/features/studio/studio-list-card-profile";
 import { ResumeLibraryCardActions } from "./resume-library-card-actions";
-import { ResumeLibraryEvaluationSummary } from "./resume-library-evaluation-summary";
+import {
+  ResumeLibraryEvaluationSummary,
+  ResumeLibraryReviewAttemptBadge,
+  ResumeLibraryReviewBadge,
+} from "./resume-library-evaluation-summary";
 import type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
 
 export type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
@@ -96,10 +115,13 @@ function describeCompactHumanLifecycle(
     return "未安排";
   }
   if (!progress.activeRound) {
-    return `${progress.passedRounds}/${progress.totalRounds}通过待决策`;
+    return `${progress.passedRounds}/${progress.totalRounds}通过${progress.inconclusiveRounds ? ` · ${progress.inconclusiveRounds}待定` : ""}待决策`;
   }
 
   const current = progress.activeRound.sortOrder + 1;
+  if (progress.activeRound.awaitingEvaluation) {
+    return `${current}/${progress.totalRounds} 已面试 · 待评价`;
+  }
   if (progress.activeRound.scheduledAt) {
     return `${current}/${progress.totalRounds} 已安排`;
   }
@@ -175,8 +197,7 @@ function textOrDash(value: string | null | undefined) {
   return text || "—";
 }
 
-const AI_INTERVIEW_BADGE_CLASS =
-  "border-violet-500/30 bg-violet-500/10 text-violet-700 hover:ring-violet-500/10 dark:border-violet-400/40 dark:bg-violet-400/15 dark:text-violet-300";
+const AI_INTERVIEW_BADGE_CLASS = "bg-purple-tint text-purple-ink hover:bg-purple-line";
 
 function getLifecycleBadgeStageClass(stage: ResumeLibraryListRecord["pipelineStage"]) {
   return stage === "ai_interview" ? AI_INTERVIEW_BADGE_CLASS : undefined;
@@ -277,11 +298,11 @@ function ResumeCardMetaItem({
         className,
       )}
     >
-      <span aria-hidden className="inline-flex shrink-0 items-center text-muted-foreground/70">
+      <span aria-hidden className="inline-flex shrink-0 items-center text-muted-foreground">
         {icon}
       </span>
       <span className="sr-only">{label}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{children}</span>
     </div>
   );
 }
@@ -291,11 +312,10 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
 
   return (
     <span className="flex h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-      <IconUpload aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
+      <IconUpload aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="shrink-0">上传人</span>
       <Avatar
         className="size-4! shrink-0"
-        generatedSize={16}
         label={`${displayName}的头像`}
         seed={`recruiter:${displayName}`}
         size="sm"
@@ -303,25 +323,8 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
         {image ? <AvatarImage alt={displayName} src={image} /> : null}
         <AvatarFallback>{getCreatorInitial(name)}</AvatarFallback>
       </Avatar>
-      <span className="min-w-0 flex-1 truncate">{displayName}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{displayName}</span>
     </span>
-  );
-}
-
-function renderResumeCardProfileSnapshotLine(line: ResumeLibraryProfileSnapshotLine) {
-  return (
-    <p
-      className="flex min-w-0 items-baseline gap-2"
-      key={`${line.primary}-${line.secondary ?? ""}-${line.period ?? ""}`}
-      title={[line.period, line.primary, line.secondary].filter(Boolean).join(" · ")}
-    >
-      {line.period ? (
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{line.period}</span>
-      ) : null}
-      <span className="min-w-0 truncate text-foreground text-sm">
-        {[line.primary, line.secondary].filter(Boolean).join(" · ")}
-      </span>
-    </p>
   );
 }
 
@@ -350,10 +353,12 @@ function renderResumeCardProfileHoverLine(line: ResumeLibraryProfileSnapshotLine
 }
 
 function getResumeCardProfileSnapshotGroups(snapshot: ResumeLibraryProfileSnapshot) {
-  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
-  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
+  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 3 : 4);
+  const educationLines = snapshot.education.slice(0, 3);
 
   return {
+    educationHasMore:
+      snapshot.educationHasMore || snapshot.education.length > educationLines.length,
     educationLines,
     hasEducationGroup: educationLines.length > 0 || snapshot.educationHasMore,
     hasWorkGroup: workLines.length > 0 || snapshot.workHasMore,
@@ -361,37 +366,12 @@ function getResumeCardProfileSnapshotGroups(snapshot: ResumeLibraryProfileSnapsh
   };
 }
 
-function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
-  const { educationLines, hasEducationGroup, hasWorkGroup, workLines } =
-    getResumeCardProfileSnapshotGroups(snapshot);
-
-  if (!(hasWorkGroup || hasEducationGroup)) {
-    return null;
-  }
-
-  return (
-    <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 xl:block">
-      <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
-        {workLines.map(renderResumeCardProfileSnapshotLine)}
-        {snapshot.workHasMore ? renderResumeCardProfileSnapshotMoreRow("work-more") : null}
-        {hasWorkGroup && hasEducationGroup ? (
-          <div className="my-0.5 border-border/60 border-t" />
-        ) : null}
-        {educationLines.map(renderResumeCardProfileSnapshotLine)}
-        {snapshot.educationHasMore
-          ? renderResumeCardProfileSnapshotMoreRow("education-more")
-          : null}
-      </div>
-    </div>
-  );
-}
-
 function ResumeCardProfileSnapshotHoverCard({
   snapshot,
 }: {
   snapshot: ResumeLibraryProfileSnapshot;
 }) {
-  const { educationLines, hasEducationGroup, hasWorkGroup, workLines } =
+  const { educationHasMore, educationLines, hasEducationGroup, hasWorkGroup, workLines } =
     getResumeCardProfileSnapshotGroups(snapshot);
 
   if (!(hasWorkGroup || hasEducationGroup)) {
@@ -404,10 +384,10 @@ function ResumeCardProfileSnapshotHoverCard({
         render={
           <button
             aria-label="更多工作与教育经历"
-            className="inline-flex min-h-6 min-w-0 items-center gap-1.5 rounded-xs text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:hidden"
+            className="inline-flex min-h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xs text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
             type="button"
           >
-            <IconInfoCircle aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
+            <IconInfoCircle aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
             <span>更多</span>
           </button>
         }
@@ -435,7 +415,7 @@ function ResumeCardProfileSnapshotHoverCard({
               <h4 className="mb-1.5 font-medium text-xs">教育经历</h4>
               <div className="grid min-w-0 gap-1">
                 {educationLines.map(renderResumeCardProfileHoverLine)}
-                {snapshot.educationHasMore
+                {educationHasMore
                   ? renderResumeCardProfileSnapshotMoreRow("compact-education-more")
                   : null}
               </div>
@@ -473,13 +453,15 @@ function ResumeLibraryCardComponent({
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
   const profileSnapshot = record.resumeProfileSnapshot;
-  const skills = record.resumeSkills;
   const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
   const toggleSelected = () => onSelectChange(record.id, !selected);
+  const isRejected = record.outcome === "rejected";
+  const isParsing =
+    record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing";
   const pointerGestureRef = useRef<{
     moved: boolean;
     x: number;
@@ -489,12 +471,7 @@ function ResumeLibraryCardComponent({
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
-      className={cn(
-        "h-full overflow-hidden rounded-xl transition-colors hover:border-border hover:bg-muted/30",
-        selected
-          ? "border-primary/40 bg-primary/5 hover:border-primary/60 hover:bg-primary/5"
-          : "dark:bg-background dark:hover:bg-input/30",
-      )}
+      className="group/list-card h-full overflow-hidden rounded-xl border-0 bg-transparent shadow-none transition-[background-color,box-shadow] hover:bg-card hover:shadow-default"
       onClick={(event) => {
         if (isResumeCardInteractiveClick(event)) {
           return;
@@ -534,7 +511,7 @@ function ResumeLibraryCardComponent({
       <button
         aria-label={`${selected ? "取消选择" : "选择"} ${record.candidateName}`}
         aria-pressed={selected}
-        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         data-resume-card-interactive="true"
         onClick={(event) => {
           event.preventDefault();
@@ -543,127 +520,142 @@ function ResumeLibraryCardComponent({
         }}
         type="button"
       />
-      <CardPanel className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-        <div className="flex min-w-0 gap-3">
-          <Checkbox
-            aria-label={`选择 ${record.candidateName}`}
-            checked={selected}
-            className="relative z-20 mt-3"
-            data-resume-card-interactive="true"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            onCheckedChange={(value) => onSelectChange(record.id, Boolean(value))}
-          />
-          <Avatar
-            className="mt-0.5 size-12"
-            generatedSize={48}
-            label={`${record.candidateName}的头像`}
-            seed={getCandidateAvatarSeed(record.candidateName)}
-          >
-            <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
-          </Avatar>
-
-          <div className="min-w-0 flex-1">
-            <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
-                <button
-                  className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
-                  onClick={() => onOpenDetail(record, "overview")}
-                  type="button"
-                >
-                  <span>{record.candidateName}</span>{" "}
-                  <span className="font-normal text-muted-foreground/60 text-xs">
-                    ({formatResumeRecordDisplayId(record.id)})
-                  </span>
-                </button>
-                <ResumeLifecycleBadge
-                  className={cn("max-w-full", getLifecycleBadgeStageClass(record.pipelineStage))}
-                  detailLabel={lifecycle.detailLabel}
-                  fullLabel={lifecycle.fullLabel}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenDetail(record, lifecycleTargetTab(record));
-                  }}
-                  stage={record.pipelineStage}
-                  stageLabel={lifecycle.stageLabel}
-                  tone={lifecycle.tone}
+      <CardPanel className="flex h-full min-h-0 gap-3 p-4">
+        <Checkbox
+          aria-label={`选择 ${record.candidateName}`}
+          checked={selected}
+          className="relative z-20 mt-3"
+          data-resume-card-interactive="true"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          onCheckedChange={(value) => onSelectChange(record.id, Boolean(value))}
+        />
+        <div className={STUDIO_LIST_CARD_BODY_GRID_CLASS}>
+          <div className="flex min-w-0 items-center gap-3 xl:col-span-2">
+            <StudioListCardAvatarWithVerdict
+              avatar={
+                <CandidateAvatar
+                  className="size-12"
+                  label={record.candidateName}
+                  muted={isRejected}
+                  recordId={record.id}
+                  seed={getCandidateAvatarSeed(record.candidateName)}
+                  source="resumes"
+                  version={record.candidateAvatarVersion}
                 />
-                <InitialInterviewStatusBadge
-                  record={record}
-                  onOpen={() => onOpenDetail(record, "rounds")}
-                />
-                {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
-                  <ResumeCardMetaItem
-                    className="w-full xl:w-auto"
-                    icon={<IconBriefcase className="size-3.5" />}
-                    label="关联岗位"
-                  >
-                    {jobDescriptionId && jobDescriptionLabel ? (
-                      <JobDescriptionHoverCard
-                        className={jobDescriptionTextClass}
-                        jobDescriptionId={jobDescriptionId}
-                        name={jobDescriptionLabel}
-                      />
-                    ) : (
-                      <span className={cn(jobDescriptionTextClass, "text-muted-foreground")}>
-                        未绑定岗位
-                      </span>
-                    )}
-                  </ResumeCardMetaItem>
-                  <div className="min-w-0">
-                    <ResumeCardCreatorMeta image={record.creatorImage} name={record.creatorName} />
-                  </div>
-                  <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
-                    <TimeDisplay as="span" emptyText="—" value={record.createdAt} />
-                  </span>
-                  <ResumeCardProfileSnapshotHoverCard snapshot={profileSnapshot} />
-                </div>
-
-                <ResumeLibraryEvaluationSummary
-                  onOpenDetail={onOpenDetail}
-                  record={record}
-                  summary={summary}
-                />
-
-                {skills.length > 0 ? (
-                  <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]">
-                    {skills.map((item) => (
-                      <Badge className="max-w-52 truncate" key={item} variant="outline">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+              }
+              verdict={<ResumeLibraryReviewBadge compact muted={isRejected} record={record} />}
+            />
+            <div className={STUDIO_LIST_CARD_TITLE_ROW_CLASS}>
+              <button
+                className={STUDIO_LIST_CARD_NAME_CLASS}
+                onClick={() => onOpenDetail(record, "overview")}
+                type="button"
+              >
+                <span className={cn(isRejected && "text-muted-foreground line-through")}>
+                  {record.candidateName}
+                </span>{" "}
+                <span className="font-normal text-muted-foreground text-xs">
+                  ({formatResumeRecordDisplayId(record.id)})
+                </span>
+              </button>
+              <ResumeLibraryReviewAttemptBadge record={record} />
+              <ResumeLifecycleBadge
+                className={cn("shrink-0", getLifecycleBadgeStageClass(record.pipelineStage))}
+                detailLabel={lifecycle.detailLabel}
+                fullLabel={lifecycle.fullLabel}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenDetail(record, lifecycleTargetTab(record));
+                }}
+                stage={record.pipelineStage}
+                stageLabel={lifecycle.stageLabel}
+                tone={lifecycle.tone}
+              />
+              <InitialInterviewStatusBadge
+                record={record}
+                onOpen={() => onOpenDetail(record, "rounds")}
+              />
+              {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
             </div>
           </div>
-        </div>
 
-        <ResumeLibraryCardActions
-          canCopyLink={canCopyLink}
-          canCreateInterview={canCreateInterview}
-          canDeleteResumeLibrary={canDeleteResumeLibrary}
-          canForceReparse={canForceReparse}
-          canRetryResumeParse={canRetryResumeParse}
-          canUpdateResumeLibrary={canUpdateResumeLibrary}
-          onCopyDetailLink={onCopyDetailLink}
-          onDelete={onDelete}
-          onEdit={onEdit}
-          onForceReparse={onForceReparse}
-          onLaunchInterview={onLaunchInterview}
-          onPreviewResume={onPreviewResume}
-          onRetryParse={onRetryParse}
-          onTransition={onTransition}
-          record={record}
-          retrying={retrying}
-        />
+          <div className="min-w-0">
+            <div className={STUDIO_LIST_CARD_META_ROW_CLASS}>
+              <ResumeCardMetaItem
+                className="w-auto max-w-full shrink"
+                icon={<IconBriefcase className="size-3.5" />}
+                label="关联岗位"
+              >
+                {jobDescriptionId && jobDescriptionLabel ? (
+                  <JobDescriptionHoverCard
+                    className={jobDescriptionTextClass}
+                    jobDescriptionId={jobDescriptionId}
+                    name={jobDescriptionLabel}
+                  />
+                ) : (
+                  <span className={cn(jobDescriptionTextClass, "text-muted-foreground")}>
+                    未绑定岗位
+                  </span>
+                )}
+              </ResumeCardMetaItem>
+              <div className="hidden max-w-36 min-w-0 shrink-0 sm:block">
+                <ResumeCardCreatorMeta image={record.creatorImage} name={record.creatorName} />
+              </div>
+              <span className="inline-flex h-6 shrink-0 items-center text-muted-foreground text-xs">
+                <TimeDisplay as="span" emptyText="—" value={record.createdAt} />
+              </span>
+              <ResumeCardProfileSnapshotHoverCard snapshot={profileSnapshot} />
+            </div>
+
+            {isParsing ? (
+              <StudioListCardProfileStripSkeleton className="mt-3 hidden md:grid xl:hidden" />
+            ) : (
+              <StudioListCardProfileStrip
+                className={cn("mt-3 hidden md:grid xl:hidden", isRejected && "line-through")}
+                snapshot={profileSnapshot}
+              />
+            )}
+
+            <ResumeLibraryEvaluationSummary
+              className={cn(isRejected && "line-through")}
+              muted={isRejected}
+              onOpenDetail={onOpenDetail}
+              record={record}
+              summary={summary}
+            />
+          </div>
+
+          <div className={cn(STUDIO_LIST_CARD_PROFILE_CELL_CLASS, isRejected && "line-through")}>
+            {isParsing ? (
+              <StudioListCardProfileSnapshotSkeleton />
+            ) : (
+              <StudioListCardProfileColumn snapshot={profileSnapshot} />
+            )}
+          </div>
+
+          <div className={STUDIO_LIST_CARD_ACTIONS_CELL_CLASS}>
+            <ResumeLibraryCardActions
+              canCopyLink={canCopyLink}
+              canCreateInterview={canCreateInterview}
+              canDeleteResumeLibrary={canDeleteResumeLibrary}
+              canForceReparse={canForceReparse}
+              canRetryResumeParse={canRetryResumeParse}
+              canUpdateResumeLibrary={canUpdateResumeLibrary}
+              onCopyDetailLink={onCopyDetailLink}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onForceReparse={onForceReparse}
+              onLaunchInterview={onLaunchInterview}
+              onPreviewResume={onPreviewResume}
+              onRetryParse={onRetryParse}
+              onTransition={onTransition}
+              record={record}
+              retrying={retrying}
+            />
+          </div>
+        </div>
       </CardPanel>
     </Card>
   );

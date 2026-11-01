@@ -1,8 +1,8 @@
 import type { Database } from "@app/database";
 import { bindResumeProcessingDatabase, withResumeProcessingDatabase } from "./database";
-import * as clone from "./internal/lib/resume-semantic/clone";
-import * as enqueue from "./internal/lib/resume-semantic/enqueue";
-import * as lifecycle from "./internal/lib/resume-semantic/lifecycle";
+import * as clone from "./internal/runtime/resume-semantic/clone";
+import * as enqueue from "./internal/runtime/resume-semantic/enqueue";
+import * as lifecycle from "./internal/runtime/resume-semantic/lifecycle";
 import * as jdIndexer from "./semantic/jd/indexer";
 import * as dedup from "./semantic/resume/dedup-service";
 import * as duplicateMatches from "./semantic/resume/duplicate-matches";

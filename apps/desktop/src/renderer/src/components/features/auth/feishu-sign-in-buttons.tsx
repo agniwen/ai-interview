@@ -21,7 +21,7 @@ export function isFeishuMigrationEnabled(providerIds: FeishuLoginProviderId[]) {
   return providerIds.includes("feishu");
 }
 
-export function FeishuSignInButtonsView({ providerIds }: { providerIds: FeishuLoginProviderId[] }) {
+function FeishuSignInButtonsView({ providerIds }: { providerIds: FeishuLoginProviderId[] }) {
   return buildFeishuLoginButtonOptions(providerIds).map((options) => (
     <FeishuSignInButton key={options.providerId} {...options} />
   ));

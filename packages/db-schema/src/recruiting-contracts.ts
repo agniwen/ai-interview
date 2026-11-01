@@ -88,6 +88,18 @@ export const recruitingCloseReasonValues = [
   "other",
 ] as const;
 export const recruitingCloseReasonSchema = z.enum(recruitingCloseReasonValues);
+export const recruitingCloseReasonMeta = {
+  background_check_failed: { label: "背调异常" },
+  candidate_withdrew: { label: "候选人放弃" },
+  interview_failed: { label: "面试淘汰" },
+  offer_declined: { label: "候选人拒绝 Offer" },
+  onboarded: { label: "已入职" },
+  onboarding_no_show: { label: "候选人爽约" },
+  other: { label: "其他原因" },
+  position_closed: { label: "岗位关闭" },
+  resume_rejected: { label: "简历淘汰" },
+  salary_disagreement: { label: "谈薪失败" },
+} as const satisfies Record<(typeof recruitingCloseReasonValues)[number], { label: string }>;
 
 export function normalizeLegacyPipelineStage(
   stage: PipelineStage | LegacyPipelineStage,

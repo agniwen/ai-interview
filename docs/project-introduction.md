@@ -1,6 +1,6 @@
-# AI Hiring Copilot 项目介绍
+# Hireseer 项目介绍
 
-最后更新：2026-09-09
+最后核对：2026-10-09
 
 资料来源：当前代码结构、`README.md`、`AGENTS.md`、`package.json`、数据库 schema、路由文件、以及 git 提交历史。
 
@@ -8,7 +8,7 @@
 
 ## 这是什么项目
 
-AI Hiring Copilot 是一个面向招聘团队的 AI 面试与简历筛选系统。它不是单一的聊天机器人，也不是单一的视频面试房间，而是把「简历入库、岗位匹配、AI 语音面试、人工面试、评价报告、候选人推进、团队协作」放在同一条招聘流程里。
+Hireseer 是一个面向招聘团队的 AI 面试与简历筛选系统。它不是单一的聊天机器人，也不是单一的视频面试房间，而是把「简历入库、岗位匹配、AI 语音面试、人工面试、评价报告、候选人推进、团队协作」放在同一条招聘流程里。
 
 项目默认中文优先：候选人侧面试提示、AI 面试官指令、后台文案和报告都主要面向中文招聘场景。
 
@@ -76,7 +76,7 @@ AI Hiring Copilot 是一个面向招聘团队的 AI 面试与简历筛选系统�
 
 ### AI 简历与聊天助手
 
-入口包括 `chat.tsx`、`w.$slug.chat.*.tsx` 和后端 `routes/chat`、`routes/resume`。
+当前智能体入口是 `w.$slug.agent.*.tsx`；旧 `chat.tsx`、`w.$slug.chat.*.tsx` 保留路由兼容。后端能力位于 `apps/server/src/routes/chat/` 和 `routes/resume/`。
 
 - 支持上传附件、PDF 解析、视觉/OCR 简历识别、结构化信息抽取。
 - 支持围绕简历和岗位进行多轮对话。
@@ -88,7 +88,7 @@ AI Hiring Copilot 是一个面向招聘团队的 AI 面试与简历筛选系统�
 代码在 `apps/livekit-agent/`。
 
 - 使用 LiveKit Agents SDK 进入面试房间。
-- STT、LLM、TTS、VAD、turn detection 分别由不同 provider / plugin 组合完成。
+- 默认 `INTERVIEW_VOICE_MODE=realtime`，由 Qwen Realtime 处理语音对话；可选 `pipeline` 模式再分别组合 STT、LLM、TTS 和 VAD。
 - 支持候选人断线重连、转写回放、录音、报告回传、超时收尾、候选人长回答保护。
 - 这部分用 Python 和 `uv` 管理，和 TypeScript Web/Backend 使用不同包管理器。
 
@@ -108,8 +108,8 @@ flowchart LR
   Recruiter["HR/面试官/管理员"] --> Web
   Web --> Hono["Hono API (/api)"]
   Web --> ServerFns["TanStack Start Server Functions"]
-  ServerFns --> DB["PostgreSQL + Drizzle"]
-  Hono --> DB
+  ServerFns --> Hono
+  Hono --> DB["PostgreSQL + Drizzle"]
   Hono --> Storage["S3/R2 对象存储"]
   Hono --> Email["Resend 邮件"]
   Hono --> Feishu["飞书机器人"]
@@ -139,15 +139,17 @@ flowchart LR
 - `apps/livekit-agent/`：Python 语音面试 agent。
 - `packages/shared/`：同构产品契约、Zod schema、状态机与共享工具。
 - `packages/db-schema/`：Drizzle schema、relations、数据库枚举与持久化相邻契约。
-- `packages/database/`：server/worker/processing 共用的 Drizzle 数据库工厂与类型。
+- `packages/database/`：Drizzle 数据库工厂与类型、共享包的环境数据库上下文、通用查询工具。
+- `packages/recruiting/`：招聘领域数据：招聘记录、流程流转、工作区权限与招聘配置。
 - `packages/ai-runtime/`：与供应商无关的服务端模型选择与文本生成原语。
 - `packages/object-storage/`：S3 兼容对象存储客户端与 key/上传/下载原语。
-- `packages/resume-parse-queue/`：简历解析、评价、语义索引与邮件导入的队列契约。
 - `packages/resume-processing/`：简历导入、解析、评价、语义索引与去重工作流。
 - `packages/meeting-media/`：会议录音归一化与转写前音频准备。
 - `packages/meeting-live-transcript/`：实时转写采集、校正与浏览器到服务端的中继契约。
 - `packages/meeting-processing/`：会议转写、智能分析、清理与检索投影工作流。
-- `packages/meeting-processing-queue/`：会议相关后台任务的队列契约与生产者。
+- `packages/job-queues/`：简历与会议相关后台任务的 BullMQ 队列契约与生产者。
+- `packages/feishu/`：飞书开放平台客户端（应用凭证、tenant token、云文档）。
+- `packages/recruiting-workflows/`：Server 与 Worker 共用的招聘流程：人工面试、AI 面试报告、通知、初面评估、Offer 审批通知与飞书机器人。
 
 ### 前端：TanStack Start + Router + Query
 
@@ -169,7 +171,7 @@ flowchart LR
 
 ### 后端：Hono + Drizzle + PostgreSQL
 
-后端核心入口是 `apps/server/src/server/app.ts`。它通过 `createServerApp()` 创建 Hono app，业务路由统一挂到 `/api` 下。Web 侧的 `src/server.ts` 会把 Hono app 挂进 TanStack Start server entry；同时后端包也可以通过 `src/index.ts` 独立启动。
+后端核心入口是 `apps/server/src/app.ts`。它通过 `createServerApp()` 创建 Hono app，业务路由统一挂到 `/api` 下。Web 侧的 `src/server.ts` 会把 Hono app 挂进 TanStack Start server entry；同时后端包也可以通过 `src/index.ts` 独立启动。
 
 这意味着当前架构不是「前端一个服务、后端完全另一个服务」的强拆分，也不是「所有 API 都写在前端框架里」。它是一个可嵌入、可独立启动的 Hono 后端包。
 
@@ -221,7 +223,7 @@ AI 能力不是一个单点模型调用，而分布在多个业务节点：
 
 代码里可以看到 OpenAI-compatible provider、阿里云/DashScope（OCR、LLM、语音 STT）、MiniMax（TTS）等痕迹。文档读者不需要记住所有 provider，重点是：系统刻意把「模型供应商」和「招聘业务流程」分开，便于替换模型而不重写候选人流程。
 
-## 技术选择变迁
+## 技术选择变迁（历史背景）
 
 下面是从 git 历史和当前代码整理出的主线，不覆盖每个提交，只保留影响团队理解的变化。
 
@@ -291,16 +293,17 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ### 后端同学优先看
 
-- `apps/server/src/server/app.ts`：Hono app 聚合入口。
-- `apps/server/src/server/routes/`：按业务路由组织的 API。
-- `apps/server/src/lib/server/`：DB、auth、S3、邮件、简历解析等后端能力。
+- `apps/server/src/app.ts`：Hono app 聚合入口。
+- `apps/server/src/routes/`：按业务路由组织的 API。
+- `apps/server/src/infrastructure/`：DB、auth、邮件及宿主数据库绑定；对象存储归 `packages/object-storage/`，共享简历处理归 `packages/resume-processing/`。
 - `packages/db-schema/src/schema.ts`：主数据库表。
 - `packages/db-schema/src/relations.ts`：Drizzle relations。
 
 ### 语音 agent 同学优先看
 
 - `apps/livekit-agent/src/agent.py`：入口和 LiveKit worker 注册。
-- `apps/livekit-agent/src/interview_agent.py`：面试 agent 主要逻辑。
+- `apps/livekit-agent/src/realtime_interview_agent.py`：默认实时语音面试逻辑。
+- `apps/livekit-agent/src/interview_agent.py`：可选 pipeline 模式逻辑。
 - `apps/livekit-agent/src/prompts.py`：中文面试提示词。
 - `apps/livekit-agent/src/ready_check_task.py`、`wrap_up_task.py`：会前检查与收尾任务。
 - `apps/livekit-agent/tests/`：agent 行为测试。
@@ -324,16 +327,21 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 - `department`：招聘部门。
 - `interviewer`：AI 面试官配置，包括部门和音色。
 - `jobDescription`：在招岗位和岗位说明。
-- `studioInterview`：候选人主档案/招聘台记录。
-- `studioInterviewSchedule`：AI 面试轮次或排期。
-- `interviewConversation` / `interviewConversationTurn`：面试会话和逐轮转写。
-- `studioHumanInterviewRound` / `studioHumanInterviewMeeting`：人工面试轮次和会议。
-- `studioOfferDraft`：Offer 阶段信息。
+- `candidate` / `candidateResume`：候选人身份和简历资料。
+- `recruitingRecord`：一条招聘记录及其当前流程状态。
+- `recruitingResumeEvaluation`：版本化简历评价；新评价使用四级定性建议，历史结果保持原样。
+- `aiInterviewRound`：AI 面试轮次或排期。
+- `aiInterviewConversation` / `aiInterviewConversationTurn`：面试会话和逐轮转写。
+- `humanInterviewRound` / `humanInterviewMeeting`：人工面试轮次和会议。
+- `humanInterviewReviewerEvaluation`：面试官各自的草稿与正式评价。
+- `recruitingOffer` / `recruitingOfferApproval`：Offer 与审批实例。
 - `candidateFormTemplate` / `candidateFormSubmission`：候选人表单模板和提交。
 - `interviewQuestionTemplate`：面试题模板。
 - `resumeUploadBatch` / `resumeUploadBatchItem`：批量简历上传任务。
-- `studioRoundEmailLog`：轮次邮件发送记录。
+- `recruitingRoundEmailLog`：轮次邮件发送记录。
 - `feishuThreadState`：飞书会话状态。
+
+旧 `studioInterview` 等表是迁移与历史核对档案，不再是当前业务读写入口。切换说明见 [ADR 0036](adr/0036-copy-recruiting-data-into-independent-tables.md)。
 
 ## 开发协作原则
 
@@ -363,7 +371,7 @@ Python agent 使用 uv：
 ```bash
 cd apps/livekit-agent
 uv sync
-uv run -m livekit.agents download-files
+uv run src/agent.py download-files
 uv run src/agent.py dev
 uv run pytest
 uv run ruff check
@@ -388,7 +396,7 @@ bun run db:studio
 
 ### 后端
 
-1. 看 `apps/server/src/server/app.ts`，理解 `/api` 路由聚合。
+1. 看 `apps/server/src/app.ts`，理解 `/api` 路由聚合。
 2. 选一个模块读通，例如 `studio/routes/resumes` 或 `studio/routes/interviews`。
 3. 对照 `packages/db-schema/src/schema.ts` 看数据结构。
 4. 再看外部集成，例如 LiveKit、Resend、Feishu、S3。

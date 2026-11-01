@@ -107,3 +107,23 @@ describe("真实节点推进与状态标签区分", () => {
     expect(markup).not.toContain("进入流水提供");
   });
 });
+
+describe("未完成的真人面试阻止阶段推进", () => {
+  it.each(["second_interview", "final_interview"] as const)(
+    "%s 即使已有通过结论也不能绕过当前未完成面试",
+    (pipelineStage) => {
+      const markup = renderToStaticMarkup(
+        createElement(PipelineStageActionBar, {
+          currentNodePassed: true,
+          hasUnfinishedHumanInterview: true,
+          onAdvance: vi.fn(),
+          onRequestClose: vi.fn(),
+          onRequestReactivate: vi.fn(),
+          onViewCurrentStage: vi.fn(),
+          pipelineStage,
+        }),
+      );
+      expect(markup).toContain('aria-disabled="true"');
+    },
+  );
+});

@@ -35,7 +35,7 @@ import {
   structuredResumeNarrativeAgent,
 } from "@app/ai-runtime/simple-generators";
 import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
-import { computeJobEvaluationPayloadHash } from "../lib/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "../runtime/job-evaluation-hash";
 
 export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 

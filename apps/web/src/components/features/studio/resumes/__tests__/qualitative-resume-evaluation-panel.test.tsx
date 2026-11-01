@@ -1,10 +1,8 @@
+import type { QualitativeResumeEvaluationV3 } from "@app/db-schema/qualitative-resume-evaluation";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
-import {
-  QualitativeEvaluationDetails,
-  QualitativeRecommendationIndicator,
-} from "../qualitative-resume-evaluation-panel";
+import { QualitativeEvaluationDetails } from "../qualitative-resume-evaluation-panel";
 
 const dimension = (
   basis: "both" | "general" | "job",
@@ -48,23 +46,6 @@ const evaluation = {
   teamPositioning: null,
 } as const;
 
-describe("QualitativeRecommendationIndicator", () => {
-  it.each([
-    ["not_recommended", "不推荐", "red"],
-    ["undecided", "待定", "yellow"],
-    ["recommended", "推荐", "green"],
-    ["highly_recommended", "非常推荐", "purple"],
-  ] as const)("maps %s to its label and color", (level, label, color) => {
-    const html = renderToStaticMarkup(<QualitativeRecommendationIndicator level={level} />);
-    expect(html).toContain(label);
-    expect(html).toContain(color);
-    expect(html).toContain("<svg");
-    expect(html).not.toContain('data-slot="badge"');
-    expect(html).not.toContain("border-");
-    expect(html).not.toContain("bg-");
-  });
-});
-
 describe("RestrictedMarkdownView", () => {
   it("only renders emphasis and lists as rich text", () => {
     const html = renderToStaticMarkup(
@@ -78,7 +59,7 @@ describe("RestrictedMarkdownView", () => {
     expect(html).toContain("<strong>重点</strong>");
     expect(html).toContain("<em>补充</em>");
     expect(html).toContain("<ul>");
-    expect(html).toContain("text-foreground");
+
     expect(html).not.toContain("<h1");
     expect(html).not.toContain("<a");
     expect(html).not.toContain("<code");
@@ -106,46 +87,11 @@ describe("RestrictedMarkdownView", () => {
   });
 });
 
+function textPositions(html: string | undefined, texts: string[]) {
+  return texts.map((text) => html?.indexOf(text) ?? -1);
+}
+
 describe("QualitativeEvaluationDetails", () => {
-  it("keeps the previous frame-card presentation for text evaluations", () => {
-    const html = renderToStaticMarkup(<QualitativeEvaluationDetails evaluation={evaluation} />);
-
-    expect(html.match(/data-slot="frame"/g)).toHaveLength(3);
-    expect(html.match(/data-slot="frame-panel"/g)).toHaveLength(6);
-    expect(html.match(/data-qualitative-dimension-group/g)).toHaveLength(3);
-    expect(html.match(/data-qualitative-dimension-header/g)).toHaveLength(6);
-    expect(html.match(/data-qualitative-dimension-basis/g)).toHaveLength(6);
-    expect(html.match(/data-qualitative-recommendation/g)).toHaveLength(7);
-    expect(html.match(/lg:rounded-\[2px\]/g)).toHaveLength(4);
-    expect(html).toContain("lg:rounded-tl-xl");
-    expect(html).toContain("lg:rounded-tr-xl");
-    expect(html).toContain("lg:rounded-bl-xl");
-    expect(html).toContain("lg:rounded-br-xl");
-    expect(html).not.toContain('data-slot="badge"');
-    expect(html).not.toContain('data-slot="card"');
-    expect(html).toContain(">综合评价<");
-    expect(html).toContain(evaluation.conciseOverall);
-    expect(html).toContain("data-qualitative-overall-judgment");
-    expect(html).toContain('class="grid gap-5 md:grid-cols-2"');
-    expect(html).toContain("<strong>核心风险</strong>");
-    expect(html).toContain("<ol>");
-    expect(html).toContain("<ul>");
-    expect(html).not.toContain("**核心风险**");
-    expect(html).toContain('aria-label="简历六维定性评价雷达图"');
-    expect(html).toContain(
-      'data-radar-order="skillMatch,experienceRelevance,projectMatch,educationBackground,potential,stability"',
-    );
-    expect(html).toContain('data-radar-max-score="4"');
-    expect(html).toContain("技能匹配");
-    expect(html).toContain("非常推荐");
-    expect(html).toContain("不推荐");
-    expect(html).toContain("React 与 TypeScript 实践符合 JD 要求。");
-    expect(html).toContain("根据岗位要求分析得出");
-    expect(html).toContain("根据通用职业标准分析得出");
-    expect(html).toContain("根据岗位要求和通用职业标准分析得出");
-    expect(html).not.toMatch(/typeset[^"]*text-muted-foreground/);
-  });
-
   it("does not invent dimension levels for qualitative-v1 history", () => {
     const dimensions = {
       educationBackground: withoutLevel(evaluation.dimensions.educationBackground),
@@ -160,5 +106,51 @@ describe("QualitativeEvaluationDetails", () => {
 
     expect(html).toContain("此结果生成于六维评级引入前");
     expect(html).not.toContain('aria-label="简历六维定性评价雷达图"');
+  });
+
+  it("shows each structured qualitative-v3 point with its requirement and resume evidence", () => {
+    const current: QualitativeResumeEvaluationV3 = {
+      ...evaluation,
+      detailedOverall: {
+        judgment: evaluation.detailedOverall.judgment,
+        matchingEvidence: [
+          {
+            content: "主导大型前端平台建设，覆盖岗位架构职责。",
+            jobRequirement: "负责大型前端平台的架构设计",
+            point: "前端平台架构",
+            resumeEvidence: "近三年持续负责大型前端平台建设",
+          },
+        ],
+        risks: [
+          {
+            content: "简历未体现团队管理经历，需面试确认。",
+            jobRequirement: "带领 5 人以上前端团队",
+            point: "团队管理",
+            resumeEvidence: null,
+          },
+        ],
+      },
+      schemaVersion: 3,
+    };
+    const html = renderToStaticMarkup(<QualitativeEvaluationDetails evaluation={current} />);
+    const items = html.split("<li").slice(1);
+
+    expect(html).not.toContain("此结果生成于六维评级引入前");
+    const matchingOrder = textPositions(items[0], [
+      "前端平台架构",
+      "主导大型前端平台建设，覆盖岗位架构职责。",
+      "负责大型前端平台的架构设计",
+      "近三年持续负责大型前端平台建设",
+    ]);
+    expect(matchingOrder.every((index) => index >= 0)).toBe(true);
+    expect(matchingOrder).toEqual(matchingOrder.toSorted((left, right) => left - right));
+    const riskOrder = textPositions(items[1], [
+      "团队管理",
+      "简历未体现团队管理经历",
+      "带领 5 人以上前端团队",
+      "简历未提及",
+    ]);
+    expect(riskOrder.every((index) => index >= 0)).toBe(true);
+    expect(riskOrder).toEqual(riskOrder.toSorted((left, right) => left - right));
   });
 });

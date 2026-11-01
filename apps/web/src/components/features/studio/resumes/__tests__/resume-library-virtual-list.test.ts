@@ -31,10 +31,10 @@ describe("resume library virtual list", () => {
       "createdAt",
       new Date("2026-08-14T16:30:00.000Z"),
     );
-    expect(STUDIO_DATE_GROUP_ROW_HEIGHT).toBe(56);
+    expect(STUDIO_DATE_GROUP_ROW_HEIGHT).toBe(44);
     expect(buildStudioStickyDateHeaderPositions(rows, 217)).toEqual([
       { index: 0, start: 0 },
-      { index: 3, start: 490 },
+      { index: 3, start: 478 },
     ]);
   });
 

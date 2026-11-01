@@ -199,7 +199,7 @@ function MeetingLinksContent({
         </div>
       ) : null}
       {links.feishu?.status === "unknown" ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-amber-700 text-sm dark:text-amber-300">
+        <p className="rounded-lg border border-amber-line bg-amber-tint p-3 text-amber-ink text-sm">
           历史飞书同步结果未知，请先在飞书中人工核查，暂时不能直接重试。
         </p>
       ) : null}
@@ -326,14 +326,14 @@ function getFeishuRetryCopy(status: FeishuHumanInterviewSyncStatus | undefined) 
     return {
       button: "继续飞书同步",
       message: "飞书日程同步尚未完成，可以继续创建日程并邀请面试官。",
-      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+      tone: "border-amber-line bg-amber-tint text-amber-ink",
     };
   }
   if (status === "creating") {
     return {
       button: "检查并恢复同步",
       message: "飞书同步可能仍在进行；若长时间未完成，可以检查并恢复。",
-      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+      tone: "border-amber-line bg-amber-tint text-amber-ink",
     };
   }
   return null;
@@ -366,21 +366,19 @@ function MeetingLinkRow({
   }
 
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">{label}</span>
-            <span className="text-muted-foreground text-xs wrap-anywhere">{description}</span>
-          </div>
-          <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
+    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-sm">{label}</span>
+          <span className="text-muted-foreground text-xs wrap-anywhere">{description}</span>
         </div>
-        <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
-          <IconCopy className="size-4" />
-          复制消息
-        </Button>
-      </CardContent>
-    </Card>
+        <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
+      </div>
+      <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
+        <IconCopy className="size-4" />
+        复制消息
+      </Button>
+    </div>
   );
 }
 

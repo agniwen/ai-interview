@@ -85,7 +85,7 @@ export function BulkUploadConfirmDialog({
       <div className="space-y-6">
         {/* 文件清单 / File list */}
         <div>
-          <Label className="mb-2 block text-sm">文件清单</Label>
+          <Label className="mb-1.5 block">文件清单</Label>
           <Card className="gap-0 overflow-hidden rounded-md py-0">
             <CardContent className="p-0">
               <ul className="max-h-48 space-y-1 overflow-y-auto bg-muted/30 p-2 text-sm">
@@ -120,7 +120,7 @@ export function BulkUploadConfirmDialog({
 
         {/* JD 关联模式 / Job description binding mode */}
         <div>
-          <Label className="mb-2 block text-sm">岗位关联</Label>
+          <Label className="mb-1.5 block">岗位关联</Label>
           <RadioGroup
             onValueChange={(value) => {
               const result = resumeUploadBatchJdModeSchema.safeParse(value);
@@ -158,7 +158,7 @@ export function BulkUploadConfirmDialog({
 
         {/* 查重说明 / Deduplication note */}
         <div>
-          <Label className="mb-2 block text-sm">查重处理</Label>
+          <Label className="mb-1.5 block">查重处理</Label>
           <p className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
             命中疑似重复时仍会入库，并在列表中标记“疑似重复”。
           </p>

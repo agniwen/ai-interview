@@ -10,14 +10,16 @@
     "./simple-generators": "./src/simple-generators.ts"
   },
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mastra/core": "^1.50.1",
+    "@mastra/core": "^1.75.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "24.11.2",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

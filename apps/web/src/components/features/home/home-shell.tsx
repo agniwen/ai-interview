@@ -3,16 +3,18 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
-import { BackgroundLayers } from "./background-layers";
+import { RecruitmentCopilotMark } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
+import { SkyBackdrop } from "@/components/features/sky/sky-backdrop";
 import { CapabilityGrid } from "./capability-grid";
 import { Faq } from "./faq";
 import { FeatureBlocks } from "./feature-blocks";
 import { HomeFooter } from "./footer";
 import { Hero } from "./hero";
-import { Personas } from "./personas";
-import { ProcessTabs } from "./process-tabs";
+import { CtaSection } from "./cta-section";
 import { ProductShot } from "./product-shot";
-import { DecisionPrinciples } from "./testimonials";
+import { RoleTabs } from "./role-tabs";
+import { SectionDivider } from "./section";
+import { TrustBoundaries } from "./trust-boundaries";
 
 export default function HomeShell() {
   const navigate = useNavigate();
@@ -27,52 +29,47 @@ export default function HomeShell() {
 
   return (
     <div>
-      <div className="fixed top-4 right-4 z-10 flex items-center gap-1">
-        <LanguageToggle />
-        <ThemeToggle />
-      </div>
-
-      <main className="relative flex w-full flex-col items-stretch bg-background" id="main-content">
-        <div className="relative isolate overflow-hidden">
-          <BackgroundLayers fadeToBackground video />
-          {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
-                Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
-          <div className="mx-auto flex w-full max-w-[96rem] flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
+      <main
+        className="relative flex w-full flex-col items-stretch bg-home-surface"
+        id="main-content"
+      >
+        {/* 顶栏固定在视口顶部、不加底色。放在首屏 isolate 容器之外，z-40 才对整页生效：
+            高于页面内容（z-10/20），低于弹层与对话框（z-50）。首屏里的占位保持原有间距。
+            Fixed, backdrop-free top bar. It lives outside the hero's isolate context so z-40 applies
+            page-wide: above content (z-10/20), below popovers and dialogs (z-50). */}
+        <header className="fixed inset-x-0 top-0 z-40 mx-auto flex w-full max-w-[105rem] items-center justify-between gap-4 px-6 pt-6 sm:px-8 lg:px-16 3xl:px-0">
+          <div className="flex items-center gap-2.5 text-foreground">
+            <RecruitmentCopilotMark className="size-7 sm:size-8" />
+            <span className="font-medium text-sm tracking-tight sm:text-base">Hireseer</span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
+        </header>
+        {/* 首屏整块铺天空背景：导航、文案与演示窗口舞台共用一片流动天空。
+            The whole hero (nav, copy, demo stage) shares one flowing sky. */}
+        <div className="relative isolate">
+          <SkyBackdrop veil />
+          <div aria-hidden="true" className="h-14" />
+          <div className="mx-auto w-full max-w-[105rem] px-6 sm:px-8 lg:px-16 3xl:px-0 pt-14 pb-8 sm:pt-20 sm:pb-10 lg:pt-20 lg:pb-10 2xl:pt-28 2xl:pb-12">
             <Hero onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
           </div>
           <ProductShot />
         </div>
-        <div className="relative bg-background">
-          {/* <TrustStrip /> */}
+        <div className="relative">
           <FeatureBlocks />
-          <div className="relative isolate overflow-hidden">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-16 -right-20 -z-10 h-24 w-72 -rotate-6 bg-[url('/landing/decor/brush-sage-sweep.png')] bg-center bg-contain bg-no-repeat opacity-40 select-none sm:top-20 sm:-right-12 sm:h-32 sm:w-96 sm:opacity-50 lg:right-0 lg:h-36 lg:w-[28rem] dark:bg-[url('/landing/decor/brush-sage-sweep-dark.png')] dark:opacity-55"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-[27%] -right-32 -z-10 h-28 w-96 rotate-2 bg-[url('/landing/decor/brush-sage-broad.png')] bg-center bg-contain bg-no-repeat opacity-[0.14] select-none sm:-right-24 sm:h-36 sm:w-[30rem] sm:opacity-[0.18] lg:-right-16 lg:h-44 lg:w-[36rem] lg:opacity-20 dark:bg-[url('/landing/decor/brush-sage-broad-dark.png')] dark:opacity-40"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-[46%] -left-16 -z-10 hidden h-20 w-72 -rotate-3 bg-[url('/landing/decor/brush-earth-dry.png')] bg-center bg-contain bg-no-repeat opacity-40 select-none sm:block sm:w-80 sm:opacity-45 lg:-left-8 lg:h-24 lg:w-96 lg:opacity-50 dark:bg-[url('/landing/decor/brush-earth-dry-dark.png')] dark:opacity-45"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 bottom-4 -z-10 h-24 w-40 rotate-6 bg-[url('/landing/decor/brush-stone-flicks.png')] bg-center bg-contain bg-no-repeat opacity-25 select-none sm:right-[5%] sm:bottom-8 sm:h-28 sm:w-48 sm:opacity-30 lg:h-32 lg:w-56 lg:opacity-35 dark:bg-[url('/landing/decor/brush-stone-flicks-dark.png')] dark:opacity-40"
-            />
-            <CapabilityGrid />
-            <Personas />
-          </div>
-          <DecisionPrinciples />
-          <ProcessTabs />
+          {/* 动作区之后的各分区用两端淡出的细线隔开。 Sections below the feature stories are split by soft fading hairlines. */}
+          <SectionDivider />
+          <CapabilityGrid onResumeFiltering={onResumeFiltering} />
+          <SectionDivider />
+          <RoleTabs />
+          <SectionDivider />
+          <TrustBoundaries />
+          <SectionDivider />
           <Faq />
-          {/* <CtaSection
-                isPending={isPending}
-                onResumeFiltering={onResumeFiltering}
-                onWorkbench={onWorkbench}
-              /> */}
+          <SectionDivider />
+          <CtaSection onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
           <HomeFooter />
         </div>
       </main>

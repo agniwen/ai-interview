@@ -29,7 +29,6 @@ import { getResumeComparisonDocument } from "./resume-dedup-compare-model";
 import type { ResumeComparisonSourceType } from "./resume-dedup-compare-model";
 import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
 import { syncScrollProgress } from "./resume-dedup-scroll-model";
-export { syncScrollProgress } from "./resume-dedup-scroll-model";
 
 interface ResumeComparisonDetail {
   candidateEmail: string | null;
@@ -471,7 +470,6 @@ function ComparisonColumn({
               <span className="flex min-w-0 items-center gap-1.5">
                 <Avatar
                   className="size-5"
-                  generatedSize={20}
                   label={`${detail.uploaderName ?? "上传人"}的头像`}
                   seed={`uploader:${detail.uploaderName ?? candidate.id}`}
                 >

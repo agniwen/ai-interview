@@ -159,7 +159,7 @@ function DialogContent({
           {...(props as unknown as React.ComponentProps<typeof DrawerPrimitive.Content>)}
         >
           <div className="mx-auto mt-4 h-2 w-25 shrink-0 rounded-full bg-muted" />
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
+          <div className="scroll-fade flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
             {children}
           </div>
         </DrawerPrimitive.Content>
@@ -184,7 +184,7 @@ function DialogContent({
         className={cn(
           cossModalSurfaceClass,
           cossModalMotionClass,
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 outline-none sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl px-4 pt-3 pb-4 outline-none sm:max-w-lg",
           className,
         )}
         {...props}
@@ -193,7 +193,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="data-popup-open:bg-accent data-popup-open:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <IconX />
             <span className="sr-only">Close</span>
@@ -213,7 +213,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         isMobile
           ? "flex flex-col gap-1.5 text-center sm:text-left"
-          : "flex flex-col gap-2 text-center sm:text-left",
+          : "flex flex-col gap-1 pr-8 text-left",
         className,
       )}
       {...props}
@@ -238,12 +238,12 @@ function DialogFooter({
         isMobile
           ? // 横向铺满：每个按钮 flex-1 平分宽度（两按钮各占一半，单按钮占满）。
             // mt-auto / sticky bottom-0：内容短时贴底，内容长时滚动钉底。
-            // -mx-4 + border-t：贯穿 drawer 边到边的分隔。
+            // -mx-4 + bg-background：边到边铺底，滚动内容不会从按钮间透出。
             // safe-area inset：避开 iOS 主屏指示条。
             // / Row layout where every direct child is flex-1 — two buttons
             // each take half, a single button fills the row. mt-auto + sticky
             // bottom-0 keep it pinned in both short and long content.
-            "-mx-4 sticky bottom-0 z-10 mt-auto flex flex-row items-stretch gap-2 border-t bg-background px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1"
+            "-mx-4 sticky bottom-0 z-10 mt-auto flex flex-row items-stretch gap-2 bg-background px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1"
           : "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className,
       )}
@@ -268,7 +268,11 @@ function DialogFooter({
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   const { isMobile } = useResponsiveDialog();
-  const titleClassName = cn("text-lg leading-none font-semibold", className);
+  const titleClassName = cn(
+    "font-medium leading-6",
+    isMobile ? "text-lg" : "text-[0.9375rem]",
+    className,
+  );
 
   return isMobile ? (
     <DrawerPrimitive.Title

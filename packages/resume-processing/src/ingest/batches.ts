@@ -1,9 +1,12 @@
+import { resumeUploadRequestId } from "./upload-request";
+import { replayUploadBatch } from "./batch-request";
 import {
   createRecruitingRecords,
+  lockRecruitingJobForCandidateCreation,
   updateRecruitingRecords,
   deleteRecruitingRecords,
-} from "@app/database/recruiting-records";
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+} from "@app/recruiting/records";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../database";
 import {
@@ -25,7 +28,7 @@ import type {
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
 } from "@app/shared/bulk-resume-upload";
-import type { ResumeParseJobData } from "@app/resume-parse-queue/resume-parse";
+import type { ResumeParseJobData } from "@app/job-queues/resume-parse";
 import { deleteDuplicateMatchesForSource } from "../semantic/resume/duplicate-matches";
 type BatchRow = typeof recruitingUploadBatch.$inferSelect;
 type ItemRow = typeof recruitingUploadBatchItem.$inferSelect;
@@ -71,6 +74,7 @@ export function toItemDto(row: ItemRow): BulkResumeBatchItemDto {
 }
 
 export interface CreateBatchInput {
+  requestId?: string;
   organizationId: string;
   userId: string;
   jdMode: "bind" | "auto" | "none";
@@ -94,11 +98,22 @@ function candidateNameFromFileName(fileName: string): string {
 // Create a batch plus all items in one transaction. Active-batch conflict bubbles
 // up from the partial unique index as a Postgres unique-violation error.
 export async function insertBatchWithItems(input: CreateBatchInput): Promise<string> {
-  const batchId = crypto.randomUUID();
+  const batchId = input.requestId
+    ? resumeUploadRequestId("batch", input.organizationId, input.userId, input.requestId)
+    : crypto.randomUUID();
   const now = new Date();
   const target = input.target ?? "resume_library";
   const scope = input.resumePoolScope ?? "private";
   await db.transaction(async (tx) => {
+    if (input.requestId && (await replayUploadBatch(tx, input, batchId))) {
+      return;
+    }
+    if (input.jdMode === "bind" && input.jobDescriptionId) {
+      await lockRecruitingJobForCandidateCreation(tx, {
+        jobDescriptionId: input.jobDescriptionId,
+        organizationId: input.organizationId,
+      });
+    }
     await tx.insert(recruitingUploadBatch).values({
       createdAt: now,
       createdBy: input.userId,

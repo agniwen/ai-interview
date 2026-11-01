@@ -82,6 +82,24 @@ async def test_default_voice_uses_restrained_delivery(connected):
     assert config["enable_speech_emotion"] is False
 
 
+async def test_interrupted_response_can_be_replaced_before_late_done(connected):
+    session, socket, _ = connected
+    await begin_response(session, socket)
+    old = session._response
+    session.interrupt()
+    session._handle_event({"type": "response.created", "response": {"id": "r2"}})
+    assert old.messages.closed
+    assert old.functions.closed
+    session._handle_event(
+        {"type": "response.done", "response": {"id": "r1", "status": "cancelled"}}
+    )
+    assert session._response.id == "r2"
+    session._handle_event(
+        {"type": "response.done", "response": {"id": "r2", "status": "completed"}}
+    )
+    assert session._response is None
+
+
 async def begin_response(session, socket, response_id="r1"):
     future = session.generate_reply()
     await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
@@ -132,7 +150,7 @@ async def test_initial_configuration_precedes_audio_and_does_not_claim_unsupport
     assert config["input_audio_format"] == "pcm"
     assert config["turn_detection"] == {"type": "smart_turn"}
     assert config["voice"] == "longanlingxin"
-    assert "model=qwen-audio-3.0-realtime-plus" in http.url
+    assert "model=qwen-audio-3.1-realtime-plus" in http.url
     assert http.headers["Authorization"] == "Bearer test-secret"
     assert session.capabilities.auto_tool_reply_generation is False
     assert session.capabilities.message_truncation is False
@@ -534,7 +552,8 @@ async def test_idle_timeout_reconnects_history_without_replaying_tools_or_greeti
     http = RotatingHttp()
     model = RealtimeModel(api_key="test", http_session=http, request_timeout=0.5)
     session = model.session()
-    errors = []
+    errors, connection_states = [], []
+    model.on_connection_state_changed = connection_states.append
     session.on("error", errors.append)
     try:
         await session.update_instructions("继续原来的面试")
@@ -571,6 +590,12 @@ async def test_idle_timeout_reconnects_history_without_replaying_tools_or_greeti
                 if event["type"] == "conversation.item.create"
             ] == [item.id for item in chat.items]
             assert not any(event["type"] == "response.create" for event in restored)
+            await eventually(lambda: not session._restoring)
+            assert connection_states == (
+                ["reconnecting", "reconnected"] * (index + 1)
+                if failure == "disconnect"
+                else []
+            )
             assert not errors
             assert [item.id for item in session.chat_ctx.items] == [
                 item.id for item in chat.items
@@ -594,9 +619,20 @@ async def test_idle_timeout_with_unresolved_tool_still_fails_closed(connected):
     assert errors[0].recoverable is False
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "disconnect",
+        "server_error",
+        "invalid_value",
+        "user_idle_timeout",
+        "response_idle_timeout",
+    ],
+)
 @pytest.mark.parametrize("phase", ["user", "assistant", "first_user"])
 async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_repeat(
     phase,
+    failure,
 ):
     sockets = [Socket(), Socket()]
 
@@ -611,8 +647,9 @@ async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_rep
     http = RotatingHttp()
     model = RealtimeModel(api_key="test", http_session=http)
     session = model.session()
-    errors = []
+    errors, connection_states = [], []
     session.on("error", errors.append)
+    model.on_connection_state_changed = connection_states.append
     try:
         await session.update_instructions("继续面试")
 
@@ -643,12 +680,18 @@ async def test_disconnect_mid_speech_restores_confirmed_history_and_requests_rep
                 delta="请问你的",
             )
             await eventually(lambda: bool(session._response.items))
-        sockets[0].incoming.put_nowait(SimpleNamespace(type=aiohttp.WSMsgType.CLOSED))
+        if failure == "disconnect":
+            sockets[0].incoming.put_nowait(
+                SimpleNamespace(type=aiohttp.WSMsgType.CLOSED)
+            )
+        else:
+            sockets[0].feed("error", error={"code": failure, "type": failure})
         await eventually(lambda: http.calls == 2)
         await eventually(
             lambda: any(e["type"] == "response.create" for e in sockets[1].sent)
         )
         assert not errors
+        assert connection_states == ["reconnecting", "reconnected"]
         assert session.chat_ctx.get_by_id("unfinished") is None
         restored = [
             e["item"]
@@ -754,5 +797,398 @@ async def test_automatic_response_timeout_restores_instead_of_ending_interview()
             for item in session.chat_ctx.items
             if isinstance(item, llm.ChatMessage) and item.role == "user"
         ] == ["我用豆包写初稿"]
+    finally:
+        await model.aclose()
+
+
+async def test_reply_waits_for_the_transcript_of_a_committed_turn(connected):
+    # Qwen drops the pending transcription of a committed turn when a new
+    # response starts first, e.g. the reply that follows a tool call.
+    session, socket, _ = connected
+    socket.feed("input_audio_buffer.speech_started", item_id="u1")
+    socket.feed("input_audio_buffer.speech_stopped", item_id="u1")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    # The automatic response to the turn only calls a tool and finishes
+    # before the transcription arrives.
+    socket.feed("response.created", response={"id": "r0"})
+    socket.feed("response.done", response={"id": "r0", "status": "completed"})
+    await eventually(lambda: "u1" in session._untranscribed and session._idle.is_set())
+    future = session.generate_reply()
+    await asyncio.sleep(0.05)
+    assert not any(e["type"] == "response.create" for e in socket.sent)
+    socket.feed(
+        "conversation.item.input_audio_transcription.completed",
+        item_id="u1",
+        transcript="我负责后端开发",
+    )
+    await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
+    assert session.chat_ctx.get_by_id("u1").text_content == "我负责后端开发"
+    socket.feed("response.created", response={"id": "r1"})
+    await future
+
+
+async def test_reply_is_not_blocked_forever_by_a_missing_transcript():
+    socket = Socket()
+    model = RealtimeModel(
+        api_key="test-secret",
+        http_session=Http(socket),
+        request_timeout=0.5,
+        transcript_wait=0.05,
+    )
+    session = model.session()
+    await session.update_instructions("收集信息")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    await eventually(lambda: "u1" in session._untranscribed)
+    future = session.generate_reply()
+    await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
+    socket.feed("response.created", response={"id": "r1"})
+    await future
+    assert not session._untranscribed
+    await model.aclose()
+
+
+async def test_a_lost_final_transcript_falls_back_to_the_partial_text():
+    # Qwen sometimes streams partial text for a turn but never finalizes it;
+    # the partial text is still the candidate's words and must reach history.
+    socket = Socket()
+    model = RealtimeModel(
+        api_key="test-secret",
+        http_session=Http(socket),
+        request_timeout=0.5,
+        transcript_wait=0.05,
+    )
+    session = model.session()
+    events = []
+    session.on("input_audio_transcription_completed", events.append)
+    await session.update_instructions("收集信息")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    socket.feed(
+        "conversation.item.input_audio_transcription.delta",
+        item_id="u1",
+        text="离开蓝鲸是因为",
+        stash="想做管理岗",
+    )
+    await eventually(lambda: "u1" in session._untranscribed and events)
+    future = session.generate_reply()
+    await eventually(lambda: any(e["type"] == "response.create" for e in socket.sent))
+    socket.feed("response.created", response={"id": "r1"})
+    await future
+    assert [
+        item.text_content
+        for item in session.chat_ctx.items
+        if isinstance(item, llm.ChatMessage) and item.role == "user"
+    ] == ["离开蓝鲸是因为想做管理岗"]
+    assert events[-1].is_final and events[-1].transcript == "离开蓝鲸是因为想做管理岗"
+    await model.aclose()
+
+
+async def test_an_ambient_final_transcript_completes_the_pending_turn():
+    # Qwen may finalize a committed turn as an ambient transcription under a
+    # new item id; it is still that turn's transcript.
+    socket = Socket()
+    model = RealtimeModel(
+        api_key="test-secret",
+        http_session=Http(socket),
+        request_timeout=0.5,
+        transcript_wait=5,
+    )
+    session = model.session()
+    await session.update_instructions("收集信息")
+    socket.feed("input_audio_buffer.committed", item_id="u1")
+    socket.feed(
+        "conversation.item.input_audio_transcription.delta",
+        item_id="u1",
+        text="想找",
+        stash="更大的平",
+    )
+    socket.feed(
+        "conversation.item.ambient_audio_transcription.completed",
+        item_id="x9",
+        transcript="想找更大的平台。",
+    )
+    await eventually(lambda: not session._untranscribed and session.chat_ctx.items)
+    assert [
+        (item.id, item.text_content)
+        for item in session.chat_ctx.items
+        if isinstance(item, llm.ChatMessage) and item.role == "user"
+    ] == [("u1", "想找更大的平台。")]
+    await model.aclose()
+
+
+async def test_an_ambient_transcript_without_a_pending_turn_is_ignored(connected):
+    session, socket, _ = connected
+    socket.feed(
+        "conversation.item.ambient_audio_transcription.completed",
+        item_id="x9",
+        transcript="背景里有人说话",
+    )
+    socket.feed("response.created", response={"id": "r1"})
+    await asyncio.sleep(0.05)
+    assert session.chat_ctx.items == []
+
+
+async def test_a_list_argument_sent_as_a_json_string_is_decoded(connected):
+    # Qwen sometimes encodes an array parameter as a JSON string; decoding it
+    # saves a failed call and an extra model response for the retry.
+    session, socket, _ = connected
+
+    @llm.function_tool
+    async def save(updates: list[dict], note: str):
+        """保存。"""
+        return "ok"
+
+    await session.update_tools([save])
+    generation = await begin_response(session, socket)
+    arguments = json.dumps(
+        {"updates": '\n[{"question_id": "q1"}]', "note": "[原话]"}, ensure_ascii=False
+    )
+    call = {
+        "id": "f1",
+        "type": "function_call",
+        "call_id": "c1",
+        "name": "save",
+        "arguments": arguments,
+    }
+    socket.feed(
+        "response.function_call_arguments.done",
+        response_id="r1",
+        item_id="f1",
+        **{k: v for k, v in call.items() if k not in ("id", "type")},
+    )
+    socket.feed("response.output_item.done", response_id="r1", item=call)
+    socket.feed(
+        "response.done", response={"id": "r1", "status": "completed", "output": [call]}
+    )
+    calls = [f async for f in generation.function_stream]
+    # Only a parameter the schema declares as an array is decoded; a string
+    # parameter keeps its text even when it looks like JSON.
+    assert json.loads(calls[0].arguments) == {
+        "updates": [{"question_id": "q1"}],
+        "note": "[原话]",
+    }
+
+
+def answered_turn(socket, item_id, transcript):
+    socket.feed("input_audio_buffer.committed", item_id=item_id)
+    socket.feed(
+        "conversation.item.created",
+        item={
+            "id": item_id,
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_audio", "transcript": None}],
+        },
+    )
+    socket.feed(
+        "conversation.item.input_audio_transcription.completed",
+        item_id=item_id,
+        transcript=transcript,
+    )
+
+
+def assistant_item(socket, item_id, text):
+    socket.feed(
+        "conversation.item.created",
+        item={
+            "id": item_id,
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": text}],
+        },
+    )
+
+
+async def test_an_earlier_turn_keeps_its_place_as_text_instead_of_audio(connected):
+    # Audio history is re-billed on every response at several times the text
+    # price. Once the candidate starts the next turn, the previous turn has been
+    # heard, so it stays in history as its transcript.
+    session, socket, _ = connected
+    added = []
+    session.on("remote_item_added", added.append)
+    assistant_item(socket, "a0", "请介绍一下最近的工作。")
+    answered_turn(socket, "u1", "我负责订单服务。")
+    assistant_item(socket, "a1", "好的，团队多大？")
+    await eventually(lambda: session.chat_ctx.get_by_id("a1"))
+    added.clear()
+    socket.feed("input_audio_buffer.speech_started", item_id="u2")
+    await eventually(
+        lambda: any(e["type"] == "conversation.item.create" for e in socket.sent)
+    )
+    delete = next(e for e in socket.sent if e["type"] == "conversation.item.delete")
+    create = next(e for e in socket.sent if e["type"] == "conversation.item.create")
+    assert delete["item_id"] == "u1"
+    assert create["previous_item_id"] == "a0"
+    assert create["item"] == {
+        "id": "u1",
+        "type": "message",
+        "role": "user",
+        "content": [{"type": "input_text", "text": "我负责订单服务。"}],
+    }
+    await eventually(lambda: session.chat_ctx.get_by_id("u1") is not None)
+    assert [item.id for item in session.chat_ctx.items] == ["a0", "u1", "a1"]
+    # The turn is not new to LiveKit; re-announcing it would duplicate it.
+    assert added == []
+
+
+async def test_each_turn_is_converted_once_and_only_after_it_was_transcribed(
+    connected,
+):
+    session, socket, _ = connected
+    assistant_item(socket, "a0", "请介绍一下最近的工作。")
+    answered_turn(socket, "u1", "我负责订单服务。")
+    socket.feed("input_audio_buffer.committed", item_id="u2")
+    await eventually(lambda: session.chat_ctx.get_by_id("u1"))
+    socket.feed("input_audio_buffer.speech_started", item_id="u3")
+    await eventually(
+        lambda: any(e["type"] == "conversation.item.create" for e in socket.sent)
+    )
+    socket.feed("input_audio_buffer.speech_started", item_id="u4")
+    await asyncio.sleep(0.05)
+    deletes = [
+        e["item_id"] for e in socket.sent if e["type"] == "conversation.item.delete"
+    ]
+    # u2 has no transcript yet, so its audio is all the model has.
+    assert deletes == ["u1"]
+
+
+async def test_history_is_not_rewritten_while_a_response_is_playing(connected):
+    session, socket, _ = connected
+    assistant_item(socket, "a0", "请介绍一下最近的工作。")
+    answered_turn(socket, "u1", "我负责订单服务。")
+    await eventually(lambda: session.chat_ctx.get_by_id("u1"))
+    socket.feed("response.created", response={"id": "r1"})
+    socket.feed("input_audio_buffer.speech_started", item_id="u2")
+    await asyncio.sleep(0.05)
+    assert not any(e["type"] == "conversation.item.delete" for e in socket.sent)
+    socket.feed(
+        "response.done", response={"id": "r1", "status": "cancelled", "output": []}
+    )
+    socket.feed("input_audio_buffer.speech_started", item_id="u3")
+    await eventually(
+        lambda: any(e["type"] == "conversation.item.delete" for e in socket.sent)
+    )
+
+
+async def test_provider_error_retries_are_bounded():
+    sockets = [Socket() for _ in range(4)]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            result = sockets[self.calls]
+            self.calls += 1
+            return result
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    session = model.session()
+    errors = []
+    session.on("error", errors.append)
+    try:
+        await session.update_instructions("继续面试")
+        for index, socket in enumerate(sockets):
+            await eventually(lambda: not session._restoring)
+            socket.feed("error", error={"type": "server_error", "code": "server_error"})
+            if index < 3:
+                await eventually(lambda index=index: http.calls == index + 2)
+        await eventually(lambda: bool(errors))
+        assert http.calls == 4
+        assert len(errors) == 1
+        assert "reconnect attempts exhausted" in str(errors[0].error)
+    finally:
+        await model.aclose()
+
+
+@pytest.mark.parametrize("code", ["server_error", "invalid_value"])
+async def test_provider_error_does_not_reexecute_unresolved_tool(connected, code):
+    session, socket, _ = connected
+    errors = []
+    session.on("error", errors.append)
+    chat = llm.ChatContext.empty()
+    chat.items.append(
+        llm.FunctionCall(id="pending", call_id="pending", name="save", arguments="{}")
+    )
+    await session.update_chat_ctx(chat)
+    socket.feed("error", error={"code": code})
+    await eventually(lambda: bool(errors))
+    assert session._failure is not None
+    assert [item.id for item in session.chat_ctx.items] == ["pending"]
+
+
+async def test_invalid_configuration_is_not_retried(connected):
+    session, socket, _ = connected
+    errors = []
+    session.on("error", errors.append)
+    socket.feed("error", error={"code": "invalid_value", "param": "session.update"})
+    await eventually(lambda: bool(errors))
+    assert "invalid_value" in str(errors[0].error)
+
+
+async def test_recovery_drops_empty_remote_placeholders_before_next_user_turn():
+    sockets = [Socket(), Socket()]
+
+    class RotatingHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            result = sockets[self.calls]
+            self.calls += 1
+            return result
+
+    http = RotatingHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    session = model.session()
+    try:
+        await session.update_instructions("继续面试")
+        chat = llm.ChatContext.empty()
+        chat.add_message(role="user", content="我希望有发展空间")
+        await session.update_chat_ctx(chat)
+        sockets[0].feed(
+            "conversation.item.created",
+            item={
+                "id": "unfinished",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+            },
+        )
+        await eventually(lambda: session.chat_ctx.get_by_id("unfinished") is not None)
+        livekit_history = session.chat_ctx.copy()
+        sockets[0].feed("error", error={"type": "server_error", "code": "server_error"})
+        await eventually(lambda: http.calls == 2 and not session._restoring)
+        livekit_history.add_message(role="user", content="我带过五人团队")
+        await session.update_chat_ctx(livekit_history)
+        next_turn = sockets[1].sent[-1]
+        assert next_turn["item"]["content"][0]["text"] == "我带过五人团队"
+        assert next_turn["previous_item_id"] == chat.items[0].id
+        assert session.chat_ctx.get_by_id("unfinished") is None
+    finally:
+        await model.aclose()
+
+
+async def test_failed_silent_idle_restore_escalates_to_visible_recovery():
+    sockets = [Socket(), Socket()]
+
+    class RetryHttp:
+        calls = 0
+
+        async def ws_connect(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 2:
+                raise aiohttp.ServerDisconnectedError("restore failed")
+            return sockets[0 if self.calls == 1 else 1]
+
+    http = RetryHttp()
+    model = RealtimeModel(api_key="test", http_session=http)
+    states = []
+    model.on_connection_state_changed = states.append
+    session = model.session()
+    try:
+        await session.update_instructions("继续面试")
+        sockets[0].feed("error", error={"code": "user_idle_timeout"})
+        await eventually(lambda: states == ["reconnecting", "reconnected"])
+        assert http.calls == 3
+        assert not any(e["type"] == "response.create" for e in sockets[1].sent)
     finally:
         await model.aclose()

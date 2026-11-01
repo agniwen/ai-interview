@@ -16,7 +16,7 @@ const emptyFails = (): FailureCounts => ({
   status_filtered: 0,
 });
 
-export interface PerJdRow {
+interface PerJdRow {
   failureCounts: FailureCounts;
   hits: number;
   jobDescriptionId: string;

@@ -3,7 +3,7 @@ import { findEffectiveAiRound } from "./effective-ai-round";
 import { RecruitingNodeActions } from "./recruiting-node-actions";
 /* oxlint-disable complexity -- header builder composes title, tabs, action bar, and layout classes. */
 
-import { IconExternalLink, IconRobot, IconRefresh } from "@tabler/icons-react";
+import { IconExternalLink, IconFileText, IconRobot, IconRefresh } from "@tabler/icons-react";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
@@ -19,6 +19,8 @@ import type { ReactNode } from "react";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CandidateAvatarImage, resolveCandidateAvatarSource } from "./candidate-avatar-image";
 import { RecruitingActionButton as Button } from "./recruiting-action-button";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,8 +28,11 @@ import { scheduleEntryStatusMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 import { ScheduleHumanInterviewButton } from "./schedule-human-interview-button";
 import { canShowHumanInterviewScheduleAction } from "./human-interview-stage-utils";
-import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
-import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
+import {
+  CandidatePipelineActionBar,
+  LaunchAiInterviewAction,
+} from "./candidate-action-dock/candidate-pipeline-action-bar";
+import { DetailHeaderSkeleton, DetailTitleSkeleton } from "./studio-person-detail-skeletons";
 import {
   findCachedResumeCandidateName,
   renderHeaderDescription,
@@ -69,7 +74,7 @@ export interface BuildStudioPersonDetailHeaderParams {
   onNavigateToInterviews: () => void;
   onRequestClose?: (candidate: { candidateName: string; id: string }) => void;
   onRequestReactivate?: (candidate: { candidateName: string; id: string }) => void;
-  onResetRound: (targetRoundId: string) => void;
+  onResetRound: (targetRoundId: string) => Promise<boolean>;
   onViewCurrentStage: () => void;
   queryClient: QueryClient;
   record: UnifiedRecord | null;
@@ -91,6 +96,7 @@ export interface StudioPersonDetailHeaderResult {
   description: ReactNode;
   detailScrollClassName: string;
   floatingActionBar: ReactNode;
+  floatingActionBarPlacement: "container" | "viewport";
   headerExtra: ReactNode;
   resumePreviewUrl: string;
   showTimelineRail: boolean;
@@ -183,12 +189,20 @@ export function buildStudioPersonDetailHeader({
       {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
-  const launchResumeModeButton = launchResumeModeButtonContent;
+  const launchResumeModeButton =
+    layoutMode === "page" && showLaunchButton && record ? (
+      <LaunchAiInterviewAction
+        candidate={{ candidateName: record.candidateName, id: record.id }}
+        disabledReason={launchResumeModeDisabledReason}
+      />
+    ) : (
+      launchResumeModeButtonContent
+    );
 
   const cachedResumeCandidateName =
     mode === "resume" ? findCachedResumeCandidateName(queryClient, effectiveRecordId) : null;
   const resumeTitle = record?.candidateName?.trim() || cachedResumeCandidateName || "候选人详情";
-  const title =
+  let title =
     mode === "resume" ? (
       <span className="wrap-break-word">{resumeTitle}</span>
     ) : (
@@ -211,6 +225,47 @@ export function buildStudioPersonDetailHeader({
         name={linkedJobDescriptionName}
       />
     );
+  }
+
+  if (layoutMode === "modal" || isReview || isPublic || mode === "interview") {
+    const avatarName = record?.candidateName?.trim() || cachedResumeCandidateName;
+    const headerAvatarSource = resolveCandidateAvatarSource({ resumeRecord, round });
+    const avatarLabel = avatarName || record?.candidateEmail?.trim() || "候选人";
+    title = (
+      <span className="flex min-w-0 items-center gap-3">
+        <Avatar
+          className="size-14 shrink-0"
+          label={`${avatarLabel}的头像`}
+          seed={avatarName || "未命名候选人"}
+        >
+          {headerAvatarSource ? (
+            <CandidateAvatarImage
+              recordId={headerAvatarSource.recordId}
+              source="resumes"
+              version={headerAvatarSource.version}
+            />
+          ) : null}
+          <AvatarFallback>{avatarLabel.slice(0, 1).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <span className="flex min-w-0 flex-col gap-2">
+          {title}
+          {description ? (
+            <span className="text-sm font-normal text-muted-foreground">{description}</span>
+          ) : null}
+        </span>
+      </span>
+    );
+    description = null;
+  }
+
+  if (isLoading && (layoutMode === "modal" || isReview || isPublic || mode === "interview")) {
+    title = (
+      <>
+        <span className="sr-only">候选人详情正在加载</span>
+        <DetailTitleSkeleton />
+      </>
+    );
+    description = null;
   }
 
   const resumePreviewUrl = (() => {
@@ -243,7 +298,13 @@ export function buildStudioPersonDetailHeader({
     canUseManagementActions &&
     actionBarPipelineStage &&
     record.outcome ? (
-      <PipelineStageActionBar
+      <CandidatePipelineActionBar
+        key={`${record.id}:${actionBarPipelineStage}`}
+        candidate={{ candidateName: record.candidateName, id: record.id }}
+        hasUnfinishedHumanInterview={Boolean(
+          currentHumanInterviewProgress?.activeRound ||
+          (currentHumanInterviewProgress?.completedRoundsMissingFeedback ?? 0) > 0,
+        )}
         humanInterviewDone={Boolean(
           currentHumanInterviewProgress &&
           currentHumanInterviewProgress.totalRounds > 0 &&
@@ -301,7 +362,7 @@ export function buildStudioPersonDetailHeader({
             {actionBarPipelineStage === "screening" && resumeRecord ? (
               <ScreeningAdvanceActions
                 onAdvanced={onInterviewStageReady}
-                key={`screening:${resumeRecord.id}:${resumeRecord.version}`}
+                key={`screening:${resumeRecord.id}`}
                 record={resumeRecord}
               />
             ) : null}
@@ -315,7 +376,10 @@ export function buildStudioPersonDetailHeader({
                   "background_check",
                   "onboarding",
                 ].includes(actionBarPipelineStage)) && (
-                <RecruitingNodeActions key={`node:${resumeRecord.id}`} record={resumeRecord} />
+                <RecruitingNodeActions
+                  key={`node:${resumeRecord.id}:${resumeRecord.pipelineStage}`}
+                  record={resumeRecord}
+                />
               )}
             {canShowHumanInterviewScheduleAction(
               actionBarPipelineStage,
@@ -323,6 +387,7 @@ export function buildStudioPersonDetailHeader({
               canReadHumanInterview,
             ) ? (
               <ScheduleHumanInterviewButton
+                key={`${record.id}:${actionBarPipelineStage}`}
                 onScheduled={() => onInterviewStageReady(actionBarPipelineStage)}
                 targetStage={actionBarPipelineStage}
                 candidateId={record.id}
@@ -336,73 +401,99 @@ export function buildStudioPersonDetailHeader({
       />
     ) : null;
 
-  const headerActionBar = layoutMode === "modal" ? actionBar : null;
-  const floatingActionBar = layoutMode === "page" ? actionBar : null;
+  // 推进动作统一走悬浮操作栏：页面里相对视口居中，弹窗/抽屉里相对弹窗居中。
+  // Pipeline actions always use the floating dock: viewport-centered on pages,
+  // container-centered inside the modal/drawer.
+  const floatingActionBar = actionBar;
+  const floatingActionBarPlacement: "container" | "viewport" =
+    layoutMode === "modal" ? "container" : "viewport";
 
   const headerControls = record ? (
     <div className="mt-2 flex flex-col gap-3">
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <TabsList className="mt-0 w-full sm:w-auto">
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
+      <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <TabsList
+          aria-label="候选人详情"
+          className="order-2 mt-0 w-full sm:order-1 sm:w-auto sm:flex-1"
+          variant="underline"
+        >
+          <TabsTrigger className="min-w-[6em] flex-none" value="overview">
             {mode === "interview" ? "结果" : "概览"}
           </TabsTrigger>
           {mode === "interview" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
+            <TabsTrigger className="min-w-[6em] flex-none" value="experience">
               经历
             </TabsTrigger>
           ) : null}
           {mode === "resume" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+            <TabsTrigger className="min-w-[6em] flex-none" value="ai-analysis">
               AI评价
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
+            <TabsTrigger className="min-w-[6em] flex-none" value="rounds">
               AI初面
             </TabsTrigger>
           ) : null}
           {mode === "resume" &&
           shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
+            <TabsTrigger className="min-w-[6em] flex-none" value="human-interview">
               真人面试
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
+            <TabsTrigger className="min-w-[6em] flex-none" value="offer">
               Offer
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowOnboardingTab(tabVisibilityRecord) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="onboarding">
+            <TabsTrigger className="min-w-[6em] flex-none" value="onboarding">
               入职办理
             </TabsTrigger>
           ) : null}
           {showAgentInstructions ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+            <TabsTrigger className="min-w-[6em] flex-none" value="instructions">
               Agent 提示词
             </TabsTrigger>
           ) : null}
         </TabsList>
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-          {headerActionBar}
+        <div className="order-1 flex shrink-0 flex-col items-stretch gap-2 sm:order-2 sm:flex-row sm:items-center sm:justify-end sm:pb-1.5">
           <div className="flex items-center gap-2">
+            {mode === "resume" && resumeRecord?.feishuDocumentUrl ? (
+              <Button
+                className="flex-1 sm:flex-none"
+                nativeButton={false}
+                render={
+                  <a
+                    href={resumeRecord.feishuDocumentUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <IconFileText data-icon="inline-start" />
+                    查看评价表
+                  </a>
+                }
+                size="sm"
+                variant="ghost"
+              />
+            ) : null}
             <ResumeDocumentPreviewButton
               className="flex-1 sm:flex-none"
               disabled={!record.hasResumeFile}
               filename={record.resumeFileName ?? undefined}
               label="预览简历"
+              variant="ghost"
               url={resumePreviewUrl}
             />
             {mode === "resume" && (
               <Button
-                className="h-8 shrink-0 gap-1.5"
+                className="flex-1 sm:flex-none"
                 size="sm"
                 variant="ghost"
                 isLoading={isRefreshing}
                 onClick={onRefresh}
               >
                 <IconRefresh
-                  className={cn("size-3.5", isRefreshing && "animate-spin")}
+                  className={cn(isRefreshing && "animate-spin")}
                   data-icon="inline-start"
                 />
                 {isRefreshing ? "刷新中…" : "刷新信息"}
@@ -425,7 +516,7 @@ export function buildStudioPersonDetailHeader({
   let bodyLayoutClassName = "flex flex-col gap-8";
   if (showTimelineRail) {
     bodyLayoutClassName = cn(
-      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem] xl:gap-x-6",
+      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-x-10 2xl:grid-cols-[minmax(0,1fr)_24rem]",
       canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-hidden",
       !canUseTimelineRailScroll && "xl:items-start",
     );
@@ -441,6 +532,7 @@ export function buildStudioPersonDetailHeader({
     description,
     detailScrollClassName,
     floatingActionBar,
+    floatingActionBarPlacement,
     headerExtra,
     resumePreviewUrl,
     showTimelineRail,

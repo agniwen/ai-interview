@@ -55,6 +55,12 @@
       "skillPath": "skills/shadcn/SKILL.md",
       "computedHash": "c1a68ee06a668aced9ab2b5fbdea5f989864123794eb2e056b339a072dbb7f10"
     },
+    "shaders": {
+      "source": "shader-effects-inc/shaders",
+      "sourceType": "github",
+      "skillPath": "skills/shaders/SKILL.md",
+      "computedHash": "b5da5d8823c5bb560dd0b4adff4abd29073edb26e196afa1447b4e54d3bc68bb"
+    },
     "tanstack-query-best-practices": {
       "source": "deckardger/tanstack-agent-skills",
       "sourceType": "github",

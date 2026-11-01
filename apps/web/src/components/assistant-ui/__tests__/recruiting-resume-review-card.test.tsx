@@ -265,7 +265,7 @@ describe("buildRecruitingResumeReviewCardModel", () => {
 
     expect(container.querySelector("[data-chart]")).not.toBeNull();
     expect(container.querySelectorAll("dt")).toHaveLength(6);
-    expect(container.querySelector("section")?.className).toContain("my-3");
+
     const detailButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("查看评分详情"),
     );

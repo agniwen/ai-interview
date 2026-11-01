@@ -33,6 +33,11 @@ export interface UseDataGridStateOptions<TData, F extends Record<string, string>
   allowedSortIds?: readonly string[];
   defaultPageSize?: number;
   defaultSorting?: SortingState;
+  /**
+   * 设为 false 时只管理 URL 中的筛选/排序状态，不发分页请求（调用方自行加载，如无限滚动）。
+   * When false, only URL filter/sort state is managed and no paged request is made.
+   */
+  enabled?: boolean;
   initialFilters: F;
   keywordSearch?: boolean;
   maxPageSize?: number;
@@ -267,6 +272,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   );
 
   const listQuery = useQuery({
+    enabled: opts.enabled ?? true,
     placeholderData: keepPreviousData,
     queryFn: () => opts.queryFn(queryParams),
     queryKey,

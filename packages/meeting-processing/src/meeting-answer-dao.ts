@@ -7,7 +7,7 @@ import {
   meetingTranscriptTurn,
   member,
 } from "@app/db-schema/schema";
-import type { MeetingAnswerJobData } from "@app/meeting-processing-queue/meeting-answer";
+import type { MeetingAnswerJobData } from "@app/job-queues/meeting-answer";
 import { meetingAnswerPayloadSchema } from "@app/shared/meeting-answer";
 import type { MeetingAnswerPayload } from "@app/shared/meeting-answer";
 import { meetingIntelligencePayloadSchema } from "@app/shared/meeting-intelligence";

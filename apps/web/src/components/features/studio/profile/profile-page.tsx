@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useDebouncedCallback } from "use-debounce";
 import { z } from "zod";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
-import { ContributionCalendar } from "@/components/features/studio/charts/contribution-calendar";
 import { MailIngestAccountCard } from "@/components/features/studio/profile/mail-ingest-account-card";
 import {
   ActivitySectionSkeleton,
@@ -26,6 +25,7 @@ import {
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { formatDateOnly } from "@app/shared/utils/time";
@@ -41,9 +41,11 @@ const AUTOSAVE_DEBOUNCE_MS = 1000;
 
 const ROLE_BADGE_VARIANT = {
   admin: "default",
+  interviewer: "secondary",
   member: "secondary",
   noAccess: "outline",
   owner: "default",
+  recruitingSupervisor: "default",
 } as const satisfies Record<WorkspaceRole, "default" | "secondary" | "outline">;
 
 const sessionUserProfileSchema = z.object({
@@ -101,7 +103,6 @@ function ProfileHero({
     <div className="flex flex-col items-center gap-3 py-2 text-center">
       <Avatar
         className="size-20 ring-1 ring-border"
-        generatedSize={80}
         label={`${displayName}的头像`}
         seed={`user:${email || displayName}`}
         size="lg"
@@ -138,7 +139,7 @@ function ActivitySection() {
   const peak = useMemo(() => Math.max(0, ...dailyAdded.map((row) => row.count)), [dailyAdded]);
 
   let body: React.ReactNode = (
-    <div className="space-y-3 rounded-lg border p-3">
+    <Card className="gap-3 p-3">
       <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
         <span>
           一年新增{" "}
@@ -150,12 +151,7 @@ function ActivitySection() {
           <span className="font-mono font-medium text-foreground tabular-nums">{peak}</span>
         </span>
       </div>
-      <ContributionCalendar
-        dailyAdded={dailyAdded}
-        emptyMessage="过去一年你还没有入库候选人"
-        unitLabel="份"
-      />
-    </div>
+    </Card>
   );
 
   if (activityQuery.isError) {
@@ -379,7 +375,7 @@ export function ProfilePage() {
               <div className="flex flex-col gap-1">
                 <Input
                   id="profile-name"
-                  autoComplete="name"
+                  autoComplete="off"
                   disabled={isPending || saveStatus === "saving"}
                   maxLength={PROFILE_NAME_MAX_LENGTH}
                   onBlur={handleSaveNow}

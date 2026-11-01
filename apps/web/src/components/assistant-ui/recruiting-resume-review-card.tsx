@@ -10,7 +10,7 @@ import type { StructuredResumeReview } from "@app/shared/recruiting-copilot";
 import type {
   QualitativeRecommendationLevel,
   QualitativeResumeEvaluation,
-  QualitativeResumeEvaluationV2,
+  QualitativeResumeEvaluationWithDimensionLevels,
 } from "@app/db-schema/qualitative-resume-evaluation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
   STRUCTURED_GATE_LABELS,
   STRUCTURED_GRADE_LABELS,
 } from "@/components/features/studio/resumes/resume-review-display";
+import { QualitativeRecommendationBadge } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { RecruitingChatCard } from "./recruiting-chat-card";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type { ResumeRecordDetailResult } from "./recruiting-copilot-context";
@@ -123,8 +124,8 @@ function ReviewDimensionRadar({ dimensions }: { dimensions: RecruitingResumeRevi
 
 function isQualitativeV2(
   evaluation: QualitativeResumeEvaluation,
-): evaluation is QualitativeResumeEvaluationV2 {
-  return evaluation.schemaVersion === 2;
+): evaluation is QualitativeResumeEvaluationWithDimensionLevels {
+  return evaluation.schemaVersion !== 1;
 }
 
 function QualitativeReviewDimensionRadar({
@@ -229,9 +230,10 @@ export function RecruitingResumeReviewCard({
         <div className="shrink-0 text-right">
           {qualitativeEvaluation ? (
             <>
-              <div className="font-semibold text-base leading-none">
-                {QUALITATIVE_LEVEL_LABEL[qualitativeEvaluation.recommendationLevel]}
-              </div>
+              <QualitativeRecommendationBadge
+                level={qualitativeEvaluation.recommendationLevel}
+                size="sm"
+              />
               <div className="mt-1 text-muted-foreground text-[11px]">推荐建议</div>
             </>
           ) : (
@@ -275,7 +277,7 @@ export function RecruitingResumeReviewCard({
 
       <CardFooter className="justify-end px-4 pt-0 pb-4">
         <Button
-          className="h-8 px-2.5 text-xs"
+          className="h-7 px-2.5 text-xs"
           onClick={() => openResumeDetail(record.id, "ai-analysis")}
           size="sm"
           type="button"

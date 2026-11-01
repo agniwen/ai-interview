@@ -1,39 +1,53 @@
-// 用途：Hero 下方的产品主截图大图，滚动驱动轻微缩小
-// Purpose: Hero shot of the primary product surface; subtle native scroll-driven scale-down.
 "use client";
 
-import { m, useReducedMotion } from "motion/react";
-import { ResumesScreen } from "@/components/features/home/screens/resumes-screen";
-import { Section } from "./section";
+import { lazy, Suspense } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
+import { DemoWindowSkeleton } from "./screens/demo-window-skeleton";
+import { ScreenFrame } from "./screens/screen-frame";
 
-const PRODUCT_SHOT_HIDDEN = { opacity: 0, transform: "translateY(16px)" } as const;
-const PRODUCT_SHOT_VISIBLE = { opacity: 1, transform: "translateY(0px)" } as const;
-const PRODUCT_SHOT_TRANSITION = {
-  duration: 0.55,
-  ease: [0.23, 1, 0.32, 1],
-} as const;
+// 演示窗口依赖整套 Studio 组件，单独分包。客户端在模块加载时就开始拉取，和水合并行，水合后立即挂载。
+// The demo pulls in Studio components, so it ships as its own chunk. The client starts fetching it as
+// soon as this module loads, in parallel with hydration, and mounts it right after hydration.
+const loadResumesScreen = () => import("./screens/resumes-screen");
+if (!import.meta.env.SSR) {
+  void loadResumesScreen();
+}
 
-// 顶部小 padding 让截图露出首屏一半，底部沿用 Section 默认节奏与下方 section 对齐
-// Small top keeps the screenshot peeking above the fold; default bottom keeps section rhythm consistent.
+const ResumesScreen = lazy(async () => {
+  const { ResumesScreen: Screen } = await loadResumesScreen();
+  return { default: Screen };
+});
+
+/** SSR 与加载期间的同尺寸骨架窗口，结构对齐演示 UI，避免布局跳动。 Same-size skeleton window for SSR and loading. */
+function DemoWindowPlaceholder() {
+  return (
+    <ScreenFrame>
+      <DemoWindowSkeleton />
+    </ScreenFrame>
+  );
+}
+
+/**
+ * 首屏产品舞台：透出首屏天空背景，演示窗口居中、四周留白，随断点收放留白而非放大内容。
+ * Product stage over the hero sky with the demo window centered; breakpoints change the breathing room.
+ */
 export function ProductShot() {
-  const reducedMotion = useReducedMotion();
+  const hydrated = useHydrated();
 
   return (
-    <Section className="!pt-16 sm:!pt-20 lg:!pt-24" width="wide">
-      <m.div
-        animate={PRODUCT_SHOT_VISIBLE}
-        className="home-product-shot-enter"
-        initial={PRODUCT_SHOT_HIDDEN}
-        transition={reducedMotion ? { duration: 0 } : PRODUCT_SHOT_TRANSITION}
-      >
-        <div
-          aria-hidden="true"
-          className="home-product-shot-scroll mx-auto w-full max-w-6xl drop-shadow-[0_28px_48px_rgba(61,78,113,0.16)] dark:drop-shadow-[0_30px_52px_rgba(0,0,0,0.36)]"
-          inert
-        >
-          <ResumesScreen />
-        </div>
-      </m.div>
-    </Section>
+    <section
+      className="relative isolate mx-auto w-full max-w-[105rem]"
+      data-slot="home-product-stage"
+    >
+      <div className="mx-auto w-full max-w-[calc(1280px+8rem)] px-4 pt-2 pb-12 sm:pb-14 lg:px-16 lg:pb-16">
+        {hydrated ? (
+          <Suspense fallback={<DemoWindowPlaceholder />}>
+            <ResumesScreen />
+          </Suspense>
+        ) : (
+          <DemoWindowPlaceholder />
+        )}
+      </div>
+    </section>
   );
 }

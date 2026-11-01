@@ -7,23 +7,7 @@ import type {
 } from "@/lib/start/auth-session-types";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { getServerRpc } from "@/lib/start/server-rpc";
-import type { statement } from "@app/shared/permissions";
 import { hasPermissionInStatements } from "@app/shared/permission-statements";
-
-type WorkspaceResource = keyof typeof statement;
-type WorkspaceAction<R extends WorkspaceResource> = (typeof statement)[R][number];
-
-export function workspaceAccessHasPermission<R extends WorkspaceResource>({
-  access,
-  action,
-  resource,
-}: {
-  access: Extract<WorkspaceAccessState, { status: "ready" }>;
-  resource: R;
-  action: WorkspaceAction<R>;
-}): boolean {
-  return hasPermissionInStatements(access.permissions, resource, action);
-}
 
 export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrganizationState> {
   return await rpcFetch(

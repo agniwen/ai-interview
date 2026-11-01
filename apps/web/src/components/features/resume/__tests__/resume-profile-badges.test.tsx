@@ -1,9 +1,7 @@
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
-import { WorkExperience } from "@/components/features/resume/work-experience";
 
 const profile = {
   age: null,
@@ -30,36 +28,6 @@ const profile = {
 } satisfies ResumeProfile;
 
 describe("resume profile badges", () => {
-  it("renders profile chips with the shared Badge component", () => {
-    const html = renderToStaticMarkup(<ResumeProfileView profile={profile} />);
-
-    expect(html.match(/data-slot="badge"/g)).toHaveLength(3);
-    expect(html).not.toContain("rounded-full bg-muted");
-  });
-
-  it("renders work-experience skills with the shared Badge component", () => {
-    const html = renderToStaticMarkup(
-      <WorkExperience
-        experiences={[
-          {
-            companyName: "测试公司",
-            id: "company-1",
-            positions: [
-              {
-                employmentPeriod: { end: "2024", start: "2023" },
-                id: "position-1",
-                skills: ["React"],
-                title: "前端工程师",
-              },
-            ],
-          },
-        ]}
-      />,
-    );
-
-    expect(html.match(/data-slot="badge"/g)).toHaveLength(1);
-  });
-
   it("renders work and project experiences from newest to oldest", () => {
     const html = renderToStaticMarkup(
       <ResumeProfileView
@@ -119,10 +87,56 @@ describe("resume profile badges", () => {
   });
 
   it("places education after work experience and before skills", () => {
-    const html = renderToStaticMarkup(<ResumeProfileView profile={profile} />);
+    const html = renderToStaticMarkup(
+      <ResumeProfileView profile={{ ...profile, schools: ["测试大学"] }} />,
+    );
 
     expect(html.indexOf("工作经历")).toBeLessThan(html.indexOf("教育经历"));
     expect(html.indexOf("教育经历")).toBeLessThan(html.indexOf("掌握技能"));
+    expect(html).toContain("测试大学");
+  });
+
+  it("omits education and project sections without corresponding information", () => {
+    const html = renderToStaticMarkup(
+      <ResumeProfileView profile={{ ...profile, projectExperiences: [] }} />,
+    );
+
+    expect(html).not.toContain("教育经历");
+    expect(html).not.toContain("项目经历");
+    expect(html).toContain("工作经历");
+  });
+
+  it("preserves distinct degree, education level, dates and full education description", () => {
+    const html = renderToStaticMarkup(
+      <ResumeProfileView
+        profile={{
+          ...profile,
+          educationExperiences: [
+            {
+              degree: "工学学士",
+              educationLevel: "本科",
+              graduationYear: "2022",
+              major: "计算机科学",
+              period: "2018.09–2022.06",
+              school: "测试大学",
+              summary: "主修分布式系统与数据库。\n毕业设计：面向实时分析的数据平台。",
+            },
+          ],
+        }}
+      />,
+    );
+    for (const value of [
+      "测试大学",
+      "计算机科学",
+      "本科",
+      "工学学士",
+      "2018.09–2022.06",
+      "2022",
+      "主修分布式系统与数据库。",
+      "毕业设计：面向实时分析的数据平台。",
+    ]) {
+      expect(html).toContain(value);
+    }
   });
 
   it("can omit target roles when they are displayed with candidate information", () => {

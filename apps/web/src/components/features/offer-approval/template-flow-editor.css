@@ -1,0 +1,74 @@
+/* Capture the app palette before React Flow applies its canvas palette. */
+.approval-template-editor {
+  --approval-theme-background: var(--background);
+  --approval-theme-foreground: var(--foreground);
+  --approval-theme-card: var(--card);
+  --approval-theme-card-foreground: var(--card-foreground);
+  --approval-theme-muted: var(--muted);
+  --approval-theme-muted-foreground: var(--muted-foreground);
+  --approval-theme-border: var(--border);
+  --approval-theme-input: var(--input);
+  --approval-theme-accent: var(--accent);
+  --approval-theme-accent-foreground: var(--accent-foreground);
+  --approval-theme-primary: var(--primary);
+  --approval-theme-primary-border: var(--primary-border);
+  --approval-theme-primary-foreground: var(--primary-foreground);
+  --approval-theme-ring: var(--ring);
+}
+
+/* React Flow adds .dark to its own root, so scope the palette here to override
+   the app-wide .dark tokens as well as React Flow's default canvas colors. */
+.approval-template-flow.react-flow {
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --accent: var(--muted);
+  --accent-foreground: var(--foreground);
+  --primary: var(--foreground);
+  --primary-border: var(--foreground);
+  --primary-foreground: var(--background);
+  --ring: #a3a3a3;
+  --xy-background-color: #fafafa;
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--muted);
+  --xy-controls-button-color: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+
+  color: var(--foreground);
+}
+
+.approval-template-flow.react-flow.dark {
+  --background: #171717;
+  --foreground: #f5f5f5;
+  --card: #1c1c1c;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --border: #404040;
+  --input: #404040;
+  --ring: #737373;
+  --xy-background-color: #141414;
+}
+
+.approval-template-settings {
+  --background: var(--approval-theme-background);
+  --foreground: var(--approval-theme-foreground);
+  --card: var(--approval-theme-card);
+  --card-foreground: var(--approval-theme-card-foreground);
+  --muted: var(--approval-theme-muted);
+  --muted-foreground: var(--approval-theme-muted-foreground);
+  --border: var(--approval-theme-border);
+  --input: var(--approval-theme-input);
+  --accent: var(--approval-theme-accent);
+  --accent-foreground: var(--approval-theme-accent-foreground);
+  --primary: var(--approval-theme-primary);
+  --primary-border: var(--approval-theme-primary-border);
+  --primary-foreground: var(--approval-theme-primary-foreground);
+  --ring: var(--approval-theme-ring);
+
+  color: var(--foreground);
+}

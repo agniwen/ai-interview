@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   isMeetingSessionPagePending,
   localStoredDraftStatus,
-  localWorkspaceSaveLabel,
   sessionDetailStatus,
 } from "./meeting-detail-helpers";
 
@@ -19,13 +18,6 @@ describe("localStoredDraftStatus", () => {
     expect(localStoredDraftStatus("workspace-verified")).toBe("idle");
     expect(localStoredDraftStatus("sync-failed")).toBe("idle");
     expect(localStoredDraftStatus("finalizing-local")).toBe("idle");
-  });
-
-  it("uses Chinese labels for local workspace upload states", () => {
-    expect(localWorkspaceSaveLabel("uploading")).toBe("正在上传");
-    expect(localWorkspaceSaveLabel("waiting-for-network")).toBe("等待网络后自动上传");
-    expect(localWorkspaceSaveLabel("action-required")).toBe("上传需要处理");
-    expect(localWorkspaceSaveLabel("verifying")).toBe("正在验证");
   });
 });
 

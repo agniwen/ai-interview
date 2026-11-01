@@ -25,7 +25,7 @@ const dataGridSortOrderSchema = z.custom<"asc" | "desc" | undefined>(
 );
 const dataGridSortBySchema = z.union([z.string(), z.undefined()]);
 
-export function dataGridQuerySchema<TFilters extends z.ZodType<Record<string, string>>>(
+function dataGridQuerySchema<TFilters extends z.ZodType<Record<string, string>>>(
   filtersSchema: TFilters,
 ) {
   return z.object({
@@ -43,14 +43,5 @@ export function platformDataGridInputSchema<TFilters extends z.ZodType<Record<st
 ) {
   return z.object({
     query: dataGridQuerySchema(filtersSchema),
-  });
-}
-
-export function workspaceDataGridInputSchema<TFilters extends z.ZodType<Record<string, string>>>(
-  filtersSchema: TFilters,
-) {
-  return z.object({
-    query: dataGridQuerySchema(filtersSchema),
-    slug: nonEmptyStringSchema,
   });
 }

@@ -80,7 +80,7 @@ function RecruiterResumeDetailRoute() {
 
   return (
     <RecruiterResumeDetailPage
-      backLabel={fromStudioCalendar ? "返回日程管理" : undefined}
+      backLabel={fromStudioCalendar ? "返回面试管理" : undefined}
       onBack={navigateBackToList}
       onShowAiInterview={showAiInterview}
       onTabChange={changeTab}

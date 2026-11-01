@@ -119,4 +119,52 @@ describe("SearchableSelect", () => {
     act(() => root.unmount());
     container.remove();
   });
+
+  it("keeps the action row through search and runs it without changing the value", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onChange = vi.fn();
+    const onSelect = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SearchableSelect
+          action={{ label: "新建部门", onSelect }}
+          onChange={onChange}
+          options={[{ label: "技术部", value: "dept-1" }]}
+          value={null}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const input = container.querySelector("input");
+    expect(input).not.toBeNull();
+    await act(async () => {
+      input?.focus();
+      input?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setValue?.call(input, "不存在的部门");
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options.map((option) => option.textContent)).toEqual(["新建部门"]);
+
+    await act(async () => {
+      options[0]?.click();
+      await Promise.resolve();
+    });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    container.remove();
+  });
 });

@@ -28,8 +28,13 @@ from livekit.agents.types import NOT_GIVEN, NotGivenOr, TimedString
 
 logger = logging.getLogger("aliyun-stt")
 
-DEFAULT_MODEL = "qwen-audio-3.0-asr-flash-streaming"
+DEFAULT_MODEL = "qwen-audio-3.1-asr-flash-streaming"
 DEFAULT_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
+# DashScope fails a task after 23s without audio; `heartbeat` only keeps the
+# connection while silence is actually sent. Once input pauses this long, send
+# real-time silence until caller audio resumes (e.g. a muted participant).
+KEEPALIVE_IDLE_SECONDS = 1.0
+KEEPALIVE_CHUNK_MS = 100
 
 
 def _milliseconds_to_seconds(value: int | float | None, *, default: float = 0.0):
@@ -62,9 +67,12 @@ class STTOptions:
     punctuate: bool
     model: str
     max_sentence_silence: int = 1300
+    vad_model: str = "near_meeting_16k"
     sample_rate: int = 16000
     workspace: str | None = None
     vocabulary_id: str | None = None
+    vocabulary: dict[str, int] | None = None
+    context: list[str] | None = None
     disfluency_removal_enabled: bool = False
     semantic_punctuation_enabled: bool = False
     punctuation_prediction_enabled: bool = True
@@ -87,16 +95,20 @@ class STTOptions:
             "format": "pcm",
             "sample_rate": self.sample_rate,
             "semantic_punctuation_enabled": self.semantic_punctuation_enabled,
-            "max_sentence_silence": self.max_sentence_silence,
             "heartbeat": True,
             "language_hints": [self.language],
         }
+        if self.model.startswith("qwen-audio-3.1-asr-flash-streaming"):
+            parameters["vad_model"] = self.vad_model
+        else:
+            parameters["max_sentence_silence"] = self.max_sentence_silence
+        if self.vocabulary:
+            parameters["vocabulary"] = self.vocabulary
         if self.vocabulary_id is not None:
             parameters["vocabulary_id"] = self.vocabulary_id
 
-        # These parameters belong to the older Paraformer API and are not part
-        # of Qwen-Audio-3.0-ASR-Flash-Streaming's documented request schema.
-        if not self.model.startswith("qwen-audio-3.0-asr-flash"):
+        # These parameters belong to the older Paraformer API, not Qwen-Audio-3.x.
+        if not self.model.startswith("qwen-audio-3."):
             parameters.update(
                 {
                     "disfluency_removal_enabled": self.disfluency_removal_enabled,
@@ -117,7 +129,18 @@ class STTOptions:
                 "function": "recognition",
                 "model": self.model,
                 "parameters": parameters,
-                "input": {},
+                "input": {
+                    "context": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "input_text", "text": "\n".join(self.context)}
+                            ],
+                        }
+                    ]
+                }
+                if self.context
+                else {},
             },
         }
 
@@ -144,11 +167,14 @@ class STT(stt.STT):
         api_key: str | None = None,
         base_url: str | None = None,
         max_sentence_silence: int = 1300,
+        vad_model: str = "near_meeting_16k",
         disfluency_removal_enabled: bool = False,
         semantic_punctuation_enabled: bool = False,
         punctuation_prediction_enabled: bool = True,
         inverse_text_normalization_enabled: bool = True,
         vocabulary_id: str | None = None,
+        vocabulary: dict[str, int] | None = None,
+        context: list[str] | None = None,
         workspace: str | None = None,
         http_session: aiohttp.ClientSession | None = None,
     ) -> None:
@@ -163,6 +189,8 @@ class STT(stt.STT):
         api_key = api_key or os.environ.get("DASHSCOPE_API_KEY")
         if api_key is None:
             raise ValueError("DASHSCOPE_API_KEY is required")
+        if vad_model not in {"near_meeting_16k", "far_field_meeting_16k"}:
+            raise ValueError("Invalid Qwen Audio 3.1 VAD model")
         self._opts = STTOptions(
             api_key=api_key,
             base_url=base_url or DEFAULT_BASE_URL,
@@ -172,11 +200,14 @@ class STT(stt.STT):
             punctuate=punctuate,
             model=model,
             max_sentence_silence=max_sentence_silence,
+            vad_model=vad_model,
             disfluency_removal_enabled=disfluency_removal_enabled,
             semantic_punctuation_enabled=semantic_punctuation_enabled,
             punctuation_prediction_enabled=punctuation_prediction_enabled,
             inverse_text_normalization_enabled=inverse_text_normalization_enabled,
             vocabulary_id=vocabulary_id,
+            vocabulary=vocabulary,
+            context=context,
             workspace=workspace,
         )
         self._session = http_session
@@ -223,6 +254,10 @@ class STT(stt.STT):
 
 
 class SpeechStream(stt.SpeechStream):
+    # (provider_ms, duration_ms) spans of injected keepalive silence. Provider
+    # timestamps include them; callers expect the caller-audio timeline.
+    _keepalive_segments: list[tuple[float, float]] | tuple = ()
+
     def __init__(
         self,
         stt: STT,
@@ -244,7 +279,39 @@ class SpeechStream(stt.SpeechStream):
         self._language: LanguageCode = LanguageCode(opts.language)
         self._speaking = False
         self._request_id = utils.shortuuid()
+        self.final_handler = None
+        self.interim_handler = None
+        self.sent_ms = 0.0
+        self._keepalive_segments = []
         self._session = http_session
+
+    def _to_caller_ms(self, value: int | float | None) -> int | float | None:
+        if value is None:
+            return None
+        shift = sum(
+            min(max(value - start, 0), duration)
+            for start, duration in self._keepalive_segments
+        )
+        return value - shift
+
+    def _without_keepalive(self, transcript: dict) -> dict:
+        if not self._keepalive_segments:
+            return transcript
+        remapped = {
+            **transcript,
+            "begin_time": self._to_caller_ms(transcript.get("begin_time")),
+            "end_time": self._to_caller_ms(transcript.get("end_time")),
+        }
+        if "words" in transcript:
+            remapped["words"] = [
+                {
+                    **word,
+                    "begin_time": self._to_caller_ms(word.get("begin_time")),
+                    "end_time": self._to_caller_ms(word.get("end_time")),
+                }
+                for word in transcript["words"]
+            ]
+        return remapped
 
     async def _connect_ws(self) -> aiohttp.ClientWebSocketResponse:
         try:
@@ -286,21 +353,57 @@ class SpeechStream(stt.SpeechStream):
                 samples_per_channel=samples_100ms,
             )
 
+            silence = bytes(samples_100ms * 2)
+            provider_ms = 0.0
+            finished = False
             has_ended = False
-            async for data in self._input_ch:
-                frames: list[rtc.AudioFrame] = []
-                if isinstance(data, rtc.AudioFrame):
-                    frames.extend(audio_bstream.write(data.data.tobytes()))
-                elif isinstance(data, self._FlushSentinel):
-                    frames.extend(audio_bstream.flush())
-                    has_ended = True
+            next_input: asyncio.Future | None = None
+            try:
+                while True:
+                    if next_input is None:
+                        next_input = asyncio.ensure_future(self._input_ch.recv())
+                    idle = KEEPALIVE_IDLE_SECONDS
+                    while not finished:
+                        done, _ = await asyncio.wait({next_input}, timeout=idle)
+                        if done:
+                            break
+                        await ws.send_bytes(silence)
+                        segments = self._keepalive_segments
+                        if segments and sum(segments[-1]) == provider_ms:
+                            start, duration = segments[-1]
+                            segments[-1] = (start, duration + KEEPALIVE_CHUNK_MS)
+                        else:
+                            segments.append((provider_ms, KEEPALIVE_CHUNK_MS))
+                        provider_ms += KEEPALIVE_CHUNK_MS
+                        idle = KEEPALIVE_CHUNK_MS / 1000
+                    try:
+                        data = await next_input
+                    except utils.aio.ChanClosed:
+                        break
+                    next_input = None
 
-                for frame in frames:
-                    await ws.send_bytes(frame.data.tobytes())
+                    frames: list[rtc.AudioFrame] = []
+                    if isinstance(data, rtc.AudioFrame):
+                        frames.extend(audio_bstream.write(data.data.tobytes()))
+                    elif isinstance(data, self._FlushSentinel):
+                        frames.extend(audio_bstream.flush())
+                        has_ended = True
 
-                if has_ended:
-                    await ws.send_json(self._opts.get_finish_task_params(task_id))
-                    has_ended = False
+                    for frame in frames:
+                        await ws.send_bytes(frame.data.tobytes())
+                        duration_ms = (
+                            frame.samples_per_channel / frame.sample_rate * 1000
+                        )
+                        self.sent_ms += duration_ms
+                        provider_ms += duration_ms
+
+                    if has_ended:
+                        await ws.send_json(self._opts.get_finish_task_params(task_id))
+                        has_ended = False
+                        finished = True
+            finally:
+                if next_input is not None:
+                    next_input.cancel()
 
         @utils.log_exceptions(logger=logger)
         async def recv_task(ws: aiohttp.ClientWebSocketResponse):
@@ -384,7 +487,9 @@ class SpeechStream(stt.SpeechStream):
         output = data["payload"]["output"]
 
         # Gummy models return data in "transcription", Paraformer uses "sentence"
-        transcript = output.get("transcription") or output.get("sentence", output)
+        transcript = self._without_keepalive(
+            output.get("transcription") or output.get("sentence", output)
+        )
         is_sentence_end = transcript.get("sentence_end", False)
         # Gummy returns sentence_end as string "true"/"false"
         if isinstance(is_sentence_end, str):
@@ -414,6 +519,10 @@ class SpeechStream(stt.SpeechStream):
             self._speaking = True
 
         if text and not is_sentence_end:
+            if self.interim_handler is not None:
+                self.interim_handler(
+                    header.get("task_id", self._request_id), transcript
+                )
             self._event_ch.send_nowait(
                 stt.SpeechEvent(
                     type=stt.SpeechEventType.INTERIM_TRANSCRIPT,
@@ -431,6 +540,8 @@ class SpeechStream(stt.SpeechStream):
             )
 
         if text and is_sentence_end:
+            if self.final_handler is not None:
+                self.final_handler(header.get("task_id", self._request_id), transcript)
             self._event_ch.send_nowait(
                 stt.SpeechEvent(
                     type=stt.SpeechEventType.FINAL_TRANSCRIPT,
@@ -453,6 +564,6 @@ class SpeechStream(stt.SpeechStream):
                 )
             )
             self._speaking = False
-            logger.info("transcription: %s", text)
+            logger.debug("final transcription received")
 
         return False

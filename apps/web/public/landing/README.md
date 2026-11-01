@@ -1,12 +1,5 @@
-# Landing Page Screenshots
+# Landing runtime assets
 
-Screenshots used in the homepage. Naming: `<surface>-{light,dark}.png`.
+The sky backdrop (homepage hero, login and MCP pages) uses WebGPU shaders over first-frame poster images hosted on COS (`public/landing/`, referenced from `globals.css`) with a CSS gradient fallback; product previews render interactive components.
 
-Surfaces:
-
-- `chat` — `/chat` main view
-- `studio` — `/studio/interviews` list
-- `interview` — `/interview/<id>` voice interview screen
-- `process-1` … `process-4` — process step thumbnails
-
-To regenerate: open the app at the desired theme and route, capture the viewport, save under this folder. Recommended viewport: 1440×900.
+Unused screenshots, illustration originals, and their optimized copies have been removed. See [current homepage design](../../../../docs/design/home-multicolor-artwork.md).

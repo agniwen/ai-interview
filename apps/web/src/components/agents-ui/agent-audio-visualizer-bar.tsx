@@ -36,7 +36,7 @@ function cloneSingleChild(
   });
 }
 
-export const AgentAudioVisualizerBarElementVariants = cva(
+const AgentAudioVisualizerBarElementVariants = cva(
   [
     "rounded-full transition-colors duration-250 ease-linear",
     "bg-current/10 data-[lk-highlighted=true]:bg-current",

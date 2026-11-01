@@ -1,6 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
-import { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
+import { enqueueResumeParseJobs } from "@app/job-queues/resume-parse";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import { createResumeIngest } from "@app/resume-processing/ingest";
 import { createMailIngestDao } from "@app/resume-processing/mail-ingest";
@@ -22,6 +22,7 @@ const productionMailIngestDependencies = {
   fetchPublishedJobDescriptionsByCodes: mailIngestDao.fetchPublishedJobDescriptionsByCodes,
   finishMailIngestAccountRun: mailIngestDao.finishAccountRun,
   insertBatchWithItems,
+  isActiveRecruitingJobDescription: mailIngestDao.isActiveRecruitingJobDescription,
   listEnabledMailIngestAccounts: mailIngestDao.listEnabledAccounts,
   loadBatchDetail,
   markMailIngestMessageSkipped: mailIngestDao.markMessageSkipped,

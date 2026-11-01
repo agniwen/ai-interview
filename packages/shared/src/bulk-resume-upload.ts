@@ -38,6 +38,7 @@ export const createBulkResumeBatchSchema = z.object({
     .max(MAX_BULK_BATCH_SIZE),
   jdMode: z.enum(["bind", "auto", "none"]),
   jobDescriptionId: z.string().min(1).nullable().optional(),
+  requestId: z.uuid().optional(),
   resumePoolScope: z.enum(["private", "public"]).nullable().optional(),
   target: z.enum(["resume_library", "resume_pool"]).default("resume_library"),
 });

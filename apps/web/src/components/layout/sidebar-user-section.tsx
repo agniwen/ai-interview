@@ -1,6 +1,12 @@
 "use client";
 
-import { IconHome, IconLogout, IconShieldCheck, IconUser } from "@tabler/icons-react";
+import {
+  IconHome,
+  IconLogout,
+  IconPlugConnected,
+  IconShieldCheck,
+  IconUser,
+} from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -8,6 +14,10 @@ import { useCallback } from "react";
 import { FeishuSignInButtons } from "@/components/features/auth/feishu-sign-in-buttons";
 import { SidebarAppUpdateButton } from "@/components/features/app-version/sidebar-app-update-button";
 import { useAppVersion } from "@/components/features/app-version/app-version-provider";
+import { useWorkspaceOrganizations } from "@/components/features/workspace/use-workspace-organizations";
+import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
+import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { ThemeSubmenu } from "@/components/theme/theme-toggle";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/client/auth-client";
 import { BUILD_TIME } from "@/lib/client/build-info";
@@ -51,10 +62,14 @@ function SidebarUserMenuLinks({
   showPlatformLink: boolean;
   onSignOut: () => void;
 }) {
+  const workspaceSlug = useOptionalWorkspaceSlug();
   const hasNavigationLinks = showHomeLink || showPlatformLink;
 
   return (
     <>
+      {workspaceSlug ? <WorkspaceSwitcher submenu /> : null}
+      <ThemeSubmenu />
+      <DropdownMenuSeparator />
       {showHomeLink ? (
         <DropdownMenuItem
           render={
@@ -76,6 +91,14 @@ function SidebarUserMenuLinks({
         />
       ) : null}
       {hasNavigationLinks ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem
+        render={
+          <Link to="/mcp">
+            <IconPlugConnected className="mr-2 size-4" />
+            MCP 接入
+          </Link>
+        }
+      />
       <DropdownMenuItem onClick={onSignOut} variant="destructive">
         <IconLogout className="mr-2 size-4" />
         退出登录
@@ -98,6 +121,13 @@ export function SidebarUserSection({
   const isHydrated = useHydrated();
   const { data: session, isPending } = authClient.useSession();
   const appVersion = useAppVersion();
+  const workspaceSlug = useOptionalWorkspaceSlug();
+  const { data: organizations = [] } = useWorkspaceOrganizations(
+    Boolean(workspaceSlug && session?.user),
+  );
+  const workspaceName =
+    organizations.find((organization) => organization.slug === workspaceSlug)?.name ??
+    workspaceSlug;
   const latestBuildTime = appVersion?.latestBuildTime ?? null;
 
   const handleSignOut = useCallback(async () => {
@@ -116,76 +146,40 @@ export function SidebarUserSection({
 
   if (showLoading) {
     content = collapsed ? (
-      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-xl bg-muted" />
     ) : (
-      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
     );
   } else if (session?.user) {
-    content = collapsed ? (
+    // 复用 SidebarMenuButton，跟随侧栏 data-collapsible 的宽度过渡与文字淡出；收起时恢复紧凑头像和 p-1 内边距。
+    content = (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button
-              aria-label="用户菜单"
-              className="w-full rounded-xl transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
-              size="icon"
+            <SidebarMenuButton
+              className="h-10 rounded-xl p-1.5 transition-[width,height,padding,background-color,color] group-data-[collapsible=icon]:p-1!"
               type="button"
-              variant="ghost"
             >
               <Avatar
                 label={`${userName}的头像`}
                 seed={`user:${userEmail || session.user.id}`}
-                size="sm"
+                className="size-[26px] group-data-[collapsible=icon]:size-6"
               >
                 <AvatarImage alt={userName} src={session.user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="space-y-0.5">
-              <p className="truncate font-medium text-sm">{userName}</p>
-              <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
-              {organizationName ? (
-                <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
-              ) : null}
-              <p className="flex items-center gap-1 text-muted-foreground text-xs">
-                <span>更新于</span>
-                <TimeDisplay as="span" value={BUILD_TIME} />
-              </p>
-            </DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <SidebarUserMenuLinks
-            onSignOut={handleSignOut}
-            showHomeLink={showHomeLink}
-            showPlatformLink={showPlatformLink}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ) : (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              className="h-9 w-full justify-start gap-2 rounded-lg px-2 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
-              type="button"
-              variant="ghost"
-            >
-              <Avatar
-                label={`${userName}的头像`}
-                seed={`user:${userEmail || session.user.id}`}
-                size="sm"
-              >
-                <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-                <AvatarFallback>{userInitials}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1 text-left">
-                <p className="truncate font-medium text-sm leading-none">{userName}</p>
-              </div>
-            </Button>
+              <span className="flex min-w-0 flex-1 flex-col text-left">
+                <span className="truncate font-medium text-[13px] leading-4">{userName}</span>
+                {workspaceName ? (
+                  <span
+                    className="truncate text-[10px] leading-3 text-muted-foreground"
+                    title={workspaceName}
+                  >
+                    {workspaceName}
+                  </span>
+                ) : null}
+              </span>
+            </SidebarMenuButton>
           }
         />
         <DropdownMenuContent align="end" className="w-56">
@@ -238,18 +232,14 @@ export function SidebarUserSection({
     ) : null;
 
   return (
-    <div className="border-border border-t px-2 pt-4 pb-2 select-none">
-      {collapsed ? (
-        <div className="flex w-full flex-col items-center gap-2">
+    <div className="px-2 pt-1 pb-1 select-none">
+      {/* 用 CSS 跟随 data-collapsible 切换排列，保持 DOM 结构不变，避免收起时按钮重新挂载导致头像跳动。 */}
+      <div className="flex w-full items-center gap-2 group-data-[collapsible=icon]:flex-col">
+        <div className="min-w-0 flex-1 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:flex-none">
           {content}
-          {updateButton}
         </div>
-      ) : (
-        <div className="flex w-full items-center gap-2">
-          <div className="min-w-0 flex-1">{content}</div>
-          {updateButton}
-        </div>
-      )}
+        {updateButton}
+      </div>
     </div>
   );
 }

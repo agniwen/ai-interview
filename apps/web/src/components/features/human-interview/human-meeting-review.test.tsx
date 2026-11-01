@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import { setTimeout as delay } from "node:timers/promises";
-import type { Editor } from "@tiptap/core";
 import type { ReactNode } from "react";
 import {
   createBrowserHistory,
@@ -18,7 +16,13 @@ import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-sta
 import { HumanMeetingReview } from "./human-meeting-review";
 import { HumanInterviewReviewDialog } from "../studio/human-interview-review-dialog";
 
-import { evaluation, reviewRecord } from "./human-meeting-review.test-fixtures";
+import {
+  button,
+  change,
+  evaluation,
+  evaluationField,
+  reviewRecord,
+} from "./human-meeting-review.test-fixtures";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -92,37 +96,6 @@ async function renderReview(onClose = vi.fn()) {
   return container;
 }
 
-type EvaluationEditorElement = HTMLElement & { editor: Editor };
-
-async function evaluationField(container: ParentNode) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const field = container.querySelector<EvaluationEditorElement>(
-      '[aria-label="整体评价"] .tiptap',
-    );
-    if (field) {
-      return field;
-    }
-    await act(async () => {
-      await delay(10);
-    });
-  }
-  throw new Error("找不到评价编辑器");
-}
-
-function change(element: EvaluationEditorElement, value: string) {
-  element.editor.commands.setContent(value);
-}
-
-function button(container: HTMLElement, label: string) {
-  const match = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
-    (candidate) => candidate.textContent?.trim() === label,
-  );
-  if (!match) {
-    throw new Error(`找不到按钮：${label}`);
-  }
-  return match;
-}
-
 function outcomeTrigger(container: ParentNode) {
   const trigger = container.querySelector<HTMLButtonElement>(
     '[role="combobox"][aria-label="本轮结论"]',
@@ -138,10 +111,15 @@ async function openOutcome(container: HTMLElement) {
   await flush();
 }
 
-async function chooseOutcome(container: HTMLElement, value = "pass") {
+async function chooseOutcome(
+  container: HTMLElement,
+  value: "pass" | "fail" | "inconclusive" = "pass",
+) {
   await openOutcome(container);
   const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-    (item) => item.textContent?.trim() === (value === "pass" ? "通过" : "不通过"),
+    (item) =>
+      (item.getAttribute("aria-label") ?? item.textContent?.trim()) ===
+      { fail: "不通过", inconclusive: "待定", pass: "通过" }[value],
   );
   if (!option) {
     throw new Error("找不到结论选项");
@@ -152,6 +130,7 @@ async function chooseOutcome(container: HTMLElement, value = "pass") {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.stubGlobal("matchMedia", () => ({ addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.stubGlobal("scrollTo", vi.fn());
   currentReview = reviewRecord();
   fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
@@ -173,68 +152,128 @@ afterEach(() => {
 });
 
 describe("HumanMeetingReview", () => {
-  it("saves and reloads an unrated draft but requires a rating before submission", async () => {
+  it("shows all required errors inline and clears corrected fields", async () => {
     currentReview = reviewRecord({ evaluation: null });
     const container = await renderReview();
-    const field = await evaluationField(container);
-    const rating = container.querySelector<HTMLButtonElement>(
-      '[role="combobox"][aria-label="评级"]',
+    const editor = await evaluationField(container);
+    act(() => button(container, "提交评价").click());
+    await flush();
+    expect(container.querySelectorAll('[data-slot="field-error"]')).toHaveLength(2);
+    expect(container.textContent).toContain("请选择本轮结论：通过、待定或不通过");
+    expect(container.textContent).toContain("请选择评级");
+    expect(container.textContent).not.toContain("请填写整体评价");
+    expect(outcomeTrigger(container).getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(outcomeTrigger(container));
+    expect(container.querySelector('[aria-label="整体评价"]')?.getAttribute("aria-invalid")).toBe(
+      "false",
     );
-    expect(rating?.textContent).toContain("请选择评级");
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+    ).toBe(false);
     await chooseOutcome(container);
-    fetchMock.mockImplementation((_input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === "POST") {
-        currentReview = reviewRecord({ evaluation: JSON.parse(String(init.body)).evaluation });
-        return jsonResponse({ ok: true });
+    act(() => change(editor, "有依据的整体评价"));
+    expect(outcomeTrigger(container).getAttribute("aria-invalid")).toBe("false");
+    expect(container.querySelectorAll('[data-slot="field-error"]')).toHaveLength(1);
+    expect(container.textContent).not.toContain("请填写整体评价");
+  });
+
+  it.each(["pass", "inconclusive"] as const)(
+    "saves and reloads an unrated %s draft then submits after rating",
+    async (outcome) => {
+      currentReview = reviewRecord({ evaluation: null });
+      const container = await renderReview();
+      await evaluationField(container);
+      const rating = container.querySelector<HTMLButtonElement>(
+        '[role="combobox"][aria-label="评级"]',
+      );
+      expect(rating?.textContent).toContain("请选择评级");
+      await chooseOutcome(container, outcome);
+      fetchMock.mockImplementation((_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          currentReview = reviewRecord({ evaluation: JSON.parse(String(init.body)).evaluation });
+          return jsonResponse({ ok: true });
+        }
+        return jsonResponse(currentReview);
+      });
+      act(() => button(container, "保存草稿").click());
+      await flush();
+      expect(currentReview.evaluation?.rating).toBeNull();
+      expect(currentReview.evaluation?.overallEvaluation).toBe("");
+      expect(currentReview.evaluation?.draftOutcome).toBe(outcome);
+      expect(currentReview.roundStatus).toBe("pending");
+      expect(currentReview.outcome).toBe("inconclusive");
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+      expect(rating?.textContent).toContain("请选择评级");
+      expect(outcomeTrigger(container).textContent).toContain(outcome === "pass" ? "通过" : "待定");
+      act(() => button(container, "提交评价").click());
+      await flush();
+      expect(
+        fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+      ).toBe(false);
+      expect(document.activeElement).toBe(rating);
+      await act(() => rating?.click());
+      expect(
+        [...document.querySelectorAll('[role="option"]')]
+          .map((item) => item.getAttribute("aria-label") ?? item.textContent?.trim())
+          .filter((label) => label !== "通过" && label !== "不通过" && label !== "待定"),
+      ).toEqual(["A", "B", "C", "D"]);
+      const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (item) => (item.getAttribute("aria-label") ?? item.textContent?.trim()) === "A",
+      );
+      if (!option) {
+        throw new Error("找不到评级选项");
       }
-      return jsonResponse(currentReview);
-    });
+      await act(() => option.click());
+      act(() => button(container, "提交评价").click());
+      await flush();
+      const submitted = fetchMock.mock.calls.find(([request]) =>
+        String(request).endsWith("/evaluation-submit"),
+      );
+      expect(JSON.parse(String(submitted?.[1]?.body)).outcome).toBe(outcome);
+      expect(JSON.parse(String(submitted?.[1]?.body)).evaluation.rating).toBe("A");
+      expect(JSON.parse(String(submitted?.[1]?.body)).evaluation.overallEvaluation).toBe("");
+      expect(JSON.parse(String(submitted?.[1]?.body)).evaluation).not.toHaveProperty(
+        "draftOutcome",
+      );
+    },
+  );
+
+  it("selects a professional skill grade and saves it in the draft", async () => {
+    const container = await renderReview();
+    await evaluationField(container);
+    const skill = container.querySelector<HTMLButtonElement>(
+      '[role="combobox"][aria-label="专业技能"]',
+    );
+    expect(skill?.textContent).toContain("优");
+    expect(skill?.getAttribute("aria-required")).toBe("false");
+    expect(container.querySelector('textarea[aria-label="专业技能"]')).toBeNull();
+    await act(() => skill?.click());
+    const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual([
+      "优",
+      "良",
+      "中",
+      "差",
+    ]);
+    const good = options.find((option) => option.getAttribute("aria-label") === "良");
+    await act(() => good?.click());
+    expect(skill?.textContent).toContain("良");
     act(() => button(container, "保存草稿").click());
     await flush();
-    expect(currentReview.evaluation?.rating).toBeNull();
-    expect(currentReview.evaluation?.overallEvaluation).toBe("");
-    expect(currentReview.evaluation?.draftOutcome).toBe("pass");
-    expect(currentReview.roundStatus).toBe("pending");
-    expect(currentReview.outcome).toBe("inconclusive");
-    await act(() => vi.advanceTimersByTimeAsync(3000));
-    expect(rating?.textContent).toContain("请选择评级");
-    expect(outcomeTrigger(container).textContent).toContain("通过");
-    act(() => button(container, "提交评价").click());
-    await flush();
-    expect(
-      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
-    ).toBe(false);
-    expect(document.activeElement).toBe(rating);
-    await act(() => rating?.click());
-    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-      (item) => item.textContent?.trim() === "A",
+    const save = fetchMock.mock.calls.find(([request]) =>
+      String(request).endsWith("/evaluation-draft"),
     );
-    if (!option) {
-      throw new Error("找不到评级选项");
-    }
-    await act(() => option.click());
-    act(() => button(container, "提交评价").click());
-    expect(document.activeElement).toBe(field);
-    expect(
-      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
-    ).toBe(false);
-    act(() => change(field, "面试官手动评价"));
-    act(() => button(container, "提交评价").click());
-    await flush();
-    const submitted = fetchMock.mock.calls.find(([request]) =>
-      String(request).endsWith("/evaluation-submit"),
-    );
-    expect(JSON.parse(String(submitted?.[1]?.body)).evaluation.rating).toBe("A");
-    expect(JSON.parse(String(submitted?.[1]?.body)).evaluation).not.toHaveProperty("draftOutcome");
+    expect(JSON.parse(String(save?.[1]?.body)).evaluation.professionalSkill).toBe("良");
   });
 
   it("saves multiline fields alongside rich text without changing untouched Markdown", async () => {
     currentReview.evaluation = { ...evaluation, professionalSkill: "**专业技能**\n- 原有内容" };
     const container = await renderReview();
     await evaluationField(container);
-    const field = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="职级定位"]');
+    expect(container.textContent).toContain("**专业技能**\n- 原有内容");
+    const field = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="角色定位"]');
     if (!field) {
-      throw new Error("找不到职级输入框");
+      throw new Error("找不到角色输入框");
     }
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(
@@ -243,35 +282,29 @@ describe("HumanMeetingReview", () => {
       );
       field.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    const editor = container.querySelector<EvaluationEditorElement>(
-      '[aria-label="完整详细分析"] .tiptap',
-    );
-    expect(editor?.textContent).toBe("服务端详细分析");
-    if (!editor) {
-      throw new Error("找不到详细分析编辑器");
-    }
-    act(() => change(editor, "**补充的面试依据**"));
+    expect(container.querySelector('[aria-label="完整详细分析"]')).toBeNull();
     act(() => button(container, "保存草稿").click());
     await flush();
     const save = fetchMock.mock.calls.find(([request]) =>
       String(request).endsWith("/evaluation-draft"),
     );
     expect(JSON.parse(String(save?.[1]?.body)).evaluation).toMatchObject({
-      detailedAnalysis: "**补充的面试依据**",
+      detailedAnalysis: "服务端详细分析",
       professionalSkill: "**专业技能**\n- 原有内容",
-      seniorityPosition: "高级工程师\n能够独立负责模块",
+      rolePosition: "高级工程师\n能够独立负责模块",
+      seniorityPosition: evaluation.seniorityPosition,
     });
   });
 
   it("marks the fields required for saving or submitting a review", async () => {
     const container = await renderReview();
 
-    expect(container.textContent).toContain("整体评价*");
+    expect(container.textContent).not.toContain("整体评价*");
     expect(container.textContent).toContain("本轮结论*");
     await evaluationField(container);
-    expect(container.querySelector('[aria-label="整体评价"]')?.getAttribute("aria-required")).toBe(
-      "true",
-    );
+    expect(
+      container.querySelector('[aria-label="整体评价"]')?.getAttribute("aria-required"),
+    ).toBeNull();
     const outcome = outcomeTrigger(container);
     expect(outcome.getAttribute("aria-required")).toBe("true");
   });
@@ -437,20 +470,6 @@ describe("HumanMeetingReview", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("asks before discarding edited evaluation text", async () => {
-    const onClose = vi.fn();
-    const container = await renderReview(onClose);
-    const textarea = await evaluationField(container);
-    act(() => change(textarea, "未保存修改"));
-    act(() => button(container, "关闭").click());
-    expect(onClose).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("放弃未保存的修改");
-    act(() => button(document.body, "继续编辑").click());
-    expect(textarea.textContent).toBe("未保存修改");
-    act(() => button(container, "关闭").click());
-    act(() => button(document.body, "放弃修改并关闭").click());
-    expect(onClose).toHaveBeenCalledOnce();
-  });
   it("requires an explicit final outcome but still allows saving a draft", async () => {
     const container = await renderReview();
     act(() => button(container, "提交评价").click());
@@ -459,45 +478,71 @@ describe("HumanMeetingReview", () => {
       fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
     ).toBe(false);
     expect(button(container, "保存草稿").disabled).toBe(false);
-    expect(outcomeTrigger(container).textContent).toContain("请选择通过或不通过");
+    expect(outcomeTrigger(container).textContent).toContain("请选择本轮结论");
     await openOutcome(container);
     expect(
-      [...document.querySelectorAll('[role="option"]')].map((option) => option.textContent?.trim()),
-    ).toEqual(["通过", "不通过"]);
+      [...document.querySelectorAll('[role="option"]')].map(
+        (option) => option.getAttribute("aria-label") ?? option.textContent?.trim(),
+      ),
+    ).toEqual(["通过", "待定", "不通过"]);
   });
-  it("allows the interviewer to close the review and explains that AI evaluation can finish later", async () => {
+  it("explains that AI evaluation can finish after leaving the page", async () => {
     currentReview = reviewRecord({ evaluationStatus: "generating" });
     const onClose = vi.fn();
     const container = await renderReview(onClose);
 
-    expect(button(container, "重新生成").disabled).toBe(true);
+    expect(container.textContent).not.toContain("重新生成");
     expect(container.textContent).toContain(
-      "AI 评价生成可能需要一些时间，你可以先关闭评价。生成完成后，我们会通过飞书发送评价链接，请返回审核并提交最终评价。",
+      "AI 评价正在生成并核验依据，会议分析完成后仍需等待此步骤。此页面会自动更新，也可以稍后返回本轮评价审核并提交。",
     );
-    act(() => button(container, "关闭").click());
+    expect(
+      [...container.querySelectorAll("button")].some(
+        (item) => (item.getAttribute("aria-label") ?? item.textContent?.trim()) === "关闭",
+      ),
+    ).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 
-    expect(onClose).toHaveBeenCalledOnce();
+  it("回填未评级草稿并提示补充依据，允许保存但不能直接提交", async () => {
+    currentReview = reviewRecord({
+      evaluation: { ...evaluation, rating: null },
+      evaluationStatus: "draft",
+    });
+    const container = await renderReview();
+    const field = await evaluationField(container);
+    expect(field.textContent).toContain(evaluation.overallEvaluation);
+    act(() => button(container, "保存草稿").click());
+    await flush();
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-draft")),
+    ).toBe(true);
+    await chooseOutcome(container);
+    act(() => button(container, "提交评价").click());
+    await flush();
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+    ).toBe(false);
   });
 
   it("does not show the AI waiting hint after evaluation generation fails", async () => {
     currentReview = reviewRecord({
-      evaluationError: "AI 评价生成失败",
+      evaluationError: "AI 评价生成失败：第 2 次复核：risks 将未提问内容作为负面证据",
       evaluationStatus: "failed",
     });
 
     const container = await renderReview();
 
-    expect(container.textContent).toContain("AI 评价生成失败");
+    expect(container.textContent).not.toContain("risks 将未提问内容作为负面证据");
     expect(container.textContent).not.toContain("AI 评价生成可能需要一些时间");
   });
 
-  it("shows save, submit, and close actions in the requested order", async () => {
+  it("shows only save and submit actions on the standalone page", async () => {
     const container = await renderReview();
     const actions = [...container.querySelectorAll<HTMLButtonElement>("button")]
       .map((candidate) => candidate.textContent?.trim())
       .filter((label) => ["保存草稿", "提交评价", "关闭"].includes(label ?? ""));
 
-    expect(actions).toEqual(["关闭", "保存草稿", "提交评价"]);
+    expect(actions).toEqual(["保存草稿", "提交评价"]);
   });
 
   it("keeps an unsaved round outcome across polling refreshes", async () => {
@@ -519,7 +564,7 @@ describe("HumanMeetingReview", () => {
     expect(container.textContent).not.toContain("保存转录");
   });
 
-  it("shows uncertain recovery speech only on request without disabling manual submission", async () => {
+  it("allows manual submission when recovery speech has unconfirmed attribution", async () => {
     if (!currentReview.transcript) {
       throw new Error("fixture missing transcript");
     }
@@ -534,25 +579,18 @@ describe("HumanMeetingReview", () => {
       sourceId: "mixed",
     };
     const container = await renderReview();
-    expect(container.textContent).toContain("1 段发言待确认身份");
-    expect(container.textContent).not.toContain("服务端转录");
-    act(() => button(container, "查看待确认片段").click());
-    expect(container.textContent).toContain("服务端转录");
+    await chooseOutcome(container);
     expect(button(container, "提交评价").disabled).toBe(false);
-    act(() => button(container, "候选人").click());
-    const confirmation = button(container, "确认所选身份");
-    expect(confirmation.disabled).toBe(false);
-    act(() => confirmation.click());
+    act(() => button(container, "提交评价").click());
     await flush();
     const call = fetchMock.mock.calls.find(([request]) =>
-      String(request).endsWith("/transcript-attribution"),
+      String(request).endsWith("/evaluation-submit"),
     );
-    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
-      assignments: [{ role: "candidate", turnId: turn.id }],
-      sourceRevisionId: currentReview.transcript.id,
+    expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+      transcriptRevisionId: currentReview.transcript.id,
     });
     expect(
-      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/transcript-attribution")),
     ).toBe(false);
   });
 
@@ -706,7 +744,6 @@ describe("HumanMeetingReview", () => {
 
     expect(button(container, "保存草稿").disabled).toBe(true);
     expect(button(container, "提交评价").disabled).toBe(false);
-    expect(container.textContent).toContain("正在整理会议内容并生成评价");
     expect(container.textContent).not.toContain("使用实时字幕生成评价");
   });
 });

@@ -1,3 +1,4 @@
+import type { HumanInterviewEvaluationReviewFinding } from "@app/db-schema/human-interview-evaluation-review";
 import type {
   RecruitingNode,
   RecruitingNodeStatus,
@@ -57,6 +58,11 @@ export interface PublicAiInterviewInvitationPreview {
  * interviewers are pre-joined user info.
  */
 export interface HumanInterviewRoundRecord {
+  reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
+  /** 最近一次 AI 生成的评价快照；面试官提交后仍保留，供对照参考。 */
+  aiEvaluation?: HumanInterviewEvaluationDraft | null;
+  /** 该 AI 快照未通过证据复核的问题，供面试官修改时参考。 */
+  aiEvaluationReviewFindings?: HumanInterviewEvaluationReviewFinding[];
   roundKind: "second_interview" | "final_interview";
   id: string;
   interviewRecordId: string;
@@ -223,6 +229,8 @@ export interface PublicHumanInterviewInterviewerPreview {
   interviewerName: string;
   meetingId: string;
   recordingStatus: HumanInterviewRecordingStatus;
+  responsibleHrImage: string | null;
+  responsibleHrName: string | null;
   role: HumanInterviewMeetingInterviewerRole;
   roundLabel: string;
   scheduledAt: string | null;
@@ -231,7 +239,31 @@ export interface PublicHumanInterviewInterviewerPreview {
   title: string;
 }
 
+export interface HumanInterviewReviewerEvaluationRecord {
+  reviewerImage?: string | null;
+  id: string;
+  reviewerId: string | null;
+  reviewerName: string;
+  evaluation: HumanInterviewEvaluationDraft;
+  outcome: HumanInterviewRoundOutcome | null;
+  submittedAt: string | null;
+  updatedAt: string;
+  version: number;
+  legacy: boolean;
+}
+
 export interface HumanInterviewReviewRecord {
+  /** Only the round's interviewers may write or submit an evaluation. */
+  canEvaluate?: boolean;
+  currentReviewerId?: string;
+  transcriptInterviewers?: { userId: string; name: string; image: string | null }[];
+  lockedOutcome?: "pass" | "fail" | null;
+  personalEvaluation?: boolean;
+  evaluationVersion?: number;
+  reviewerEvaluations?: HumanInterviewReviewerEvaluationRecord[];
+  aiEvaluation?: HumanInterviewEvaluationDraft | null;
+  aiEvaluationReviewFindings?: HumanInterviewEvaluationReviewFinding[];
+  roundOutcome?: HumanInterviewRoundOutcome | null;
   recordingNotice?: string | null;
   documentSync?: {
     status: "pending" | "syncing" | "waiting_document" | "failed" | "synced";
@@ -259,6 +291,8 @@ export interface HumanInterviewReviewRecord {
  * "current" offer in the UI.
  */
 export interface OfferDraftRecord {
+  contentRevision: number;
+  currentApprovalId: string | null;
   id: string;
   interviewRecordId: string;
   organizationId: string;
@@ -368,6 +402,8 @@ export type RecruitingPipelineAction =
       action: "review_salary_negotiation";
       agreedBaseSalary?: number;
       expectedVersion: number;
+      overseasSalary?: number;
+      probationSalary?: number;
       reason: string;
       result: "pass" | "fail";
     }

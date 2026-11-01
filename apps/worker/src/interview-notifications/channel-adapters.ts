@@ -6,7 +6,7 @@ import type {
 } from "@app/db-schema/interview-notifications";
 import { InterviewNotificationProviderError } from "@app/shared/interview-notifications";
 import { z } from "zod";
-import { sendInterviewReportReadyFeishuNotification } from "@app/server/ai-interview-report-notification";
+import { sendInterviewReportReadyFeishuNotification } from "@app/recruiting-workflows/ai-interview-reports/feishu-interview-notifications";
 import {
   InterviewNotificationCard,
   renderInterviewNotificationEmailHtml,

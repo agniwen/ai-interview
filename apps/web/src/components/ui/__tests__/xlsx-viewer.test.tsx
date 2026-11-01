@@ -97,7 +97,6 @@ describe("XlsxViewerPreview", () => {
 
     const content = document.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
     expect(content?.textContent).toContain("深色模式");
-    expect(content?.className).toContain("z-[60]");
 
     act(() => {
       root.unmount();

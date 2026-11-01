@@ -1,10 +1,10 @@
-import { recruitingRecordReadModel } from "@app/database/recruiting-read-model";
+import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, isNotNull, notExists, sql } from "drizzle-orm";
 import { resumePoolItem, recruitingSearchIndex } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
-import type { Database } from "../lib/server/db/index";
-import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
+import type { Database } from "../infrastructure/db/index";
+import type { ResumeSemanticIndexJobData } from "@app/job-queues/resume-semantic-index";
 import { loadStandaloneEnv } from "../standalone/env";
 
 type SemanticBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
@@ -291,8 +291,8 @@ export async function backfillResumeSemanticIndex({
 }: ResumeSemanticBackfillCliOptions = {}): Promise<void> {
   loadScriptEnv();
   const [{ closeDatabase, db }, { runResumeSemanticIndexJob }] = await Promise.all([
-    import("../lib/server/db/index"),
-    import("../lib/server/resume-semantic/indexer"),
+    import("../infrastructure/db/index"),
+    import("../infrastructure/resume-semantic/indexer"),
   ]);
   const target = resolveSemanticBackfillTarget({
     defaultTarget,

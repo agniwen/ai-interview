@@ -198,7 +198,7 @@ export function createDurableLiveTranscriptDraft(
   return durable;
 }
 
-export function applyLiveTranscriptCorrection(
+function applyLiveTranscriptCorrection(
   current: LiveTranscriptDraftTurn | undefined,
   event: LiveTranscriptEvent,
 ): LiveTranscriptDraftTurn | null {

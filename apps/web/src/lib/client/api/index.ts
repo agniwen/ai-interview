@@ -22,13 +22,14 @@
  */
 
 export { ApiError, isApiError } from "./errors";
-export { apiFetch, type ApiFetchOptions } from "./client";
+export { apiFetch } from "./client";
 export { rpcFetch } from "./rpc-fetch";
-export { extractResumeDedupConflictMatches } from "./resume-dedup-conflict";
 export * from "./endpoints/chat";
 export * from "./endpoints/background-check";
 export * from "./endpoints/public-interview";
 export * from "./endpoints/studio-interviews";
+export * from "./endpoints/offer-email";
+export * from "./endpoints/studio-offer-approvals";
 export * from "./endpoints/studio-calendar";
 export * from "./endpoints/resume";
 export * from "./endpoints/studio-resumes";

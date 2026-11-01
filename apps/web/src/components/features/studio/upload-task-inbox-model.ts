@@ -13,7 +13,7 @@ export function resolveUploadTaskPreviewState(
   return state.slug === slug ? state : { record: null, slug };
 }
 
-export type UploadTaskStatusTone = "cancelled" | "completed" | "failed" | "pending" | "processing";
+type UploadTaskStatusTone = "cancelled" | "completed" | "failed" | "pending" | "processing";
 
 interface UploadTaskStatusMeta {
   label: string;

@@ -2,54 +2,38 @@
 
 import { useConfirmInterviewConnection } from "./use-confirm-interview-connection";
 
-import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@app/shared/interview/interview-record";
 import type { CandidateInterviewFeedbackInput } from "@app/db-schema/studio-interviews";
 import { cn } from "@app/shared/utils";
 import { useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
-import { InterviewBackground } from "./interview-background";
 import { AgentSpeechTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
-import { InterviewRules } from "./interview-rules";
+import { InterviewEntryView } from "./interview-entry-view";
+import type { InterviewStartOptions } from "./interview-entry-view";
 import { startInterviewSession } from "./interview-session-start";
+import { createInterviewTokenLifecycle } from "./interview-token-lifecycle";
 import { readInterviewResumeState } from "./interview-resume-state";
-import { DevicePreflightCard } from "./interview-device-preflight";
-import { fetchPreInterviewForms } from "./pre-interview-forms-view";
+import { bindPreInterviewForms, fetchPreInterviewForms } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
+import { hasPendingPreInterviewForms } from "./pre-interview-forms/helpers";
 import { CandidateInterviewFeedbackPanel } from "./candidate-interview-feedback";
 
 interface InterviewRoomProps {
   interviewId: string;
   roundId: string;
-}
-
-interface StartOptions {
-  muted?: boolean;
 }
 
 const livekitTokenErrorSchema = z.object({
@@ -65,219 +49,43 @@ const livekitTokenSchema = z.object({
   serverUrl: z.string(),
 });
 
-function resolveStartButtonLabel({
+function resolveEntryBusyLabel({
+  isBinding,
   isConnecting,
   isLoadingStatus,
-  muted,
 }: {
+  isBinding: boolean;
   isConnecting: boolean;
   isLoadingStatus: boolean;
-  muted: boolean;
 }) {
   if (isConnecting) {
     return "连接中...";
   }
-  if (isLoadingStatus) {
+  if (isBinding || isLoadingStatus) {
     return "加载中...";
   }
-  return muted ? "静音开始" : "开始面试";
+  return null;
 }
 
-function resolveTitle(isRoundCompleted: boolean, candidateName: string) {
-  if (isRoundCompleted) {
-    return "面试已结束";
-  }
-  if (candidateName) {
-    return `您好，${candidateName}`;
-  }
-  return "欢迎参加面试";
-}
-
-function buildSubheading({
-  targetRole,
-  roundLabel,
-  questionCount,
-}: {
-  targetRole: string | null;
-  roundLabel: string | null;
-  questionCount: number;
-}) {
-  const parts: string[] = [];
-  if (targetRole) {
-    parts.push(targetRole);
-  }
-  if (roundLabel) {
-    parts.push(roundLabel);
-  }
-  const prefix = parts.join(" · ");
-  const countText = questionCount > 0 ? `共 ${questionCount} 题，` : "";
-  const trailing = "预计可在 30 分钟内完成。";
-  return prefix ? `${prefix} · ${countText}${trailing}` : `${countText}${trailing}`;
-}
-
-function resolveSubheading({
-  isRoundCompleted,
-  isRecovering,
-  questionCount,
-  roundLabel,
-  targetRole,
-}: {
-  isRoundCompleted: boolean;
-  isRecovering: boolean;
-  questionCount: number;
-  roundLabel: string | null;
-  targetRole: string | null;
-}) {
-  if (isRoundCompleted) {
-    return "感谢您完成本轮面试。如需了解后续安排，请联系招聘负责人。";
-  }
-  if (isRecovering) {
-    return "正在为您恢复刚才的对话，请稍候。";
-  }
-  return buildSubheading({ questionCount, roundLabel, targetRole });
-}
-
-function InterviewNoticeDialog({
-  acknowledged,
-  isLoadingStatus,
-  isConnecting,
-  onAcknowledgedChange,
-  onConfirm,
-  onOpenChange,
-  open,
-  recordingEnabled,
-  startOptions,
-}: {
-  acknowledged: boolean;
-  isLoadingStatus: boolean;
-  isConnecting: boolean;
-  onAcknowledgedChange: (checked: boolean) => void;
-  onConfirm: () => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  recordingEnabled: boolean;
-  startOptions: StartOptions;
-}) {
-  const acknowledgementId = useId();
-  const startDisabled = !acknowledged || isConnecting || isLoadingStatus;
-  const startLabel = resolveStartButtonLabel({
-    isConnecting,
-    isLoadingStatus,
-    muted: !!startOptions.muted,
-  });
-
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>开始前的提示</DialogTitle>
-          <DialogDescription>为保证交流顺畅，请您确认以下事项。</DialogDescription>
-        </DialogHeader>
-        <InterviewRules className="border-border border-y" recordingEnabled={recordingEnabled} />
-        <div className="flex items-center gap-2 text-sm">
-          <Checkbox
-            id={acknowledgementId}
-            checked={acknowledged}
-            onCheckedChange={(checked) => onAcknowledgedChange(checked === true)}
-          />
-          <label className="cursor-pointer" htmlFor={acknowledgementId}>
-            我已阅读并了解以上事项
-          </label>
-        </div>
-        <DialogFooter>
-          <Button disabled={startDisabled} onClick={onConfirm} type="button">
-            {startOptions.muted ? (
-              <IconMicrophoneOff className="size-4" />
-            ) : (
-              <IconMicrophone className="size-4" />
-            )}
-            {startLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
+// Terminal and reconnecting states; a fresh start goes through InterviewEntryView instead.
 function WaitingView({
   roundId,
-  hasForms,
   interviewView,
-  isConnecting,
-  isLoadingStatus,
   isRoundCompleted,
-  isRecovering,
-  onBack,
-  onStart,
   onSubmitFeedback,
-  recordingEnabled,
 }: {
   roundId: string;
-  hasForms: boolean;
   interviewView: CandidateInterviewView | null;
-  isConnecting: boolean;
-  isLoadingStatus: boolean;
   isRoundCompleted: boolean;
-  // 重连恢复中：跳过 RuleItem 与开始按钮，仅展示「正在恢复连接」骨架。
-  // Recovery mode: hide rules + start buttons, show only a "reconnecting" hint.
-  isRecovering: boolean;
-  onBack?: () => void;
-  onStart: (options?: { muted?: boolean }) => void;
   onSubmitFeedback: (input: CandidateInterviewFeedbackInput) => Promise<void>;
-  recordingEnabled: boolean;
 }) {
-  const candidateName = interviewView?.candidateName ?? "";
-  const targetRole = interviewView?.targetRole ?? null;
-  const roundLabel = interviewView?.currentRoundLabel ?? null;
-  const questionCount = interviewView?.interviewQuestions?.length ?? 0;
-  const startDisabled = isConnecting || isLoadingStatus;
-  const showPreparation = !isRoundCompleted && !isRecovering;
-  const [noticeOpen, setNoticeOpen] = useState(false);
-  const [acknowledged, setAcknowledged] = useState(false);
-  const [pendingStartOptions, setPendingStartOptions] = useState<StartOptions>({});
-  const subheadingText = resolveSubheading({
-    isRecovering,
-    isRoundCompleted,
-    questionCount,
-    roundLabel,
-    targetRole,
-  });
-  const primaryLabel = resolveStartButtonLabel({
-    isConnecting,
-    isLoadingStatus,
-    muted: false,
-  });
-  const mutedLabel = resolveStartButtonLabel({
-    isConnecting,
-    isLoadingStatus,
-    muted: true,
-  });
-  const openNotice = (options: StartOptions = {}) => {
-    setPendingStartOptions(options);
-    setAcknowledged(false);
-    setNoticeOpen(true);
-  };
-  const confirmStart = () => {
-    if (!acknowledged) {
-      return;
-    }
-    setNoticeOpen(false);
-    onStart(pendingStartOptions);
-  };
-
   return (
     <>
-      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      <main
-        className={cn(
-          "relative flex min-h-dvh w-full select-none flex-col md:items-center md:justify-center md:pb-40",
-          !isRoundCompleted && "pb-40",
-        )}
-      >
+      <main className="relative flex min-h-dvh bg-background w-full select-none flex-col md:items-center md:justify-center md:pb-40">
         <div
           className={cn(
             "mx-auto flex w-full max-w-2xl flex-col px-5 pt-12 sm:px-2 sm:pt-20 md:pt-16",
@@ -286,12 +94,15 @@ function WaitingView({
         >
           <section>
             <h1 className="text-2xl tracking-tight sm:text-3xl">
-              {isRecovering ? "正在恢复面试连接" : resolveTitle(isRoundCompleted, candidateName)}
+              {isRoundCompleted ? "面试已结束" : "正在恢复面试连接"}
             </h1>
-            <p className="mt-2 text-muted-foreground text-sm sm:text-base">{subheadingText}</p>
+            <p className="mt-2 text-muted-foreground text-sm sm:text-base">
+              {isRoundCompleted
+                ? "感谢您完成本轮面试。如需了解后续安排，请联系招聘负责人。"
+                : "正在为您恢复刚才的对话，请稍候。"}
+            </p>
           </section>
 
-          {showPreparation ? <DevicePreflightCard recordingEnabled={recordingEnabled} /> : null}
           {isRoundCompleted ? (
             <div className="mt-auto pt-8 md:mt-8 md:pt-0">
               <CandidateInterviewFeedbackPanel
@@ -303,52 +114,6 @@ function WaitingView({
           ) : null}
         </div>
       </main>
-      {showPreparation ? (
-        <InterviewFlowFloatingBar
-          actions={
-            <>
-              <Button
-                className="flex-1 gap-2 md:min-w-28 md:flex-none"
-                disabled={startDisabled}
-                onClick={() => openNotice({ muted: true })}
-                size="sm"
-                variant="outline"
-              >
-                <IconMicrophoneOff className="size-4" />
-                {mutedLabel}
-              </Button>
-              <Button
-                className="flex-1 gap-2 md:min-w-32 md:flex-none"
-                disabled={startDisabled}
-                onClick={() => openNotice()}
-                size="sm"
-              >
-                <IconMicrophone className="size-4" />
-                {primaryLabel}
-              </Button>
-            </>
-          }
-          currentStep="interview"
-          hasForms={hasForms}
-          onBack={onBack}
-        />
-      ) : null}
-      <InterviewNoticeDialog
-        acknowledged={acknowledged}
-        isConnecting={isConnecting}
-        isLoadingStatus={isLoadingStatus}
-        onAcknowledgedChange={setAcknowledged}
-        onConfirm={confirmStart}
-        onOpenChange={(open) => {
-          setNoticeOpen(open);
-          if (!open) {
-            setAcknowledged(false);
-          }
-        }}
-        open={noticeOpen}
-        recordingEnabled={recordingEnabled}
-        startOptions={pendingStartOptions}
-      />
     </>
   );
 }
@@ -359,7 +124,9 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
   const [formsPayload, setFormsPayload] = useState<FormsPayload | null>(null);
   const [entryLoadError, setEntryLoadError] = useState<string | null>(null);
-  const [preparationConfirmed, setPreparationConfirmed] = useState(false);
+  // The token endpoint requires the forms-phase binding, so every fresh start binds first.
+  const [formsBound, setFormsBound] = useState(false);
+  const [isBinding, setIsBinding] = useState(false);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   // isLoadingStatus 会随 TokenSource 闭包更新：useSession() 在 mount 时会自动
@@ -462,8 +229,12 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     }
     return payload.data;
   }, [interviewId, isLoadingStatus, roundId]);
-  // oxlint-disable-next-line react/refs -- TokenSource.custom stores this callback; only LiveKit invokes it later, after an explicit start/rejoin event.
-  const tokenSource = useMemo(() => TokenSource.custom(fetchInterviewToken), [fetchInterviewToken]);
+  const tokenLifecycle = useMemo(
+    // oxlint-disable-next-line react/refs -- The lifecycle stores this callback for LiveKit to invoke after an explicit start/rejoin event.
+    () => createInterviewTokenLifecycle(fetchInterviewToken),
+    [fetchInterviewToken],
+  );
+  const tokenSource = useMemo(() => TokenSource.custom(tokenLifecycle.fetch), [tokenLifecycle]);
 
   const session = useSession(tokenSource, { agentName: env.NEXT_PUBLIC_AGENT_NAME });
 
@@ -516,6 +287,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         reason === DisconnectReason.PARTICIPANT_REMOVED
       ) {
         agentEndedRef.current = true;
+        tokenLifecycle.end();
         setRoundStatus("completed");
         // oxlint-disable-next-line promise/prefer-await-to-then -- LiveKit event handlers must return synchronously; surface asynchronous persistence failure.
         void persistCompletion("agent").catch(() => {
@@ -527,7 +299,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     return () => {
       room.off(RoomEvent.Disconnected, onDisconnected);
     };
-  }, [room, persistCompletion]);
+  }, [room, persistCompletion, tokenLifecycle]);
 
   // 监听硬断连：
   // - 主动结束（userEndedRef=true）：handleEndInterview 已经发过 final，这里跳过；
@@ -583,7 +355,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const [autoRejoinTriggered, setAutoRejoinTriggered] = useState(false);
 
   const handleStart = useCallback(
-    async (options?: { muted?: boolean }) => {
+    async (options?: InterviewStartOptions) => {
       startRequestedRef.current = true;
       const muted =
         options?.muted ??
@@ -593,6 +365,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       setStartedMuted(muted);
       try {
         await startInterviewSession({
+          microphoneDeviceId: options?.microphoneDeviceId,
           recordingEnabled: interviewRecordingEnabled,
           session,
           startMuted: muted,
@@ -637,6 +410,35 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     [interviewRecordingEnabled, isRecoverable, resumeStorageKey, session],
   );
 
+  const bindForms = useCallback(async () => {
+    setIsBinding(true);
+    try {
+      const payload = await bindPreInterviewForms(interviewId, roundId);
+      setFormsPayload(payload);
+      setFormsBound(true);
+      return payload;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "加载面试表单失败");
+      return null;
+    } finally {
+      setIsBinding(false);
+    }
+  }, [interviewId, roundId]);
+
+  // Forms added after the page loaded surface here; the candidate fills them before starting.
+  const handleEntryStart = useCallback(
+    async (options: InterviewStartOptions) => {
+      if (!formsBound) {
+        const payload = await bindForms();
+        if (!payload || hasPendingPreInterviewForms(payload)) {
+          return;
+        }
+      }
+      await handleStart(options);
+    },
+    [bindForms, formsBound, handleStart],
+  );
+
   // 刷新返回时若 canResume 为 true：跳过 RuleItem 自动 handleStart 续连。
   // 加 isRoundCompleted 保护，防止主动结束流程里 setRoundStatus("completed")
   // 与 connectionState 变 Disconnected 之间的 race 让 effect 误触发。
@@ -669,6 +471,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // Persist the terminal state before disconnecting; feedback retries a failed write.
   const handleEndInterview = useCallback(async () => {
     userEndedRef.current = true;
+    tokenLifecycle.end();
     setRoundStatus("completed");
     setAutoRejoinTriggered(true);
     try {
@@ -677,7 +480,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       toast.error("面试已结束，结束状态暂未同步。提交反馈时将自动重试。");
     }
     await session.end();
-  }, [persistCompletion, session]);
+  }, [persistCompletion, session, tokenLifecycle]);
 
   // isRecovering 决定 WaitingView 是否展示「正在恢复连接」。已结束态强制 false，
   // 避免主动结束流程出现「标题：恢复中 / 副标题：已结束」自相矛盾的中间帧。
@@ -708,35 +511,42 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   );
 
   if (isDisconnected || isConnecting) {
-    const hasForms = (formsPayload?.required.length ?? 0) > 0;
     const waitingView = (
       <WaitingView
         roundId={roundId}
-        hasForms={hasForms}
         interviewView={interviewView}
-        isConnecting={isConnecting}
-        isLoadingStatus={isLoadingStatus}
-        isRecovering={isRecovering}
         isRoundCompleted={isRoundCompleted}
-        onBack={hasForms ? undefined : () => setPreparationConfirmed(false)}
-        onStart={handleStart}
         onSubmitFeedback={handleSubmitFeedback}
-        recordingEnabled={interviewRecordingEnabled}
       />
     );
+    const busyLabel = resolveEntryBusyLabel({ isBinding, isConnecting, isLoadingStatus });
     return (
       <InterviewPreSessionFlow
         entryLoadError={entryLoadError}
+        formsBound={formsBound}
         formsPayload={formsPayload}
         interviewId={interviewId}
         interviewView={interviewView}
         isLoading={isLoadingStatus}
         isRecovering={isRecovering}
         isRoundCompleted={isRoundCompleted}
-        onPreparationBack={() => setPreparationConfirmed(false)}
-        onPreparationConfirmed={() => setPreparationConfirmed(true)}
+        onFormsBack={() => setFormsBound(false)}
         onRetry={loadEntryData}
-        preparationConfirmed={preparationConfirmed}
+        renderEntry={(stage, view, hasForms) => (
+          <InterviewEntryView
+            busyLabel={busyLabel}
+            hasForms={hasForms}
+            interviewView={view}
+            onContinue={() => {
+              void bindForms();
+            }}
+            onStart={(options) => {
+              void handleEntryStart(options);
+            }}
+            recordingEnabled={interviewRecordingEnabled}
+            stage={stage}
+          />
+        )}
         roundId={roundId}
         waitingView={waitingView}
       />
@@ -754,6 +564,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       <main className="relative h-dvh w-full select-none overflow-hidden">
         <AgentSessionView_01
           defaultChatOpen={startedMuted}
+          includeChatMessages={false}
           autoOpenChatOnAgentActive={true}
           supportsVideoInput={interviewRecordingEnabled}
           supportsScreenShare={false}
@@ -772,10 +583,6 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         />
       </main>
       <StartAudioButton label="开始通话" />
-      <Toaster
-        position="top-center"
-        icons={{ warning: <IconAlertTriangle className="size-4" /> }}
-      />
     </AgentSessionProvider>
   );
 }

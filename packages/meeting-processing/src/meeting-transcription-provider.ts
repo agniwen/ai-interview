@@ -18,7 +18,7 @@ export interface MeetingRecognitionHints {
   terms: string[];
 }
 
-export interface FinalTranscriptionInput {
+interface FinalTranscriptionInput {
   chunks: FinalTranscriptionAudioChunk[];
   languageHint: string | null;
   model: string;

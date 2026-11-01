@@ -74,9 +74,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     [activeConversationId, slug],
   );
 
-  const chatHelpers = useChat(
-    boundChat ? { chat: boundChat, experimental_throttle: 50 } : { experimental_throttle: 50 },
-  );
+  const chatHelpers = useChat(boundChat ? { chat: boundChat, throttle: 50 } : { throttle: 50 });
   const runtime = useAISDKRuntime(chatHelpers, { joinStrategy: "none" });
   const { clearError, error, setMessages, status } = chatHelpers;
   const isStreaming = status === "submitted" || status === "streaming";

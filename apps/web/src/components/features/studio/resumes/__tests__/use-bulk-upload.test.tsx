@@ -171,7 +171,7 @@ describe("useBulkUpload", () => {
     });
     await flushPromises();
 
-    expect(onBatchQueued).toHaveBeenCalledWith(detail);
+    expect(onBatchQueued).toHaveBeenCalledWith(detail, { failedCount: 0 });
 
     act(() => {
       root.unmount();

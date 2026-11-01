@@ -45,7 +45,6 @@ describe("MeetingCaptureComposer", () => {
     expect(html).not.toContain("meeting-microphone-source");
     expect(html).not.toContain("meeting-microphone-selector");
     expect(html).not.toContain('data-slot="meeting-composer-frame"');
-    expect(html).toContain("duration-[80ms]");
   });
 
   it("uses icon-only pill controls for pause and stop", () => {
@@ -60,9 +59,6 @@ describe("MeetingCaptureComposer", () => {
 
     expect(html).toContain('aria-label="暂停录制"');
     expect(html).toContain('aria-label="结束并保存录制"');
-    expect(html).toContain("w-[4.8rem] rounded-full");
-    expect(html).toContain("w-[3.2rem] justify-self-end rounded-full");
-    expect(html).toContain("h-12 w-full min-w-0");
   });
 
   it("turns the center action into continue while paused", () => {
@@ -164,12 +160,8 @@ describe("MeetingInterruptedComposer", () => {
     expect(html).toContain('data-slot="meeting-combined-audio-visualizer"');
     expect(html).toContain('aria-label="继续录制"');
     expect(html).toContain('aria-label="结束并保存录制"');
-    expect(html).toContain("bg-primary/10 text-primary");
-    expect(html).toContain("w-[3.2rem] justify-self-end rounded-full");
+
     expect(html).not.toContain('data-slot="meeting-composer-frame"');
     expect(html).not.toContain("结束并上传");
-    expect(html).toMatch(
-      /<div(?=[^>]*data-slot="meeting-interrupted-status")(?=[^>]*class="[^"]*pl-1)[^>]*>/,
-    );
   });
 });

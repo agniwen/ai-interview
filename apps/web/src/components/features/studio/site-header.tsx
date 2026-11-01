@@ -2,10 +2,13 @@
 
 import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
-import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
-import { useStudioHeaderOverrideValue } from "@/components/features/studio/studio-header-context";
+import {
+  useStudioHeaderActionsValue,
+  useStudioHeaderOverrideValue,
+} from "@/components/features/studio/studio-header-context";
 import { resolveStudioSidebarNavItem } from "@/components/features/studio/studio-sidebar-slots";
-import { UploadTaskInbox } from "@/components/features/studio/upload-task-inbox";
+import { ApprovalInboxTrigger } from "@/components/features/offer-approval/inbox-trigger";
+import { UploadTaskInboxTrigger } from "@/components/features/studio/upload-task-inbox";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -18,19 +21,19 @@ interface RouteMeta {
 }
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
+  { meta: { title: "审批流配置" }, prefix: "/studio/offer-approval-templates" },
+  { meta: { title: "Offer 审批" }, prefix: "/studio/offer-approvals" },
+  { meta: { title: "招聘台账" }, prefix: "/studio/recruiting-ledger" },
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
   { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
-  { meta: { title: "AI初面" }, prefix: "/studio/interviews" },
-  { meta: { title: "日程管理" }, prefix: "/studio/calendar" },
-  { meta: { title: "数据看板" }, prefix: "/studio/dashboard" },
-  { meta: { title: "部门管理" }, prefix: "/studio/departments" },
-  { meta: { title: "AI面试官管理" }, prefix: "/studio/interviewers" },
-  { meta: { title: "岗位设置" }, prefix: "/studio/job-descriptions" },
-  { meta: { title: "表单题" }, prefix: "/studio/forms" },
-  { meta: { title: "沟通题" }, prefix: "/studio/interview-questions" },
+  { meta: { title: "面试管理" }, prefix: "/studio/interviews" },
+  { meta: { title: "面试管理" }, prefix: "/studio/calendar" },
+  { meta: { title: "招聘台账" }, prefix: "/studio/dashboard" },
+  { meta: { title: "面试官 Agent" }, prefix: "/studio/interviewers" },
+  { meta: { title: "岗位" }, prefix: "/studio/job-descriptions" },
+  { meta: { title: "面试题" }, prefix: "/studio/question-bank" },
   { meta: { title: "个人中心" }, prefix: "/studio/me" },
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
-  { meta: { title: "邮箱监听" }, prefix: "/studio/mail-ingest-accounts" },
   { meta: { title: "上下文设置" }, prefix: "/studio/global-config" },
   { meta: { title: "权限管理" }, prefix: "/studio/permissions" },
 ];
@@ -51,27 +54,37 @@ function resolveSiteHeaderTitle(pathname: string): string {
   return DEFAULT_META.title;
 }
 
-export function SiteHeader() {
+export function SiteHeader({ className }: { className?: string } = {}) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const title = resolveSiteHeaderTitle(pathname);
+  const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "").replace(/\/$/, "");
+  // Question-bank tabs are primary pages; record/editor routes are not.
+  const showGlobalActions =
+    /^\/studio(?:\/[^/]+)?$/.test(studioPath) ||
+    studioPath === "/studio/question-bank/forms" ||
+    studioPath === "/studio/question-bank/interview-questions";
   const ActiveMenuIcon = resolveStudioSidebarNavItem(pathname)?.icon;
   const headerOverride = useStudioHeaderOverrideValue();
+  const pageActions = useStudioHeaderActionsValue();
 
   return (
     <SidebarInsetHeader
+      className={className}
       activeMenuIcon={headerOverride === null && ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
       actions={
-        <>
-          <WorkspaceSwitcher />
-          <UploadTaskInbox />
-        </>
+        showGlobalActions ? (
+          <>
+            <ApprovalInboxTrigger />
+            <UploadTaskInboxTrigger />
+          </>
+        ) : (
+          pageActions
+        )
       }
       breadcrumb={
         headerOverride ?? (
           <Breadcrumb>
             <BreadcrumbList>
-              {/* <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem> */}
-              {/* <BreadcrumbSeparator className="hidden md:block" /> */}
               <BreadcrumbItem>
                 <BreadcrumbPage>{title}</BreadcrumbPage>
               </BreadcrumbItem>

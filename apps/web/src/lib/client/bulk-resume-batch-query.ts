@@ -1,6 +1,6 @@
 import type { ResumeUploadBatchStatus } from "@app/db-schema/schema";
 
-export const BULK_RESUME_BATCH_POLL_INTERVAL_MS = 10_000;
+const BULK_RESUME_BATCH_POLL_INTERVAL_MS = 10_000;
 
 export function bulkResumeBatchRefetchInterval(
   batches?: readonly { status: ResumeUploadBatchStatus }[],

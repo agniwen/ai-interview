@@ -35,6 +35,15 @@ afterEach(() => {
 });
 
 describe("TanStack Start server entry", () => {
+  it("forwards OAuth discovery URLs to the Hono authentication handler", async () => {
+    const entry = createTestEntry();
+    const request = new Request(
+      "https://example.test/.well-known/oauth-protected-resource/api/mcp",
+    );
+    await entry.fetch(request);
+    expect(honoFetch).toHaveBeenCalledWith(request);
+    expect(startFetch).not.toHaveBeenCalled();
+  });
   it("serves the process health endpoint before loading API routers", async () => {
     const entry = createTestEntry();
     const request = new Request("https://example.test/api/health");

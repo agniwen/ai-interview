@@ -6,6 +6,7 @@ import {
   filterInterviewerIdsByDepartment,
   getDepartmentSyncedInterviewerSelection,
 } from "@app/shared/job-description-interviewers";
+import { IconPlus } from "@tabler/icons-react";
 import { DatePicker } from "@/components/date-time-picker";
 import {
   Field,
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/input-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import type { JobDescriptionFormApi } from "./job-description-form-values";
@@ -43,6 +45,7 @@ export function JobDescriptionBasicSettingsFields({
   interviewers,
   interviewerOptions,
   isGeneratingCode,
+  onCreateDepartment,
   reportingManagerOptions,
   selectedDepartmentId,
   selectedInterviewerIds,
@@ -56,12 +59,14 @@ export function JobDescriptionBasicSettingsFields({
   interviewers: InterviewerListRecord[];
   interviewerOptions: { label: string; value: string }[];
   isGeneratingCode: boolean;
-  reportingManagerOptions: { label: string; value: string }[];
+  /** 传入时在部门下拉末尾提供「新建部门」。Adds a "create department" row to the department select when provided. */
+  onCreateDepartment?: () => void;
+  reportingManagerOptions: SearchableSelectOption[];
   selectedDepartmentId: string;
   selectedInterviewerIds: string[];
 }) {
   return (
-    <div className="divide-y overflow-hidden rounded-lg border">
+    <div className="divide-y divide-border/50 overflow-hidden rounded-xl bg-card text-card-foreground shadow-default">
       <form.Field name="name">
         {(field) => {
           const errors = toFieldErrors(field.state.meta.errors);
@@ -162,6 +167,15 @@ export function JobDescriptionBasicSettingsFields({
               </FieldContent>
               <div className={JOB_SETTING_CONTROL_CLASS}>
                 <SearchableSelect
+                  action={
+                    onCreateDepartment
+                      ? {
+                          icon: <IconPlus className="size-4" />,
+                          label: "新建部门",
+                          onSelect: onCreateDepartment,
+                        }
+                      : undefined
+                  }
                   id={field.name}
                   invalid={!!errors?.length}
                   onChange={(value) => {
@@ -181,7 +195,11 @@ export function JobDescriptionBasicSettingsFields({
                     label: dept.name,
                     value: dept.id,
                   }))}
-                  placeholder="选择部门"
+                  placeholder={
+                    departments.length > 0
+                      ? "选择部门"
+                      : `暂无部门${onCreateDepartment ? "，可在下拉中新建" : ""}`
+                  }
                   searchPlaceholder="搜索部门…"
                   value={field.state.value || null}
                 />

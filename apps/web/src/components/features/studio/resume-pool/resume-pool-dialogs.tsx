@@ -8,6 +8,8 @@ import type {
   ResumePoolListRecord,
 } from "@app/shared/resume-pool";
 
+import { pipelineStageMeta } from "@app/db-schema/recruiting-contracts";
+import type { PipelineStage } from "@app/db-schema/recruiting-contracts";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
@@ -16,6 +18,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeDedupMatchList } from "@/components/features/resume/resume-dedup-overlay";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -23,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { importResumePoolItem, isApiError } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { getPipelineStageBadgeVariant } from "../candidate-stage-badge";
 import { StudioPersonDetailDialog } from "../studio-person-detail-dialog";
 
 import {
@@ -80,6 +84,22 @@ function getAvailableSourceJobDescriptionId(
   return options.some((option) => option.value === sourceId) ? sourceId : "";
 }
 
+/** 招聘记录当前阶段；记录已删除时提示，避免误以为仍在流程中。 */
+function ImportedRecordStageBadge({ stage }: { stage: PipelineStage | null }) {
+  if (!stage) {
+    return (
+      <Badge className="shrink-0 font-normal" variant="outline">
+        已删除
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="shrink-0 font-normal" variant={getPipelineStageBadgeVariant(stage)}>
+      {pipelineStageMeta[stage].label}
+    </Badge>
+  );
+}
+
 function getImportDialogDescription(
   item: ResumePoolListRecord | null,
   isReimport: boolean,
@@ -88,7 +108,9 @@ function getImportDialogDescription(
   if (!item) {
     return;
   }
-  return isReimport ? "已存在招聘记录，是否再次创建。" : candidateTitle;
+  return isReimport
+    ? `${candidateTitle} 已有 ${item.importedRecords.length} 条招聘记录，可查看已有记录或再次进入招聘流程。`
+    : candidateTitle;
 }
 
 interface ImportResumePoolDialogState {
@@ -191,7 +213,7 @@ export function ImportResumePoolDialog({
         updateDialogState({ duplicates: result });
         return;
       }
-      dependencies.notifySuccess(isReimport ? "已再次创建招聘记录" : "已创建招聘记录");
+      dependencies.notifySuccess(isReimport ? "已再次进入招聘流程" : "已创建招聘记录");
       if (result.aiInterviewLaunchError) {
         dependencies.notifyError(result.aiInterviewLaunchError);
       }
@@ -222,7 +244,7 @@ export function ImportResumePoolDialog({
               ) : (
                 <IconDatabase className="size-4" />
               )}
-              {isReimport ? "确认再次创建" : "确认创建"}
+              {isReimport ? "进入招聘流程" : "确认创建"}
             </Button>
           </>
         }
@@ -234,38 +256,45 @@ export function ImportResumePoolDialog({
         }}
         open={item !== null}
         size="md"
-        title={isReimport ? "再次创建招聘记录" : "创建招聘记录"}
+        title={isReimport ? "进入招聘流程" : "创建招聘记录"}
         description={dialogDescription}
       >
         <div className="flex flex-col gap-5">
           {isReimport && importedRecords.length > 0 ? (
-            <Field>
-              <FieldLabel>已创建的招聘记录</FieldLabel>
+            <Field className="border-b pb-5">
+              <FieldLabel>已进入招聘台的记录（{importedRecords.length}）</FieldLabel>
               <FieldContent>
-                <div className="flex flex-col gap-2">
+                {/* 记录可能很多：限制高度并在内部滚动，避免撑出弹窗。 */}
+                <div
+                  className="-mr-1 flex max-h-60 flex-col gap-2 overflow-y-auto overscroll-contain pr-1"
+                  data-testid="resume-pool-imported-records"
+                >
                   {importedRecords.map((record) => {
                     const creatorName = record.creatorName?.trim() || "已删除用户";
                     return (
                       <Button
                         aria-label={`查看已创建的招聘记录 ${record.resumeRecordId}`}
-                        className="h-auto w-full justify-between py-3"
+                        className="h-auto w-full min-w-0 shrink-0 justify-between gap-3 py-3"
                         key={record.resumeRecordId}
                         onClick={() => updateDialogState({ detailRecordId: record.resumeRecordId })}
                         type="button"
                         variant="outline"
                       >
-                        <span className="min-w-0 text-left">
-                          <span className="block truncate">{candidateTitle}</span>
-                          <span className="mt-0.5 block text-muted-foreground text-xs font-normal">
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate">{candidateTitle}</span>
+                            <ImportedRecordStageBadge stage={record.pipelineStage} />
+                          </span>
+                          <span className="mt-0.5 block truncate text-muted-foreground text-xs font-normal">
                             {formatResumeRecordDisplayId(record.resumeRecordId)}
                             {" · "}
                             <TimeDisplay as="span" value={record.importedAt} />
                           </span>
                           <span className="mt-1.5 flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs font-normal">
                             <Avatar
+                              className="size-[18px]"
                               label={`${creatorName}的头像`}
                               seed={`creator:${record.creatorName || record.resumeRecordId}`}
-                              size="sm"
                             >
                               {record.creatorImage ? (
                                 <AvatarImage alt={creatorName} src={record.creatorImage} />
@@ -330,7 +359,7 @@ export function ImportResumePoolDialog({
                 </FieldContent>
               </Field>
               <Field>
-                <FieldLabel>进入招聘流程</FieldLabel>
+                <FieldLabel>进入阶段</FieldLabel>
                 <FieldContent>
                   <RadioGroup
                     className="grid grid-cols-3 gap-2"

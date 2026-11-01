@@ -1,5 +1,5 @@
-import { assertNoRecruitingReferences } from "@app/database/recruiting-reference-retention";
-import type { RecruitingExecutor } from "@app/database/recruiting-records";
+import { assertNoRecruitingReferences } from "@app/recruiting/reference-retention";
+import type { RecruitingExecutor } from "@app/recruiting/records";
 import { meetingTranscriptRevision } from "@app/db-schema/schema";
 import { eq } from "drizzle-orm";
 

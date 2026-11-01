@@ -4,6 +4,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./typeset.css";
+@import "streamdown/styles.css";
 
 /* Triangle Blur by @ncdai (MIT), scoped to explicit theme changes.
    https://chanhdai.com/components/theme-toggle-effect */
@@ -53,91 +54,361 @@
   }
 }
 
-.home-hero-artwork-light {
-  background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg");
-  background-image: image-set(
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-1280-light.avif")
-      type("image/avif"),
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
-      type("image/webp"),
-    url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
-      type("image/jpeg")
-  );
+/* 天空背景（首页首屏、MCP 页）：渐变兜底 + shader 首帧图，shader 就绪后叠在其上；
+   veil 只用于首页首屏，托住文案并渐隐到页面底色。
+   Sky backdrop (hero and MCP pages): gradient fallback plus the shader's first-frame poster under the live shader;
+   the veil is hero-only, keeping copy legible and fading into the page surface. */
+/* 首帧图由 sky-shader.tsx 在 t=0 导出（2400×1500，AVIF 4:4:4 q60 / WebP q82 兜底），存放在 COS 的
+   public/landing/ 下，文件名带内容哈希并按 immutable 缓存；改动 shader 参数后需重新导出并更新这里。
+   Posters are exported from sky-shader.tsx at t=0 (2400×1500, AVIF 4:4:4 q60 with a WebP q82 fallback)
+   and live under public/landing/ on COS with content-hashed, immutable names; re-export after shader edits. */
+.sky-backdrop-poster {
+  background:
+    image-set(
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-light.3ce44422ad.avif")
+          type("image/avif"),
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-light.90c39350da.webp")
+          type("image/webp")
+      )
+      center / cover no-repeat,
+    linear-gradient(160deg, #b8d0f7 0%, #e6f0ff 55%, #d6e6fc 100%);
 }
 
-.home-hero-artwork-dark {
-  background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg");
-  background-image: image-set(
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-1280-dark.avif")
-      type("image/avif"),
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
-      type("image/webp"),
-    url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg") type("image/jpeg")
-  );
+/* 登录页右侧光束卡片的兜底渐变，接近 beam-shader.tsx 的构图；shader 就绪后叠在其上。
+   Fallback gradient for the login side card, approximating beam-shader.tsx until the shader is ready. */
+.beam-backdrop-fallback {
+  background:
+    radial-gradient(circle at 30% 40%, rgb(58 144 224 / 50%) 0%, transparent 45%),
+    radial-gradient(circle at 70% 65%, rgb(127 184 245 / 45%) 0%, transparent 40%), #eef4fc;
 }
 
-@media (min-width: 64rem) {
-  .home-hero-artwork-light {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-2560-light.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
-        type("image/jpeg")
-    );
-  }
+.dark .beam-backdrop-fallback {
+  background:
+    radial-gradient(60% 34% at 40% 42%, rgb(59 79 216 / 60%) 0%, transparent 70%),
+    radial-gradient(55% 30% at 55% 68%, rgb(31 154 214 / 45%) 0%, transparent 70%), #14161c;
+}
 
-  .home-hero-artwork-dark {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-2560-dark.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg")
-        type("image/jpeg")
+.sky-backdrop-veil {
+  background:
+    radial-gradient(
+      ellipse 85% 42% at 50% 0%,
+      rgb(246 250 255 / 72%) 0%,
+      rgb(246 250 255 / 40%) 45%,
+      transparent 75%
+    ),
+    linear-gradient(
+      to top,
+      var(--home-surface) 0,
+      var(--home-surface) 24px,
+      color-mix(in oklab, var(--home-surface) 80%, transparent) 96px,
+      color-mix(in oklab, var(--home-surface) 45%, transparent) 180px,
+      color-mix(in oklab, var(--home-surface) 15%, transparent) 280px,
+      transparent 380px
     );
+}
+
+.dark .sky-backdrop-poster {
+  background:
+    image-set(
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.967745bf33.avif")
+          type("image/avif"),
+        url("https://ai-interview-1350977987.cos.ap-guangzhou.myqcloud.com/public/landing/sky-dark.eeddb2733e.webp")
+          type("image/webp")
+      )
+      center / cover no-repeat,
+    linear-gradient(160deg, #4862a6 0%, #222c48 60%, #435ca0 100%);
+}
+
+.dark .sky-backdrop-veil {
+  background:
+    radial-gradient(
+      ellipse 85% 42% at 50% 0%,
+      rgb(5 11 32 / 40%) 0%,
+      rgb(5 11 32 / 18%) 45%,
+      transparent 75%
+    ),
+    linear-gradient(
+      to top,
+      var(--home-surface) 0,
+      var(--home-surface) 24px,
+      color-mix(in oklab, var(--home-surface) 80%, transparent) 96px,
+      color-mix(in oklab, var(--home-surface) 45%, transparent) 180px,
+      color-mix(in oklab, var(--home-surface) 15%, transparent) 280px,
+      transparent 380px
+    );
+}
+
+/* 首页面板颗粒渐变：每组只取色环上相邻的颜色，上浅偏冷、下深偏暖。颜色注册为 <color>，
+   切换配色时随过渡平滑变化。
+   Homepage grain gradients: analogous colours only, light and cool on top, deep and warm below.
+   Colours are registered as <color> so palette changes transition smoothly. */
+@property --grain-top {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c9d6df;
+}
+
+@property --grain-bottom {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0e2c3d;
+}
+
+@property --grain-1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d6e0e6;
+}
+
+@property --grain-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6fb5a3;
+}
+
+@property --grain-3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2d6f86;
+}
+
+@property --grain-4 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f2f40;
+}
+
+/* 紫粉到橙金。 Violet-pink to amber-gold. */
+.home-grain[data-palette="dusk"] {
+  --grain-top: #a3a0dc;
+  --grain-bottom: #e06a3c;
+  --grain-1: #7f9ce8;
+  --grain-2: #d48ccb;
+  --grain-3: #e4533f;
+  --grain-4: #f3aa3a;
+}
+
+/* 晨空蓝到天蓝，对齐首屏天空的浅部。 Morning sky to azure, the light end of the hero sky. */
+.home-grain[data-palette="sky"] {
+  --grain-top: #e3edff;
+  --grain-bottom: #2b5fc9;
+  --grain-1: #eef5ff;
+  --grain-2: #b9d6fc;
+  --grain-3: #5e9fff;
+  --grain-4: #2a5bd0;
+}
+
+/* 天蓝到湖蓝，sky 向 harbor 过渡的第一步。 Sky to cerulean, the first step from sky toward harbor. */
+.home-grain[data-palette="glacier"] {
+  --grain-top: #9fc0e4;
+  --grain-bottom: #1d4f8f;
+  --grain-1: #b4cfec;
+  --grain-2: #8ec0e8;
+  --grain-3: #4c95d4;
+  --grain-4: #1f5596;
+}
+
+/* 湖蓝到青蓝，sky 向 harbor 过渡的第二步。 Cerulean to teal blue, the second step toward harbor. */
+.home-grain[data-palette="lagoon"] {
+  --grain-top: #b6d0da;
+  --grain-bottom: #144259;
+  --grain-1: #c3d9e1;
+  --grain-2: #8fc6cc;
+  --grain-3: #3d88a8;
+  --grain-4: #174b66;
+}
+
+/* 雾紫到靛紫，首屏蓝向紫偏一格。 Misty lilac to indigo, one step from the hero blue toward violet. */
+.home-grain[data-palette="lilac"] {
+  --grain-top: #dfe1f7;
+  --grain-bottom: #2d2f78;
+  --grain-1: #eaebfb;
+  --grain-2: #b3baf2;
+  --grain-3: #7479d6;
+  --grain-4: #35378f;
+}
+
+/* 天蓝到深靛，首屏天空的暗部。 Azure to deep indigo, the darker end of the hero sky. */
+.home-grain[data-palette="azure"] {
+  --grain-top: #8fb2f8;
+  --grain-bottom: #0d1a52;
+  --grain-1: #b8d0f7;
+  --grain-2: #6f9bff;
+  --grain-3: #2a5bff;
+  --grain-4: #1b3a9c;
+}
+
+/* 灰蓝到深棕。 Grey-blue to deep brown. */
+.home-grain[data-palette="sand"] {
+  --grain-top: #7f98a8;
+  --grain-bottom: #3a1d12;
+  --grain-1: #8eaabb;
+  --grain-2: #f0cd8e;
+  --grain-3: #cf622b;
+  --grain-4: #4a2616;
+}
+
+/* 雾蓝到深海蓝。 Mist blue to deep sea. */
+.home-grain[data-palette="harbor"] {
+  --grain-top: #c9d6df;
+  --grain-bottom: #0e2c3d;
+  --grain-1: #d6e0e6;
+  --grain-2: #6fb5a3;
+  --grain-3: #2d6f86;
+  --grain-4: #0f2f40;
+}
+
+/* 雾蓝到墨绿。 Mist blue to ink green. */
+.home-grain[data-palette="moss"] {
+  --grain-top: #c3cfd6;
+  --grain-bottom: #142212;
+  --grain-1: #c8d3da;
+  --grain-2: #a8bd6a;
+  --grain-3: #5f7d43;
+  --grain-4: #1b2e17;
+}
+
+/* 薰衣草到深夜紫。 Lavender to midnight violet. */
+.home-grain[data-palette="night"] {
+  --grain-top: #b6a6e6;
+  --grain-bottom: #22093a;
+  --grain-1: #9f8fe0;
+  --grain-2: #e08ad6;
+  --grain-3: #7a3fa8;
+  --grain-4: #2a0f45;
+}
+
+/* 天灰到锈红。 Sky grey to rust. */
+.home-grain[data-palette="ember"] {
+  --grain-top: #c8d2dc;
+  --grain-bottom: #5a160d;
+  --grain-1: #d3dbe3;
+  --grain-2: #f2c39a;
+  --grain-3: #e0623e;
+  --grain-4: #8a2516;
+}
+
+.home-grain {
+  background: linear-gradient(180deg, var(--grain-top), var(--grain-bottom));
+  transition:
+    --grain-top 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-bottom 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-1 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-2 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-3 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    --grain-4 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 四团大色块分布在四角与边缘，径向渐隐到透明，各自 20–28 秒缓慢漂移、轻微缩放。
+   Four large blobs at the corners and edges fade radially and drift over 20–28s. */
+.home-grain-blob {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.home-grain-blob-1 {
+  top: -8%;
+  left: -6%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(closest-side, var(--grain-1), transparent);
+  animation: home-grain-drift-a 22s ease-in-out infinite alternate;
+}
+
+.home-grain-blob-2 {
+  top: -4%;
+  right: -10%;
+  width: 66%;
+  height: 72%;
+  background: radial-gradient(closest-side, var(--grain-2), transparent);
+  animation: home-grain-drift-b 26s ease-in-out infinite alternate;
+}
+
+.home-grain-blob-3 {
+  bottom: -14%;
+  left: -12%;
+  width: 72%;
+  height: 74%;
+  background: radial-gradient(closest-side, var(--grain-3), transparent);
+  animation: home-grain-drift-b 24s ease-in-out infinite alternate-reverse;
+}
+
+.home-grain-blob-4 {
+  right: -6%;
+  bottom: -18%;
+  width: 74%;
+  height: 76%;
+  background: radial-gradient(closest-side, var(--grain-4), transparent);
+  animation: home-grain-drift-a 28s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes home-grain-drift-a {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(8%, 6%) scale(1.12);
   }
 }
 
-@media (min-width: 120rem) and (min-resolution: 1.5dppx) {
-  .home-hero-artwork-light {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
-        type("image/jpeg")
-    );
+@keyframes home-grain-drift-b {
+  from {
+    transform: translate(0, 0) scale(1.06);
   }
-
-  .home-hero-artwork-dark {
-    background-image: image-set(
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.avif")
-        type("image/avif"),
-      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
-        type("image/webp"),
-      url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg")
-        type("image/jpeg")
-    );
+  to {
+    transform: translate(-7%, 5%) scale(0.94);
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .home-product-shot-scroll {
-      animation: home-product-shot-scroll-scale linear both;
-      animation-range: entry 50% exit 100%;
-      animation-timeline: view();
-      transform-origin: 50% 0;
-    }
+/* 白色细线纹样，径向遮罩把中间留给前景 UI；切换纹样时淡入。
+   Thin white patterns masked away from the centre for the foreground UI; fade in on change. */
+.home-grain-pattern {
+  stroke: rgb(255 255 255 / 30%);
+  stroke-width: 0.8px;
+  mask-image: radial-gradient(ellipse 58% 56% at 50% 50%, transparent 28%, black 78%);
+  animation: home-grain-pattern-in 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-grain-pattern * {
+  vector-effect: non-scaling-stroke;
+}
+
+.home-grain-dot {
+  fill: rgb(255 255 255 / 60%);
+  stroke: none;
+}
+
+@keyframes home-grain-pattern-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* AI 面试语音条的波形起伏。 Waveform bounce for the AI interview voice bar. */
+.home-voice-bar {
+  transform-origin: center;
+  animation: home-voice-bar 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes home-voice-bar {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-grain-blob,
+  .home-grain-pattern,
+  .home-voice-bar {
+    animation: none;
   }
 
-  @keyframes home-product-shot-scroll-scale {
-    to {
-      transform: scale(0.96);
-    }
+  .home-grain {
+    transition: none;
   }
 }
 
@@ -147,6 +418,11 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-home-canvas: var(--home-canvas);
+  --color-home-surface: var(--home-surface);
+  --color-home-card: var(--home-card);
+  /* 首页 1680 容器 + 两侧 64px 留白的临界宽度。 Width where the 1680px homepage container no longer needs side padding. */
+  --breakpoint-3xl: 113rem;
   --color-foreground: var(--foreground);
   --font-sans:
     "MiSans", "MiSans VL", var(--font-source-sans, "PingFang SC"), "PingFang SC",
@@ -165,6 +441,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active-hover: var(--sidebar-active-hover);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -178,6 +457,15 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-solid-active: var(--danger-solid-active);
+  --color-on-danger-solid: var(--on-danger-solid);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-subtle-hover: var(--danger-subtle-hover);
+  --color-danger-subtle-active: var(--danger-subtle-active);
+  --color-danger-subtle-ring: var(--danger-subtle-ring);
+  --color-danger-foreground: var(--danger-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -200,18 +488,31 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* Yohaku / kami depth:
-     - Resting surfaces: ring/border only — no drop shadow.
-     - Elevated overlays: one whisper (0 4px 24px / 0.05).
-     - Hard drop shadows are forbidden. */
-  --shadow-2xs: 0 0 #0000;
-  --shadow-xs: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-DEFAULT: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 4px 24px 0 rgb(0 0 0 / 0.05);
-  --shadow-xl: 0 8px 32px 0 rgb(0 0 0 / 0.06);
-  --shadow-2xl: 0 12px 40px 0 rgb(0 0 0 / 0.06);
+  /* 四级深度（参考 Interfere）：border 描边 → default 静止控件/卡片 → large 锚定浮层 → extra-large 对话框。
+     1px 描边保证 1x 屏可读；暗色下投影消失，改用 1px 白色内描边加顶部高光；数值在 :root / .dark 的 --elevation-* 里。
+     Four depth levels: border → default (resting controls, cards) → large (anchored popups)
+     → extra-large (modals). Rings are 1px so they survive 1x displays; dark mode trades drop shadows for a 1px inner ring and top highlight. */
+  --shadow-border: var(--elevation-border);
+  --shadow-default: var(--elevation-default);
+  --shadow-large: var(--elevation-large);
+  --shadow-extra-large: var(--elevation-extra-large);
+  --shadow-2xs: var(--elevation-border);
+  --shadow-xs: var(--elevation-default);
+  --shadow-sm: var(--elevation-default);
+  --shadow: var(--elevation-default);
+  --shadow-md: var(--elevation-large);
+  --shadow-lg: var(--elevation-large);
+  --shadow-xl: var(--elevation-extra-large);
+  --shadow-2xl: var(--elevation-extra-large);
+  /* 中性层级：sunken 凹陷区，component 填充控件及其 hover/active，边框分 subtle / strong 两档补充 --border。
+     Neutral layers: sunken wells, filled components with hover/active, and border tiers around --border. */
+  --color-sunken: var(--sunken);
+  --color-control: var(--control);
+  --color-component: var(--component);
+  --color-component-hover: var(--component-hover);
+  --color-component-active: var(--component-active);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
   --color-invert-foreground: var(--invert-foreground);
   --color-invert: var(--invert);
   --color-warning-foreground: var(--warning-foreground);
@@ -221,6 +522,39 @@
   --color-success-foreground: var(--success-foreground);
   --color-success: var(--success);
   --color-destructive-foreground: var(--destructive-foreground);
+  /* 语义色板：参考 beautifului.dev Records Table，每个色相一个基色，ink / tint / line 由 color-mix 派生。 */
+  --color-green: var(--green);
+  --color-green-ink: var(--green-ink);
+  --color-green-tint: var(--green-tint);
+  --color-green-line: var(--green-line);
+  --color-sky: var(--sky);
+  --color-sky-ink: var(--sky-ink);
+  --color-sky-tint: var(--sky-tint);
+  --color-sky-line: var(--sky-line);
+  --color-blue: var(--blue);
+  --color-blue-ink: var(--blue-ink);
+  --color-blue-tint: var(--blue-tint);
+  --color-blue-line: var(--blue-line);
+  --color-purple: var(--purple);
+  --color-purple-ink: var(--purple-ink);
+  --color-purple-tint: var(--purple-tint);
+  --color-purple-line: var(--purple-line);
+  --color-pink: var(--pink);
+  --color-pink-ink: var(--pink-ink);
+  --color-pink-tint: var(--pink-tint);
+  --color-pink-line: var(--pink-line);
+  --color-red: var(--red);
+  --color-red-ink: var(--red-ink);
+  --color-red-tint: var(--red-tint);
+  --color-red-line: var(--red-line);
+  --color-orange: var(--orange);
+  --color-orange-ink: var(--orange-ink);
+  --color-orange-tint: var(--orange-tint);
+  --color-orange-line: var(--orange-line);
+  --color-amber: var(--amber);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-tint: var(--amber-tint);
+  --color-amber-line: var(--amber-line);
 }
 
 :root {
@@ -267,43 +601,113 @@
   --toggle-track-duration: 0ms;
   --toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
 
-  --radius: 0.875rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.28 0.04 254);
-  --card: var(--background);
-  --card-foreground: oklch(0.28 0.04 254);
-  --popover: #fafafa;
-  --popover-foreground: oklch(0.28 0.04 254);
-  /* Light mode follows the product mark's soft green. Its paired deep green
-     foreground keeps primary controls legible without tinting neutral tokens. */
-  --primary: #a3d387;
-  --primary-foreground: #203526;
-  --primary-border: #a7d08b;
-  --primary-link: #567f40;
-  --secondary: #f5f5f5;
-  --secondary-foreground: oklch(0.36 0.05 254);
-  --muted: #f5f5f5;
-  --muted-foreground: oklch(0.52 0.035 254);
-  --accent: #f5f5f5;
-  --accent-foreground: oklch(0.36 0.05 254);
+  /* Radix Colors gray（MIT）：12 级实色 + 12 级半透明，所有中性语义色都指向其中一级。
+     Radix Colors gray (MIT): every neutral semantic token points at one of these steps. */
+  --gray-1: #fcfcfc;
+  --gray-2: #f9f9f9;
+  --gray-3: #f0f0f0;
+  --gray-4: #e8e8e8;
+  --gray-5: #e0e0e0;
+  --gray-6: #d9d9d9;
+  --gray-7: #cecece;
+  --gray-8: #bbbbbb;
+  --gray-9: #8d8d8d;
+  --gray-10: #838383;
+  --gray-11: #646464;
+  --gray-12: #202020;
+  --gray-a1: #00000003;
+  --gray-a2: #00000006;
+  --gray-a3: #0000000f;
+  --gray-a4: #00000017;
+  --gray-a5: #0000001f;
+  --gray-a6: #00000026;
+  --gray-a7: #00000031;
+  --gray-a8: #00000044;
+  --gray-a9: #00000072;
+  --gray-a10: #0000007c;
+  --gray-a11: #0000009b;
+  --gray-a12: #000000df;
+  /* Radix tomato（Interfere Danger 规范），只引入按钮用到的阶。 Radix tomato for the Interfere danger buttons; only the steps in use. */
+  --tomato-1: #fffcfc;
+  --tomato-9: #e54d2e;
+  --tomato-10: #dd4425;
+  --tomato-11: #d13415;
+  --tomato-a2: #ff200008;
+  --tomato-a3: #f52b0018;
+  --tomato-a5: #ff2e003d;
+  --tomato-a6: #f92d0050;
+  --tomato-a10: #d72400da;
+  --tomato-a11: #cd2200ea;
+
+  --elevation-border: 0 0 0 1px #00000012;
+  /* 控件/卡片外框色，shadow-default 与拼接控件的分隔线共用。 Resting control ring colour, shared by shadow-default and fused-group dividers. */
+  --control-ring: var(--gray-a3);
+  --elevation-default:
+    0 0 0 1px var(--control-ring), 0 1px 2px -1px #0000001f, 0 1px 3px 0 #0000000d;
+  --elevation-large:
+    0 0 0 0.5px color-mix(in oklab, var(--gray-a3), var(--gray-3) 25%),
+    0 2px 3px -2px var(--gray-a3), 0 3px 12px -4px rgb(0 0 0 / 0.1),
+    0 4px 16px -8px rgb(0 0 0 / 0.05);
+  --elevation-extra-large:
+    0 0 0 0.5px #0000000f, 0 8px 40px 0 #0000000d, 0 12px 32px -16px #00000026;
+
+  --radius: 0.5rem;
+  /* 三层表面（参考 Interfere）：外壳 shell（侧栏）→ 内容面板 background（gray-1，略低于纯白）→ 卡片 / 浮层 / 控件纯白。
+     Three surfaces: shell (sidebar) → content panel (gray-1, just under white) → white cards, popovers and controls. */
+  --background: var(--gray-1);
+  /* 首页沿用应用的三层表面：画布 = 侧栏底色，正文 = 内容面板，卡片 = card。
+     The homepage reuses the app surfaces: canvas = sidebar, page = content panel, cards = card. */
+  --home-canvas: var(--sidebar);
+  --home-surface: var(--background);
+  --home-card: var(--card);
+  --foreground: var(--gray-12);
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --control: #ffffff;
+  --popover-foreground: var(--foreground);
+  /* 品牌蓝（Interfere brand = Radix blue）：实色填充用 blue-9，链接文字用 blue-11 保证对比度。
+     Brand blue actions (Radix blue-9); links use blue-11 for AA text contrast on light surfaces. */
+  --primary: #0090ff;
+  --primary-foreground: #ffffff;
+  --primary-border: #0588f0;
+  --primary-link: #0d74ce;
+  --secondary: var(--gray-3);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--gray-3);
+  --muted-foreground: var(--gray-11);
+  --accent: var(--gray-3);
+  --accent-foreground: var(--foreground);
+  --sunken: var(--gray-a2);
+  --component: var(--gray-a3);
+  --component-hover: var(--gray-a4);
+  --component-active: var(--gray-a5);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #eeeeed;
-  --input: #eeeeed;
-  --ring: #8fbd74;
-  /* Analytics use a vivid categorical palette independent from the brand green. */
+  /* Danger 按钮：实心用 tomato 9/10/11，浅底用 tomato alpha 2/3/5，文字 a10。 Danger buttons per the Interfere spec. */
+  --danger-solid: var(--tomato-9);
+  --danger-solid-hover: var(--tomato-10);
+  --danger-solid-active: var(--tomato-11);
+  --on-danger-solid: var(--tomato-1);
+  --danger-subtle: var(--tomato-a2);
+  --danger-subtle-hover: var(--tomato-a3);
+  --danger-subtle-active: var(--tomato-a5);
+  /* 浅底按钮补一圈同色描边，避免在浅色面上太淡。 Subtle danger gets a same-hue ring so it doesn't wash out. */
+  --danger-subtle-ring: var(--tomato-a6);
+  --danger-foreground: var(--tomato-a10);
+  --border-subtle: var(--gray-a3);
+  --border: var(--gray-a4);
+  /* Opaque equivalent of gray-a4 over the control surface; sticky grid lines must not accumulate alpha. */
+  --table-border: var(--gray-4);
+  --border-strong: var(--gray-a6);
+  --input: var(--gray-a6);
+  --ring: #5eb1ef;
+  /* Only charts that followed the light primary green adopt the brand blue. */
+  --chart-primary: #0090ff;
   --chart-1: #38bdf8;
   --chart-2: #c084fc;
   --chart-3: #2dd4bf;
   --chart-4: #fbbf24;
   --chart-5: #f472b6;
-  --pipeline-screening: color-mix(in oklab, var(--primary) 28%, var(--muted));
-  --pipeline-ai-interview: color-mix(in oklab, var(--primary) 52%, var(--muted));
-  --pipeline-human-interview: color-mix(in oklab, var(--primary) 76%, var(--muted));
-  --pipeline-offer: var(--primary);
-  --pipeline-closed-hired: var(--chart-3);
-  --pipeline-closed-rejected: var(--chart-5);
-  --chart-conversion: #7c3aed;
-  --chart-conversion-muted: #c4b5fd;
   --job-weight-skill: oklch(0.68 0.16 254);
   --job-weight-experience: oklch(0.68 0.13 200);
   --job-weight-project: oklch(0.74 0.13 78);
@@ -312,94 +716,222 @@
   --job-weight-stability: oklch(0.66 0.045 254);
   --job-weight-chip-mix: 20%;
   --job-weight-chip-border-mix: 30%;
-  --calendar-ai-interview: var(--color-emerald-500);
-  --calendar-ai-interview-foreground: var(--color-emerald-700);
-  --calendar-human-interview: var(--color-sky-500);
-  --calendar-human-interview-foreground: var(--color-sky-700);
-  --sidebar: #f7f7f7;
-  /* --sidebar: oklch(0.985 0 0); */
-  --sidebar-foreground: oklch(0.28 0 0);
-  --sidebar-primary: oklch(0.3 0 0);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0 0);
-  --sidebar-accent-foreground: oklch(0.24 0 0);
-  --sidebar-border: oklch(0.88 0 0);
-  --sidebar-ring: var(--primary);
-  --destructive-foreground: var(--color-red-800);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-900);
-  --info: var(--color-violet-500);
-  --info-foreground: var(--color-violet-900);
-  --warning: var(--color-yellow-500);
-  --warning-foreground: var(--color-yellow-900);
-  --invert: var(--color-zinc-900);
-  --invert-foreground: var(--color-zinc-50);
+  --calendar-ai-interview: var(--purple);
+  --calendar-ai-interview-foreground: var(--purple-ink);
+  --calendar-human-interview: var(--sky);
+  --calendar-human-interview-foreground: var(--sky-ink);
+  /* 侧栏即应用外壳（shell），比主面板低一档。 The sidebar doubles as the app shell, one step below the main panel. */
+  --sidebar: oklch(0.973 0 0);
+  /* 非激活项比正文略浅一档，仍保证可读。 Inactive items sit one notch under body text. */
+  --sidebar-foreground: #000000bf;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  /* 悬停是半透明灰（同 ghost 按钮）；选中项像分段 Tabs 的选中块一样抬升为控件面。
+     Hover is a translucent wash (like ghost buttons); the current item lifts onto the control surface like the selected tab. */
+  --sidebar-accent: var(--gray-a3);
+  --sidebar-accent-foreground: var(--gray-12);
+  /* 导航项悬停比 accent 再淡 20%。 Nav item hover is 20% lighter than the accent wash. */
+  --sidebar-hover: color-mix(in srgb, var(--gray-a3) 80%, transparent);
+  --sidebar-active: var(--control);
+  --sidebar-active-hover: var(--gray-2);
+  --sidebar-border: var(--gray-a3);
+  --sidebar-ring: var(--ring);
+  /* 语义色板（亮色）：基色 → 文字 ink（混入正文色，保证可读）/ 浅底 tint / 描边 line。
+     Semantic palette: one base per hue; text, fill, and border are derived so every hue reads as one family. */
+  --green: oklch(0.652 0.131 162.9);
+  --sky: oklch(0.671 0.118 219.4);
+  /* 与品牌蓝同源，徽标与选中态和主色保持一致。 Shares the brand blue so badges match primary. */
+  --blue: #0090ff;
+  --purple: oklch(0.62 0.18 293);
+  --pink: oklch(0.67 0.19 3);
+  --red: oklch(0.64 0.19 27);
+  --orange: oklch(0.71 0.16 48);
+  --amber: oklch(0.757 0.153 66.4);
+  --green-ink: color-mix(in oklab, var(--green) 72%, var(--foreground));
+  --green-tint: color-mix(in oklab, var(--green) 14%, var(--background));
+  --green-line: color-mix(in oklab, var(--green) 32%, var(--background));
+  --sky-ink: color-mix(in oklab, var(--sky) 72%, var(--foreground));
+  --sky-tint: color-mix(in oklab, var(--sky) 14%, var(--background));
+  --sky-line: color-mix(in oklab, var(--sky) 32%, var(--background));
+  --blue-ink: color-mix(in oklab, var(--blue) 72%, var(--foreground));
+  --blue-tint: color-mix(in oklab, var(--blue) 14%, var(--background));
+  --blue-line: color-mix(in oklab, var(--blue) 32%, var(--background));
+  --purple-ink: color-mix(in oklab, var(--purple) 72%, var(--foreground));
+  --purple-tint: color-mix(in oklab, var(--purple) 14%, var(--background));
+  --purple-line: color-mix(in oklab, var(--purple) 32%, var(--background));
+  --pink-ink: color-mix(in oklab, var(--pink) 72%, var(--foreground));
+  --pink-tint: color-mix(in oklab, var(--pink) 14%, var(--background));
+  --pink-line: color-mix(in oklab, var(--pink) 32%, var(--background));
+  --red-ink: color-mix(in oklab, var(--red) 72%, var(--foreground));
+  --red-tint: color-mix(in oklab, var(--red) 14%, var(--background));
+  --red-line: color-mix(in oklab, var(--red) 32%, var(--background));
+  --orange-ink: color-mix(in oklab, var(--orange) 72%, var(--foreground));
+  --orange-tint: color-mix(in oklab, var(--orange) 14%, var(--background));
+  --orange-line: color-mix(in oklab, var(--orange) 32%, var(--background));
+  /* 琥珀基色最亮，文字多混一些正文色，保证警示文字可读。 */
+  --amber-ink: color-mix(in oklab, var(--amber) 62%, var(--foreground));
+  --amber-tint: color-mix(in oklab, var(--amber) 14%, var(--background));
+  --amber-line: color-mix(in oklab, var(--amber) 32%, var(--background));
+  --destructive-foreground: var(--red-ink);
+  --success: var(--green);
+  --success-foreground: var(--green-ink);
+  --info: var(--purple);
+  --info-foreground: var(--purple-ink);
+  --warning: var(--amber);
+  --warning-foreground: var(--amber-ink);
+  --invert: var(--gray-12);
+  --invert-foreground: var(--gray-1);
 }
 
 .dark {
-  --background: oklch(0.215 0.018 254);
-  --foreground: oklch(0.97 0.006 254);
-  --card: oklch(0.215 0.018 254);
-  --card-foreground: oklch(0.97 0.006 254);
-  --popover: oklch(0.215 0.018 254);
-  --popover-foreground: oklch(0.97 0.006 254);
+  /* 暗色为纯中性灰（Radix gray dark），不再偏蓝。 Dark mode uses pure neutral Radix gray, no blue cast. */
+  --gray-1: #111111;
+  --gray-2: #191919;
+  --gray-3: #222222;
+  --gray-4: #2a2a2a;
+  --gray-5: #313131;
+  --gray-6: #3a3a3a;
+  --gray-7: #484848;
+  --gray-8: #606060;
+  --gray-9: #6e6e6e;
+  --gray-10: #7b7b7b;
+  --gray-11: #b4b4b4;
+  --gray-12: #eeeeee;
+  --gray-a1: #00000000;
+  --gray-a2: #ffffff09;
+  --gray-a3: #ffffff12;
+  --gray-a4: #ffffff1b;
+  --gray-a5: #ffffff22;
+  --gray-a6: #ffffff2c;
+  --gray-a7: #ffffff3b;
+  --gray-a8: #ffffff55;
+  --gray-a9: #ffffff64;
+  --gray-a10: #ffffff72;
+  --gray-a11: #ffffffaf;
+  --gray-a12: #ffffffed;
+  --tomato-1: #181111;
+  --tomato-9: #e54d2e;
+  --tomato-10: #ec6142;
+  --tomato-11: #ff977d;
+  --tomato-a2: #ff55330f;
+  --tomato-a3: #ff35232b;
+  --tomato-a5: #fe332153;
+  --tomato-a6: #ff4f3864;
+  --tomato-a10: #ff6847eb;
+  --tomato-a11: #ff977d;
+
+  --elevation-border: 0 0 0 1px #ffffff12;
+  --control-ring: var(--gray-a4);
+  --elevation-default:
+    inset 0 0 0 1px var(--control-ring), inset 0 1px 0 0 var(--gray-a3),
+    0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --elevation-large:
+    0 0 0 1px color-mix(in oklab, var(--gray-a3), var(--gray-6) 25%),
+    0 2px 3px -2px rgb(0 0 0 / 0.15), 0 3px 8px -2px rgb(0 0 0 / 0.4),
+    0 4px 12px -4px rgb(0 0 0 / 0.5);
+  --elevation-extra-large:
+    inset 0 0 0 0.5px #ffffff12, 0 8px 40px 0 #0000000d, 0 12px 32px -16px #00000026;
+
+  --background: var(--gray-1);
+  --home-canvas: var(--sidebar);
+  /* 首页暗色比应用底色亮一级，卡片再亮一级，避免整页发闷。
+     The dark homepage sits one step above the app background, with cards one step higher. */
+  --home-surface: var(--gray-2);
+  --home-card: var(--gray-3);
+  --foreground: var(--gray-12);
+  --card: var(--gray-2);
+  --card-foreground: var(--gray-12);
+  --popover: var(--gray-2);
+  --popover-foreground: var(--gray-12);
+  --control: var(--gray-2);
   /* Dark mode keeps Klein blue as the action color; paired blue tints stay legible on dark surfaces. */
   --primary: #1d4ed8;
   --primary-foreground: #ffffff;
   --primary-border: var(--ring);
   --primary-link: var(--primary);
-  --secondary: oklch(0.255 0.02 254);
-  --secondary-foreground: oklch(0.97 0.006 254);
-  --muted: oklch(0.255 0.02 254);
-  --muted-foreground: oklch(0.74 0.03 254);
-  --accent: oklch(0.255 0.02 254);
-  --accent-foreground: oklch(0.97 0.006 254);
+  --secondary: var(--gray-3);
+  --secondary-foreground: var(--gray-12);
+  --muted: var(--gray-3);
+  --muted-foreground: var(--gray-11);
+  --accent: var(--gray-3);
+  --accent-foreground: var(--gray-12);
+  --sunken: rgb(0 0 0 / 0.4);
+  --component: var(--gray-a3);
+  --component-hover: var(--gray-a4);
+  --component-active: var(--gray-a5);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  /* 暗色实心 Danger 文字用纯白。 Solid danger text is white in dark mode. */
+  --on-danger-solid: #ffffff;
+  --border-subtle: var(--gray-a4);
+  --border: var(--gray-a5);
+  --table-border: var(--gray-6);
+  --border-strong: var(--gray-a7);
+  --input: var(--gray-a7);
   --ring: #4f70d2;
   --chart-1: #38bdf8;
   --chart-2: #c084fc;
   --chart-3: #2dd4bf;
   --chart-4: #fbbf24;
   --chart-5: #f472b6;
-  --pipeline-screening: color-mix(in oklab, var(--primary) 28%, var(--muted));
-  --pipeline-ai-interview: color-mix(in oklab, var(--primary) 52%, var(--muted));
-  --pipeline-human-interview: color-mix(in oklab, var(--primary) 76%, var(--muted));
-  --pipeline-offer: var(--primary);
-  --pipeline-closed-hired: var(--chart-3);
-  --pipeline-closed-rejected: var(--chart-5);
-  --chart-conversion: #7c3aed;
-  --chart-conversion-muted: #c4b5fd;
   --job-weight-skill: oklch(0.52 0.08 254);
   --job-weight-experience: oklch(0.52 0.06 200);
   --job-weight-project: oklch(0.54 0.06 78);
   --job-weight-education: oklch(0.52 0.07 300);
   --job-weight-potential: oklch(0.54 0.06 32);
-  --job-weight-stability: oklch(0.48 0.02 254);
+  --job-weight-stability: oklch(0.48 0 0);
   --job-weight-chip-mix: 10%;
   --job-weight-chip-border-mix: 16%;
-  --calendar-ai-interview: var(--color-emerald-500);
-  --calendar-ai-interview-foreground: var(--color-emerald-300);
-  --calendar-human-interview: var(--color-sky-500);
-  --calendar-human-interview-foreground: var(--color-sky-300);
-  --sidebar: #0e151e;
-  --sidebar-foreground: oklch(0.97 0.006 254);
+  --calendar-ai-interview: var(--purple);
+  --calendar-ai-interview-foreground: var(--purple-ink);
+  --calendar-human-interview: var(--sky);
+  --calendar-human-interview-foreground: var(--sky-ink);
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffffcc;
   --sidebar-primary: #1d4ed8;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: oklch(0.255 0.02 254);
-  --sidebar-accent-foreground: oklch(0.97 0.006 254);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: var(--gray-a3);
+  --sidebar-accent-foreground: var(--gray-12);
+  --sidebar-hover: color-mix(in srgb, var(--gray-a3) 80%, transparent);
+  --sidebar-active: var(--gray-3);
+  --sidebar-active-hover: var(--gray-4);
+  --sidebar-border: var(--gray-a3);
   --sidebar-ring: var(--primary);
-  --destructive-foreground: var(--color-red-600);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-600);
-  --info: var(--color-violet-500);
-  --info-foreground: var(--color-violet-600);
-  --warning: var(--color-yellow-500);
-  --warning-foreground: var(--color-yellow-600);
-  --invert: var(--color-zinc-700);
-  --invert-foreground: var(--color-zinc-50);
+  /* 语义色板（暗色）：基色不变，文字提亮、浅底与描边加深混合比例，保证暗底上的层次。 */
+  /* 暗色蓝沿用克莱因蓝色系。 Dark-mode blue stays in the Klein blue family. */
+  --blue: oklch(0.626 0.205 254.9);
+  --green-ink: color-mix(in oklab, var(--green) 80%, white);
+  --green-tint: color-mix(in oklab, var(--green) 24%, var(--background));
+  --green-line: color-mix(in oklab, var(--green) 40%, var(--background));
+  --sky-ink: color-mix(in oklab, var(--sky) 80%, white);
+  --sky-tint: color-mix(in oklab, var(--sky) 24%, var(--background));
+  --sky-line: color-mix(in oklab, var(--sky) 40%, var(--background));
+  --blue-ink: color-mix(in oklab, var(--blue) 80%, white);
+  --blue-tint: color-mix(in oklab, var(--blue) 24%, var(--background));
+  --blue-line: color-mix(in oklab, var(--blue) 40%, var(--background));
+  --purple-ink: color-mix(in oklab, var(--purple) 80%, white);
+  --purple-tint: color-mix(in oklab, var(--purple) 24%, var(--background));
+  --purple-line: color-mix(in oklab, var(--purple) 40%, var(--background));
+  --pink-ink: color-mix(in oklab, var(--pink) 80%, white);
+  --pink-tint: color-mix(in oklab, var(--pink) 24%, var(--background));
+  --pink-line: color-mix(in oklab, var(--pink) 40%, var(--background));
+  --red-ink: color-mix(in oklab, var(--red) 80%, white);
+  --red-tint: color-mix(in oklab, var(--red) 24%, var(--background));
+  --red-line: color-mix(in oklab, var(--red) 40%, var(--background));
+  --orange-ink: color-mix(in oklab, var(--orange) 80%, white);
+  --orange-tint: color-mix(in oklab, var(--orange) 24%, var(--background));
+  --orange-line: color-mix(in oklab, var(--orange) 40%, var(--background));
+  --amber-ink: color-mix(in oklab, var(--amber) 80%, white);
+  --amber-tint: color-mix(in oklab, var(--amber) 24%, var(--background));
+  --amber-line: color-mix(in oklab, var(--amber) 40%, var(--background));
+  --destructive-foreground: var(--red-ink);
+  --success: var(--green);
+  --success-foreground: var(--green-ink);
+  --info: var(--purple);
+  --info-foreground: var(--purple-ink);
+  --warning: var(--amber);
+  --warning-foreground: var(--amber-ink);
+  --invert: var(--gray-6);
+  --invert-foreground: var(--gray-12);
 }
 
 @layer base {
@@ -479,7 +1011,7 @@
 
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, white);
-    color: #173e2c;
+    color: var(--foreground);
   }
 
   .dark ::selection {
@@ -657,6 +1189,55 @@
   animation: text-shimmer var(--text-shimmer-duration, 2s) linear infinite;
 }
 
+/* Streamdown 根节点自带 space-y-4（utilities 层），回退到 typeset 的段落间距。 */
+@layer utilities {
+  .streaming-markdown > * {
+    margin-block: revert-layer;
+  }
+}
+
+/* beautifului.dev Loading State：像素格 + 文字流光。 */
+@keyframes pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  18%,
+  42% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes loading-shimmer-text {
+  from {
+    background-position: 150% center;
+  }
+  to {
+    background-position: -50% center;
+  }
+}
+
+.ai-pixel-loader-cell {
+  opacity: 0.15;
+  animation: pixel-on 650ms ease-in-out infinite;
+}
+
+.ai-loading-shimmer-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 65%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: loading-shimmer-text 1.4s linear infinite;
+}
+
 /* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
    transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
@@ -675,6 +1256,17 @@
   .ai-text-shimmer {
     animation: none !important;
     background-position: 0% center;
+  }
+
+  .ai-pixel-loader-cell {
+    animation: none !important;
+    opacity: 0.6;
+  }
+
+  .ai-loading-shimmer-text {
+    animation: none !important;
+    background: none;
+    color: var(--color-muted-foreground);
   }
 
   .t-toggle-thumb {
@@ -833,6 +1425,25 @@
   }
 }
 
+/* 高对比度偏好：边框与次要文字各提一档。 Higher contrast preference: borders and secondary text step up. */
+@media (prefers-contrast: more) {
+  :root {
+    --table-border: var(--gray-7);
+  }
+  .dark {
+    --table-border: #4e4e4e;
+  }
+  :root,
+  .dark {
+    --border-subtle: var(--gray-a6);
+    --border: var(--gray-a7);
+    --border-strong: var(--gray-a8);
+    --input: var(--gray-a8);
+    --muted-foreground: var(--gray-12);
+    --danger-foreground: var(--tomato-a11);
+  }
+}
+
 /* Apple §14 — near-solid backgrounds with a defined contrasting border. */
 @media (prefers-contrast: more) {
   [class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
@@ -852,21 +1463,4 @@
   --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
   --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
-}
-
-/* TanStack Charts native tooltip surface — soft, compact shadow */
-.arc-ts-chart-tooltip {
-  min-width: 8rem;
-  max-width: 18rem;
-  border-radius: 0.5rem;
-  border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
-  background: var(--background);
-  padding: 0.375rem 0.625rem;
-  color: var(--foreground);
-  font-size: 0.75rem;
-  line-height: 1.35;
-  box-shadow:
-    0 2px 8px -2px rgb(0 0 0 / 0.08),
-    0 1px 2px -1px rgb(0 0 0 / 0.04);
-  white-space: pre-line;
 }

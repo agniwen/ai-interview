@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -9,12 +9,13 @@ function readRepoFile(relativePath: string) {
 }
 
 describe("Docker env configuration", () => {
-  it("copies app runtime workspace manifests before every Bun install", () => {
-    const runtimeWorkspaceManifests = [
-      "packages/ai-runtime/package.json",
-      "packages/meeting-media/package.json",
-      "packages/object-storage/package.json",
-    ];
+  it("copies every workspace package manifest before every Bun install", () => {
+    // The frozen lockfile lists every workspace package, so each manifest must exist at install time.
+    const runtimeWorkspaceManifests = readdirSync(path.join(repoRoot, "packages"))
+      .map((name) => `packages/${name}/package.json`)
+      .filter((manifest) => existsSync(path.join(repoRoot, manifest)));
+
+    expect(runtimeWorkspaceManifests).toContain("packages/recruiting/package.json");
 
     for (const dockerfilePath of ["apps/web/Dockerfile", "apps/worker/Dockerfile"]) {
       const installStages = readRepoFile(dockerfilePath)

@@ -48,14 +48,6 @@ function Harness() {
       fixedRecruitingGroup={firstSearchValue(search.boardPreset)}
       grid={grid}
       metrics={undefined}
-      metricsChartKey="team:0"
-      metricsError={null}
-      metricsFetching={false}
-      metricsScope="team"
-      metricsSwitching={false}
-      onMetricsRetry={() => Promise.resolve()}
-      onMetricsScopeChange={vi.fn()}
-      slug="default"
     >
       <button
         disabled={!grid.bind.canResetFilters}
@@ -182,7 +174,6 @@ describe("recruitment board filter state", () => {
   it("hides the fixed sidebar stage while keeping its subflow filters available", async () => {
     await renderPage({ boardPreset: "interview", stage: "interview:all" });
     expect(document.querySelector("h1")?.textContent).toBe("招聘台·面试");
-    expect(document.querySelectorAll('[data-slot="metrics-card-skeleton"]')).toHaveLength(2);
     expect(document.querySelector('[role="tablist"][aria-label="招聘阶段"]')).toBeNull();
     expect(
       [...document.querySelectorAll('[role="tablist"][aria-label="面试子流程"] [role="tab"]')].map(

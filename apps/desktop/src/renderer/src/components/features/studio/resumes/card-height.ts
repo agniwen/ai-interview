@@ -1,16 +1,6 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Desktop window floor (see `src/main/window.ts` minWidth).
- * Used as documentation for the tightest layout; heights key off viewport
- * so they stay aligned with Tailwind `sm` / `xl` / `2xl` layout breakpoints.
- */
-export const DESKTOP_MIN_WINDOW_WIDTH = 800;
-
-/** Matches `--sidebar-width: 17rem` (default 16px root → 272px). */
-export const DESKTOP_SIDEBAR_EXPANDED_PX = 17 * 16;
-
-/**
  * Desktop 招聘台 **fixed** virtual row heights (includes row `pb-3` = 12px).
  *
  * Shorter than web: no checkbox / action rail. Work/education profile is
@@ -19,7 +9,7 @@ export const DESKTOP_SIDEBAR_EXPANDED_PX = 17 * 16;
  *
  * Breakpoints follow **viewport** (same as Tailwind on the card).
  */
-export const RESUME_LIBRARY_CARD_HEIGHTS = {
+const RESUME_LIBRARY_CARD_HEIGHTS = {
   /** viewport < 640 — single-col meta, no profile */
   base: 280,
   /** viewport 640–1279 — wrapped meta, compact profile trigger */
@@ -30,7 +20,7 @@ export const RESUME_LIBRARY_CARD_HEIGHTS = {
   xxl: 217,
 } as const;
 
-export function getResumeLibraryCardHeight(viewportWidth: number) {
+function getResumeLibraryCardHeight(viewportWidth: number) {
   if (viewportWidth >= 1536) {
     return RESUME_LIBRARY_CARD_HEIGHTS.xxl;
   }

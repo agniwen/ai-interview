@@ -58,7 +58,7 @@ export interface ResumeRecordDetailResult {
   resumeRecords?: ResumeRecordToolDetail[];
 }
 
-export interface ResumeRecordToolDetail {
+interface ResumeRecordToolDetail {
   candidateName: string;
   citation: CopilotCitation;
   id: string;

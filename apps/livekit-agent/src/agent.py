@@ -47,15 +47,16 @@ from livekit.agents import (
     metrics as lk_metrics,
 )
 from livekit.plugins import (
-    ai_coustics,  # LiveKit Cloud only, disabled for self-hosted
     minimax,
-    noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
     openai,
 )
 
 import aliyun_stt
 import qwen_realtime
 from agent_config import resolve_agent_name, resolve_self_hosted, resolve_voice_mode
+from answer_reconciliation import extract_answers
+from connection_notifications import ConnectionNotifications
+from debug_trace import trace
 from dispatch_context import (
     DispatchContextError,
     InterviewDispatchContext,
@@ -76,7 +77,7 @@ from recording import (
 from report import send_question_checkpoint, send_report
 from report_outbox import report_recovery_process
 from sentry_setup import initialize_sentry
-from transcript_replay import replay_turns_to
+from transcript_replay import publish_ordered_user_turn, replay_turns_to
 
 logger = logging.getLogger("agent")
 
@@ -148,6 +149,12 @@ def _empty_metrics_state() -> dict[str, Any]:
                 "total_completion_tokens": 0,
                 "total_prompt_tokens": 0,
                 "total_tokens": 0,
+                # Realtime only: audio input costs several times more than text.
+                "input_text_tokens": 0,
+                "input_audio_tokens": 0,
+                "input_cached_tokens": 0,
+                "output_text_tokens": 0,
+                "output_audio_tokens": 0,
                 "total_duration": 0.0,
                 "ttft_sum": 0.0,
                 "ttft_count": 0,
@@ -220,6 +227,7 @@ class SessionState:
     # doesn't garbage-collect it mid-flight.
     eager_stop_task: asyncio.Task[None] | None = None
     checkpoint_tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    ordered_transcript_tasks: set[asyncio.Task[None]] = field(default_factory=set)
     interview_agent: InterviewAgent | RealtimeInterviewAgent | None = None
     completion_status: str | None = None
 
@@ -229,7 +237,7 @@ class SessionState:
 # --------------------------------------------------------------------------- #
 
 
-server = AgentServer()
+server = AgentServer(shutdown_process_timeout=30)
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -286,7 +294,11 @@ def _pick_noise_cancellation(params: Any) -> Any:
     抽成具名函数后 traceback 更友好, 也方便日后增加判别条件.
     """
     if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP:
+        from livekit.plugins import noise_cancellation
+
         return noise_cancellation.BVCTelephony()
+    from livekit.plugins import ai_coustics
+
     return ai_coustics.audio_enhancement(
         model=ai_coustics.EnhancerModel.QUAIL_VF_L,
         model_parameters=ai_coustics.ModelParameters(
@@ -321,6 +333,7 @@ def _build_session(
             max_sentence_silence=int(
                 os.environ.get("DASHSCOPE_STT_MAX_SENTENCE_SILENCE_MS") or "1300"
             ),
+            vad_model=os.environ.get("DASHSCOPE_STT_VAD_MODEL") or "near_meeting_16k",
             vocabulary_id=os.environ.get("DASHSCOPE_STT_VOCABULARY_ID") or None,
             workspace=os.environ.get("DASHSCOPE_WORKSPACE_ID") or None,
             base_url=os.environ.get("DASHSCOPE_STT_BASE_URL") or None,
@@ -434,17 +447,27 @@ def _accumulate_metrics(metrics_state: dict[str, Any], m: Any) -> None:
             turns[speech_id] = b
         return b
 
-    if isinstance(m, lk_metrics.LLMMetrics):
+    if isinstance(m, (lk_metrics.LLMMetrics, lk_metrics.RealtimeModelMetrics)):
+        realtime = isinstance(m, lk_metrics.RealtimeModelMetrics)
         llm = sess["llm"]
         llm["request_count"] += 1
-        llm["total_completion_tokens"] += m.completion_tokens
-        llm["total_prompt_tokens"] += m.prompt_tokens
+        llm["total_completion_tokens"] += (
+            m.output_tokens if realtime else m.completion_tokens
+        )
+        llm["total_prompt_tokens"] += m.input_tokens if realtime else m.prompt_tokens
         llm["total_tokens"] += m.total_tokens
+        if realtime:
+            inp, out = m.input_token_details, m.output_token_details
+            llm["input_text_tokens"] += inp.text_tokens
+            llm["input_audio_tokens"] += inp.audio_tokens
+            llm["input_cached_tokens"] += inp.cached_tokens
+            llm["output_text_tokens"] += out.text_tokens
+            llm["output_audio_tokens"] += out.audio_tokens
         llm["total_duration"] += m.duration
         if m.ttft > 0:
             llm["ttft_sum"] += m.ttft
             llm["ttft_count"] += 1
-        b = bucket(m.speech_id)
+        b = bucket(m.request_id if realtime else m.speech_id)
         if b is not None:
             b["llm_ttft"] = m.ttft
             b["llm_duration"] = m.duration
@@ -536,11 +559,15 @@ async def _on_session_end(ctx: JobContext) -> None:
     concurrently and is best-effort because the egress_ended webhook on the
     web side reconciles the final status.
     """
+    if ctx.room.name.startswith("human_"):
+        return
     state: SessionState = ctx.primary_session.userdata
     recording_info = state.recording_info or {}
     ended_at = state.ended_at or time.time()
 
     if state.interview_agent is not None:
+        if isinstance(state.interview_agent, RealtimeInterviewAgent):
+            await state.interview_agent.reconcile_answers()
         # Prefer business reason recorded during the session over a generic
         # system_shutdown label so partial coverage is diagnosable.
         finalize_reason = (
@@ -649,6 +676,12 @@ async def my_agent(ctx: JobContext) -> None:
       3) 启 session + 三种定时器 (hard timeout / wind-down cue / hot-reconnect).
       4) 一切结束后由 framework 调 _on_session_end 做上报与收尾.
     """
+    from human_transcription.contract import route_job
+    from human_transcription.runtime import run_human_transcription
+
+    if route_job(ctx.job.metadata, ctx.room.name) == "human":
+        await run_human_transcription(ctx)
+        return
     ctx.log_context_fields = {"room": ctx.room.name}
 
     # ---- 1) 候选人加入 + 元数据 + 录像 + 主考官选择 -------------------------
@@ -710,6 +743,10 @@ async def my_agent(ctx: JobContext) -> None:
     # ---- 2) 装配 session + 监听 --------------------------------------------
     # ---- 2) Build session + register listeners
     session = _build_session(proc=ctx.proc, selected_voice=selected_voice, state=state)
+    if isinstance(session.llm, qwen_realtime.RealtimeModel):
+        notifications = ConnectionNotifications(ctx.room.local_participant)
+        session.llm.on_connection_state_changed = notifications
+        ctx.add_shutdown_callback(notifications.aclose)
     # Startup itself can emit close(error), before any timer has been created.
     timeout_task: asyncio.Task[None] | None = None
     final_wrap_task: asyncio.Task[None] | None = None
@@ -725,6 +762,34 @@ async def my_agent(ctx: JobContext) -> None:
     @session.on("metrics_collected")
     def _on_metrics_collected(event: Any) -> None:
         _accumulate_metrics(state.metrics, event.metrics)
+        m = event.metrics
+        if isinstance(m, lk_metrics.RealtimeModelMetrics):
+            trace(
+                "response_usage",
+                request_id=m.request_id,
+                cancelled=m.cancelled,
+                duration=round(m.duration, 2),
+                input_tokens=m.input_tokens,
+                output_tokens=m.output_tokens,
+                input_text=m.input_token_details.text_tokens,
+                input_audio=m.input_token_details.audio_tokens,
+                input_cached=m.input_token_details.cached_tokens,
+                output_text=m.output_token_details.text_tokens,
+                output_audio=m.output_token_details.audio_tokens,
+            )
+
+    @session.on("function_tools_executed")
+    def _on_tools_executed(event: Any) -> None:
+        for call, output in zip(
+            event.function_calls, event.function_call_outputs, strict=False
+        ):
+            trace(
+                "tool",
+                name=call.name,
+                arguments=call.arguments,
+                output=output.output if output else None,
+                is_error=output.is_error if output else None,
+            )
 
     @session.on("conversation_item_added")
     def _on_conversation_item(event: Any) -> None:
@@ -738,6 +803,12 @@ async def my_agent(ctx: JobContext) -> None:
         text = item.text_content
         if not text or not text.strip():
             return
+        trace(
+            "message",
+            role=item.role,
+            text=text,
+            interrupted=getattr(item, "interrupted", False),
+        )
         role_str = item.role
         if role_str == "assistant":
             role_str = "agent"
@@ -751,6 +822,28 @@ async def my_agent(ctx: JobContext) -> None:
                 "timeInCallSecs": round(elapsed),
             }
         )
+        if role_str == "user":
+
+            async def _publish_user_turn() -> None:
+                try:
+                    await publish_ordered_user_turn(
+                        ctx.room.local_participant,
+                        candidate_identity=participant.identity,
+                        item_id=item.id,
+                        text=text.strip(),
+                        started_at=item.created_at,
+                    )
+                except Exception:
+                    logger.exception("ordered user transcript publish failed")
+
+            task = asyncio.create_task(_publish_user_turn())
+            state.ordered_transcript_tasks.add(task)
+            task.add_done_callback(state.ordered_transcript_tasks.discard)
+        if isinstance(state.interview_agent, RealtimeInterviewAgent):
+            state.interview_agent.observe_turn(
+                item.id, role_str, text.strip(), elapsed, started_at=item.created_at
+            )
+            state.interview_agent.schedule_reconciliation()
         logger.debug("turn collected: %s (%.0fs)", role_str, elapsed)
 
     @session.on("close")
@@ -810,6 +903,11 @@ async def my_agent(ctx: JobContext) -> None:
         interview_context,
         clock=clock,
         on_question_completed=_on_question_completed,
+        **(
+            {"answer_extractor": extract_answers}
+            if agent_type is RealtimeInterviewAgent
+            else {}
+        ),
     )
     state.interview_agent = interview_agent
 

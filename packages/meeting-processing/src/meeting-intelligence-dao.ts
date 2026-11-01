@@ -11,7 +11,7 @@ import {
   member,
   user,
 } from "@app/db-schema/schema";
-import type { MeetingIntelligenceJobData } from "@app/meeting-processing-queue/meeting-intelligence";
+import type { MeetingIntelligenceJobData } from "@app/job-queues/meeting-intelligence";
 import type {
   MeetingIntelligenceGenerationProgress,
   MeetingIntelligencePayload,

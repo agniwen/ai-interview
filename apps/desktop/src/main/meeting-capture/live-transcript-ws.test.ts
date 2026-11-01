@@ -132,6 +132,20 @@ function createConnection(overrides: Partial<DashScopeRealtimeWsDependencies> = 
 }
 
 describe("connectDashScopeRealtimeWs", () => {
+  it("starts Qwen Audio 3.1 on the streaming endpoint with its VAD model", () => {
+    const { connection, instance } = createConnection({
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
+      model: "qwen-audio-3.1-asr-flash-streaming",
+    });
+    instance.onopen?.();
+    const run = JSON.parse(String(instance.sent[0]));
+    expect(instance.url).toBe("wss://dashscope.aliyuncs.com/api-ws/v1/inference");
+    expect(run.payload.model).toBe("qwen-audio-3.1-asr-flash-streaming");
+    expect(run.payload.parameters.vad_model).toBe("far_field_meeting_16k");
+    expect(run.payload.parameters).not.toHaveProperty("max_sentence_silence");
+    connection.close();
+  });
+
   it("classifies provider capacity failures without exposing raw provider messages", () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { dependencies, instance } = createConnection({

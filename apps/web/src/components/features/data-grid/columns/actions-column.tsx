@@ -11,26 +11,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@app/shared/utils";
 import type { DataGridFeatures } from "../table-features";
 
-export interface ActionInline<TData> {
+interface ActionInline<TData> {
   /** Visible button text and aria-label/title fallback. */
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   disabled?: (row: TData) => boolean;
-  /** 禁用时显示在 title 里的解释文字。/ Reason shown in title when disabled. */
+  /** 禁用时通过 Tooltip 显示原因。/ Reason shown in a tooltip when disabled. */
   disabledReason?: (row: TData) => string | null;
   show?: (row: TData) => boolean;
 }
 
-export interface ActionMenuItem<TData> {
+interface ActionMenuItem<TData> {
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   variant?: "default" | "destructive";
   separator?: "before";
   show?: (row: TData) => boolean;
   disabled?: (row: TData) => boolean;
-  /** 禁用时显示在 title 里的解释文字。/ Reason shown in title when disabled. */
+  /** 禁用时通过 Tooltip 显示原因。/ Reason shown in a tooltip when disabled. */
   disabledReason?: (row: TData) => string | null;
 }
 
@@ -61,7 +63,11 @@ const HEADER_LABEL = "操作";
 
 /** Text-only table action that adopts the secondary button surface on hover. */
 export const TABLE_ACTION_BUTTON_CLASS =
-  "h-8 px-2.5 text-xs hover:border-border hover:bg-secondary/80 hover:text-secondary-foreground";
+  "h-7 px-2.5 text-xs hover:bg-component hover:text-secondary-foreground";
+
+/** focusableWhenDisabled 渲染 aria-disabled 而非原生 disabled，需补齐禁用态样式。 */
+const DISABLED_WITH_REASON_CLASS =
+  "aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-transparent aria-disabled:hover:bg-transparent aria-disabled:hover:text-foreground";
 
 function estimateActionLabelWidth(label: string) {
   let width = 0;
@@ -137,21 +143,34 @@ export function actionsColumn<TData extends RowData>(
           {visibleInline.map((action) => {
             const disabled = action.disabled?.(record) ?? false;
             const reason = disabled ? (action.disabledReason?.(record) ?? null) : null;
-            return (
+            const button = (
               <Button
                 aria-label={action.label}
-                className={TABLE_ACTION_BUTTON_CLASS}
+                className={cn(TABLE_ACTION_BUTTON_CLASS, DISABLED_WITH_REASON_CLASS)}
                 disabled={disabled}
+                focusableWhenDisabled={reason !== null}
                 key={action.label}
                 onClick={async () => {
-                  await action.onClick(record);
+                  if (!disabled) {
+                    await action.onClick(record);
+                  }
                 }}
                 size="sm"
-                title={reason ?? action.label}
+                title={reason ? undefined : action.label}
                 variant="text"
               >
                 {action.label}
               </Button>
+            );
+            // 原生 disabled 按钮不响应悬停，保留可聚焦并用 Tooltip 说明禁用原因。
+            // Disabled buttons swallow hover; keep them focusable and explain via Tooltip.
+            return reason ? (
+              <Tooltip key={action.label}>
+                <TooltipTrigger render={button} />
+                <TooltipContent>{reason}</TooltipContent>
+              </Tooltip>
+            ) : (
+              button
             );
           })}
           {visibleMenu.length > 0 ? (
@@ -177,19 +196,35 @@ export function actionsColumn<TData extends RowData>(
                 {visibleMenu.map((item, index) => {
                   const itemDisabled = item.disabled?.(record) ?? false;
                   const itemReason = itemDisabled ? (item.disabledReason?.(record) ?? null) : null;
+                  const menuItem = (
+                    <DropdownMenuItem
+                      disabled={itemDisabled}
+                      onClick={async () => {
+                        if (!itemDisabled) {
+                          await item.onClick(record);
+                        }
+                      }}
+                      variant={item.variant}
+                    >
+                      {item.label}
+                    </DropdownMenuItem>
+                  );
                   return (
                     <div key={item.label}>
                       {item.separator === "before" && index > 0 ? <DropdownMenuSeparator /> : null}
-                      <DropdownMenuItem
-                        disabled={itemDisabled}
-                        onClick={async () => {
-                          await item.onClick(record);
-                        }}
-                        title={itemReason ?? undefined}
-                        variant={item.variant}
-                      >
-                        {item.label}
-                      </DropdownMenuItem>
+                      {itemReason ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Disabled menu items ignore pointer events; expose their explanation to hover and keyboard focus.
+                              <div tabIndex={0}>{menuItem}</div>
+                            }
+                          />
+                          <TooltipContent side="left">{itemReason}</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        menuItem
+                      )}
                     </div>
                   );
                 })}

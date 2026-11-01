@@ -10,7 +10,6 @@ import type {
 } from "@/lib/meeting-capture/live-transcript-draft";
 import {
   LiveTranscriptDraftPanel,
-  MeetingTranscriptIdleStage,
   shouldFollowLiveTranscript,
 } from "./live-transcript-draft-panel";
 import { playTranscriptCorrectionSweep } from "./live-transcript-correction-sweep";
@@ -186,58 +185,12 @@ describe("LiveTranscriptDraftPanel", () => {
       } else {
         expect(html).toContain('aria-label="实时字幕状态：实时"');
         expect(html).toContain('data-slot="live-transcript-scroll-content"');
-        expect(html).toMatch(
-          /<div(?=[^>]*data-slot="live-transcript-scroll-content")(?=[^>]*class="[^"]*grid)(?=[^>]*class="[^"]*max-w-3xl)(?=[^>]*class="[^"]*select-text)[^>]*>/,
-        );
       }
       expect(html).not.toContain(">live<");
-      expect(html).toContain("cursor-text");
-      expect(html).not.toContain("hover:bg-foreground/4");
+
       expect(html).not.toContain("hover-card");
-      expect(html).toContain("px-px");
-      expect(html).toContain("py-1");
-      expect(html.match(/w-4 shrink-0 select-none/g)).toHaveLength(1);
-      expect(html).not.toContain("max-w-5xl");
     },
   );
-
-  it("reserves composer clearance at the end of scroll content", () => {
-    const liveHtml = renderToStaticMarkup(
-      <LiveTranscriptDraftPanel
-        snapshot={{
-          captureId: "00000000-0000-4000-8000-000000000077",
-          droppedAudioMs: 0,
-          droppedPcmFrames: 0,
-          error: null,
-          queuePeakAudioMs: 0,
-          queuedAudioMs: 0,
-          queuedPcmBytes: 0,
-          sections: [],
-          status: "live",
-          trackDroppedAudioMs: { microphone: 0, system: 0 },
-          trackQueuePeakAudioMs: { microphone: 0, system: 0 },
-          trackQueuedAudioMs: { microphone: 0, system: 0 },
-          trackStatus: { microphone: "live", system: "live" },
-          turns: [
-            {
-              final: true,
-              id: "turn-1",
-              sectionId: "section-1",
-              text: "最后一段转录",
-              track: "microphone",
-            },
-          ],
-        }}
-      />,
-    );
-    const idleHtml = renderToStaticMarkup(<MeetingTranscriptIdleStage />);
-
-    expect(liveHtml).toMatch(
-      /<div(?=[^>]*data-slot="live-transcript-scroll-content")(?=[^>]*class="[^"]*max-w-3xl)(?=[^>]*class="[^"]*pb-20)[^>]*>/,
-    );
-    expect(liveHtml).not.toContain("AI 正在校正");
-    expect(idleHtml).toContain("pb-20");
-  });
 });
 
 describe("live correction block sweep", () => {

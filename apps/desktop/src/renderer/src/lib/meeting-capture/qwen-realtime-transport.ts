@@ -187,7 +187,7 @@ export async function connectQwenRealtimeTranscription(input: {
       clientPort.postMessage({ type: "close" }, []);
       clientPort.close();
     },
-    correct: input.authorization.model.startsWith("qwen-audio-3.0-asr-flash-streaming")
+    correct: /^qwen-audio-3\.[01]-asr-flash-streaming(?:$|-)/u.test(input.authorization.model)
       ? (batch) => {
           if (closing) {
             return false;

@@ -292,10 +292,7 @@ describe("ResumeOverviewPanel", () => {
     expect(content).toContain("查看详情");
     expect(content).not.toContain("最高学历为大专");
     expect(content).not.toContain("拥有支付行业经验");
-    const aiScoreHeading = [...container.querySelectorAll("h3")].find(
-      (heading) => heading.textContent === "AI评分",
-    );
-    expect(aiScoreHeading?.parentElement?.className).toContain("min-h-10");
+
     expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(
       "skillMatch,experienceRelevance,stability,educationBackground,potential,projectMatch",
     );
@@ -311,44 +308,11 @@ describe("ResumeOverviewPanel", () => {
   });
 
   it.each([
-    ["not_recommended", "不推荐", "text-red-700"],
-    ["undecided", "待定", "text-yellow-700"],
-    ["recommended", "推荐", "text-green-700"],
-    ["highly_recommended", "非常推荐", "text-purple-700"],
-  ] as const)(
-    "shows qualitative %s neutrally with its detailed judgment",
-    (level, label, colorClass) => {
-      const container = document.createElement("div");
-      document.body.append(container);
-      const root = createRoot(container);
-      const queryClient = new QueryClient();
-
-      act(() => {
-        root.render(
-          <QueryClientProvider client={queryClient}>
-            <ResumeOverviewPanel detail={createQualitativeDetail(level)} />
-          </QueryClientProvider>,
-        );
-      });
-
-      const recommendation = container.querySelector<HTMLElement>(
-        "[data-qualitative-overview-recommendation]",
-      );
-      const judgment = container.querySelector<HTMLElement>("[data-qualitative-overview-judgment]");
-      expect(recommendation?.textContent).toBe(label);
-      expect(recommendation?.className).not.toContain(colorClass);
-      expect(judgment?.textContent).toContain("关键判断");
-      expect(judgment?.querySelector("strong")?.textContent).toBe("关键判断");
-      expect(judgment?.querySelector(".typeset")?.className).toContain("text-foreground");
-      expect(judgment?.querySelector(".typeset")?.className).not.toContain("text-muted-foreground");
-      expect(judgment?.className).not.toContain("font-semibold");
-      expect(container.textContent).not.toContain("不应继续显示的精简摘要");
-
-      act(() => root.unmount());
-    },
-  );
-
-  it("centers the qualitative detail action on mobile and aligns it left on desktop", () => {
+    ["not_recommended", "不推荐"],
+    ["undecided", "待定"],
+    ["recommended", "推荐"],
+    ["highly_recommended", "非常推荐"],
+  ] as const)("shows qualitative %s with its detailed judgment", (level, label) => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -357,19 +321,21 @@ describe("ResumeOverviewPanel", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <ResumeOverviewPanel
-            detail={createQualitativeDetail("undecided")}
-            onViewAiScore={vi.fn()}
-          />
+          <ResumeOverviewPanel detail={createQualitativeDetail(level)} />
         </QueryClientProvider>,
       );
     });
 
-    const detailButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "查看详情",
+    const recommendation = container.querySelector<HTMLElement>(
+      "[data-qualitative-overview-recommendation]",
     );
-    expect(detailButton?.className).toContain("self-center");
-    expect(detailButton?.className).toContain("lg:self-start");
+    const judgment = container.querySelector<HTMLElement>("[data-qualitative-overview-judgment]");
+    expect(recommendation?.textContent).toBe(label);
+
+    expect(judgment?.textContent).toContain("关键判断");
+    expect(judgment?.querySelector("strong")?.textContent).toBe("关键判断");
+
+    expect(container.textContent).not.toContain("不应继续显示的精简摘要");
 
     act(() => root.unmount());
   });

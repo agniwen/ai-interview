@@ -1,0 +1,1 @@
+ALTER TABLE "human_interview_evaluation_snapshot" ADD COLUMN "review_findings" jsonb;

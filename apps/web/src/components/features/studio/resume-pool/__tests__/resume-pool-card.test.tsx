@@ -2,7 +2,6 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -22,6 +21,7 @@ import {
   uploaderMetaLabel,
 } from "../resume-pool-page-model";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
+import { resumePoolCardRecord } from "./resume-pool-card-fixture";
 
 // SAFETY: React's test environment flag is intentionally attached to globalThis.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -31,89 +31,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const record = {
-  candidateEmail: "candidate@example.com",
-  candidateName: "测试候选人",
-  candidatePhone: "13800138000",
-  createdAt: "2026-07-31T00:00:00.000Z",
-  createdBy: "user-1",
-  duplicateMatch: null,
-  id: "resume-pool-1",
-  importedAt: null,
-  importedRecords: [],
-  importedResumeRecordId: null,
-  jobBindingMode: null,
-  jobDescriptionId: "jd-product",
-  jobDescriptionName: "AI 产品经理",
-  masteredSkills: Array.from({ length: 12 }, (_, index) => `技能 ${index + 1}`),
-  notes: "具备完整的 AI 招聘产品设计与落地经验。",
-  organizationId: "organization-1",
-  profileHighlights: {
-    educationItems: [],
-    educationLines: [],
-    latestCompany: "极光矩阵",
-    latestCompanyDetail: {
-      period: "2025.02-至今",
-      role: "前端工程师",
-      summary: "负责 AI 招聘产品前端。",
-    },
-    latestProject: "智能招聘看板",
-    latestProjectDetail: {
-      period: "2025.01-2025.05",
-      role: "负责人",
-      summary: "负责候选人数据分析与可视化。",
-    },
-    personalStrengths: ["擅长复杂招聘产品的设计与落地。", "能够推动跨团队协作"],
-    schools: [],
-  },
-  publishedAt: null,
-  publishedBy: null,
-  qualitativeRecommendationLevel: null,
-  qualitativeResumeSummary: null,
-  resumeContentHash: null,
-  resumeEvaluationContractVersion: null,
-  resumeEvaluationGeneratedAt: null,
-  resumeFileName: "测试候选人.pdf",
-  resumeParseError: null,
-  resumeParseRetryable: false,
-  resumeParseStatus: "ready",
-  resumeParsedAt: null,
-  resumeProfileSnapshot: {
-    education: [
-      {
-        period: "2018.09 - 2022.06",
-        primary: "上海交通大学",
-        secondary: "计算机科学",
-      },
-    ],
-    educationHasMore: false,
-    projects: [],
-    projectsHasMore: false,
-    work: [
-      {
-        period: "2025.02 - 至今",
-        primary: "极光矩阵",
-        secondary: "前端工程师",
-      },
-    ],
-    workHasMore: false,
-  },
-  resumeStorageKey: "resumes/test.pdf",
-  scope: "public",
-  skillsNormalized: [],
-  sourceChannel: "mail_ingest",
-  sourceOrganizationId: null,
-  sourcePoolItemId: null,
-  sourceUserId: null,
-  status: "active",
-  targetRole: "AI 产品经理",
-  updatedAt: "2026-07-31T00:00:00.000Z",
-  uploaderEmail: "recruiter@example.com",
-  uploaderImage: "https://example.com/recruiter.png",
-  uploaderName: "王敏",
-  uploaderOrganizationName: null,
-  workYears: 5,
-} satisfies ResumePoolListRecord;
+const record = resumePoolCardRecord;
 
 const qualitativeDimension = {
   basis: "job" as const,
@@ -142,7 +60,9 @@ const qualitativeEvaluation = {
 };
 
 const defaultRetryProps = {
+  canEdit: false,
   canRetryParse: false,
+  onEdit: () => {},
   onPreviewResume: () => {},
   onRetryParse: () => {},
   retrying: false,
@@ -165,7 +85,6 @@ describe("ResumePoolCard", () => {
             canEnterRecruiting={true}
             canRecommend={true}
             deleting={false}
-            enteringRecruiting={false}
             onBindJobDescription={() => {}}
             onDelete={() => {}}
             onEnterRecruiting={() => {}}
@@ -191,7 +110,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={true}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -213,25 +131,23 @@ describe("ResumePoolCard", () => {
     expect(html).not.toContain("负责 AI 招聘产品前端。");
     expect(html).not.toContain("具备完整的 AI 招聘产品设计与落地经验。");
     expect(html).toContain('data-slot="avatar-fallback"');
-    expect(html).toContain("技能 6");
-    expect(html).not.toContain("技能 7");
     expect(html).not.toContain("已解析");
     expect(html).not.toContain("待进入招聘");
 
     const actionLabels = [...html.matchAll(/data-resume-pool-card-action="([^"]+)"/gu)].map(
       (match) => match[1],
     );
-    expect(actionLabels).toEqual(["详情", "进入招聘"]);
-    expect(html.indexOf('aria-label="查看简历"')).toBeLessThan(
-      html.indexOf('aria-label="查看人才详情"'),
-    );
+    // 点击卡片即进入详情，操作区不再重复提供「详情」按钮。
+    // Clicking the card opens the detail, so the action row has no separate detail button.
+    expect(actionLabels).toEqual(["进入招聘"]);
+    expect(html).not.toContain('aria-label="查看人才详情"');
     expect(html).not.toContain("推荐岗位");
     expect(html).toContain("更换");
     expect(html).toContain('aria-label="更换绑定岗位"');
     expect(html).not.toContain("删除");
   });
 
-  it("prefers the qualitative short evaluation and clamps the description to three lines", () => {
+  it("prefers the qualitative short evaluation over the legacy summary", () => {
     const qualitativeSummary =
       "候选人的核心产品经验与岗位要求匹配，能够独立推动复杂招聘产品落地，建议进入下一轮。";
     const html = renderToStaticMarkup(
@@ -243,7 +159,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -252,6 +167,7 @@ describe("ResumePoolCard", () => {
           record={{
             ...record,
             qualitativeRecommendationLevel: "recommended",
+            qualitativeResumeFocus: { format: "markdown", text: "- **主导**招聘产品从 0 到 1" },
             qualitativeResumeSummary: qualitativeSummary,
             resumeEvaluationContractVersion: "qualitative-v2",
           }}
@@ -262,8 +178,8 @@ describe("ResumePoolCard", () => {
 
     expect(html).toContain(qualitativeSummary);
     expect(html).not.toContain("擅长复杂招聘产品的设计与落地");
-    expect(html).toContain("line-clamp-3");
-    expect(html).not.toContain("line-clamp-2");
+    expect(html).toContain("<strong>主导</strong>");
+    expect(html).toContain("招聘产品从 0 到 1");
   });
 
   it("only shows parse failures and the imported recruiting-flow status", () => {
@@ -276,7 +192,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -296,7 +211,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={false}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -338,7 +252,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={true}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -370,7 +283,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -440,7 +352,6 @@ describe("ResumePoolCard", () => {
             canEnterRecruiting={true}
             canRecommend={true}
             deleting={false}
-            enteringRecruiting={false}
             onBindJobDescription={onBindJobDescription}
             onDelete={() => {}}
             onEnterRecruiting={() => {}}
@@ -501,7 +412,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={onDelete}
           onEnterRecruiting={() => {}}
@@ -539,7 +449,6 @@ describe("ResumePoolCard", () => {
           canRecommend={false}
           canRetryParse
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -568,7 +477,7 @@ describe("ResumePoolCard", () => {
     act(() => root.unmount());
   });
 
-  it("invokes detail and recruiting actions without triggering the card click twice", () => {
+  it("opens the detail from the card and keeps the recruiting action from also opening it", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -584,7 +493,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={onEnterRecruiting}
@@ -597,7 +505,7 @@ describe("ResumePoolCard", () => {
     });
 
     act(() => {
-      document.querySelector<HTMLButtonElement>('[aria-label="查看人才详情"]')?.click();
+      container.querySelector<HTMLElement>("article")?.click();
     });
     expect(onOpenDetail).toHaveBeenCalledTimes(1);
 
@@ -626,7 +534,6 @@ describe("ResumePoolCard", () => {
           canEnterRecruiting={true}
           canRecommend={false}
           deleting={false}
-          enteringRecruiting={false}
           onBindJobDescription={() => {}}
           onDelete={() => {}}
           onEnterRecruiting={() => {}}
@@ -649,12 +556,12 @@ describe("ResumePoolCard", () => {
   });
 
   it("uses fixed virtual-row heights for every responsive breakpoint", () => {
-    expect(getResumePoolCardHeight(390)).toBe(356);
-    expect(getResumePoolCardHeight(640)).toBe(308);
-    expect(getResumePoolCardHeight(768)).toBe(286);
-    expect(getResumePoolCardHeight(1024)).toBe(246);
-    expect(getResumePoolCardHeight(1280)).toBe(220);
-    expect(getResumePoolCardHeight(1536)).toBe(218);
+    expect(getResumePoolCardHeight(390)).toBe(428);
+    expect(getResumePoolCardHeight(640)).toBe(428);
+    expect(getResumePoolCardHeight(768)).toBe(512);
+    expect(getResumePoolCardHeight(1024)).toBe(512);
+    expect(getResumePoolCardHeight(1280)).toBe(384);
+    expect(getResumePoolCardHeight(1536)).toBe(384);
   });
 
   it("labels mail-ingested resumes as an email scan", () => {
@@ -700,7 +607,7 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("<li>核心能力匹配岗位</li>");
   });
 
-  it("prefers the qualitative recommendation and renders all six dimensions", () => {
+  it("prefers the qualitative recommendation and lists six collapsed dimensions", () => {
     const summary = renderToStaticMarkup(
       <ResumePoolDetailSummaryPanel
         detail={{
@@ -726,6 +633,7 @@ describe("ResumePoolCard", () => {
           qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
           resumeProfile: null,
         }}
+        slug="default"
       />,
     );
 
@@ -733,6 +641,7 @@ describe("ResumePoolCard", () => {
     expect(summary).toContain(qualitativeEvaluation.conciseOverall);
     expect(summary).not.toContain("旧六维数字评分");
     expect(details.match(/data-qualitative-dimension-header/g)).toHaveLength(6);
+    expect(details).not.toContain("data-qualitative-dimension-basis");
   });
 
   it("keeps the evaluation unseparated and adds one separator above structured details", () => {
@@ -743,6 +652,7 @@ describe("ResumePoolCard", () => {
           qualitativeResumeEvaluation: qualitativeEvaluation,
           resumeProfile: null,
         }}
+        slug="default"
       />,
     );
     const structured = renderToStaticMarkup(
@@ -751,6 +661,26 @@ describe("ResumePoolCard", () => {
 
     expect(evaluation).toMatch(/^<section data-resume-pool-qualitative-evaluation="true">/u);
     expect(structured).toMatch(/^<section class="space-y-4 border-border\/50 border-t pt-6">/u);
+  });
+
+  it("previews the evaluation only while no job is bound", () => {
+    const render = (jobDescriptionId: string | null) =>
+      renderToStaticMarkup(
+        <ResumePoolQualitativeEvaluationPanel
+          detail={{
+            ...record,
+            jobDescriptionId,
+            qualitativeResumeEvaluation: null,
+            resumeProfile: null,
+          }}
+          onRequestRecommendations={vi.fn()}
+          slug="default"
+        />,
+      );
+
+    expect(render(null)).toContain("data-resume-pool-evaluation-placeholder");
+    expect(render(null)).toContain("推荐岗位");
+    expect(render("jd_1")).toBe("");
   });
 
   it("denies job recommendation actions without permission", () => {

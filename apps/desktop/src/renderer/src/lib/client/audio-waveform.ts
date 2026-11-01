@@ -33,7 +33,7 @@ export function peaksFromChannelData(channel: ArrayLike<number>, bars = WAVEFORM
   return peaks.map((value) => Math.min(1, Math.max(0.08, value / peak)));
 }
 
-export async function extractWaveformPeaks(url: string, bars = WAVEFORM_BARS): Promise<number[]> {
+async function extractWaveformPeaks(url: string, bars = WAVEFORM_BARS): Promise<number[]> {
   const key = `${waveformCacheKey(url)}:${bars}`;
   const cached = waveformCache.get(key);
   if (cached) {

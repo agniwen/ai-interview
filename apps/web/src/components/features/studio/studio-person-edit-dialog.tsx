@@ -10,6 +10,16 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
+import {
+  getResumeProfileDraftError,
+  ResumeProfileEditor,
+} from "@/components/features/resume/profile-editor/resume-profile-editor";
+import {
+  createResumeProfileDraft,
+  isResumeProfileDraftChanged,
+  toResumeProfileEditInput,
+} from "@/components/features/resume/profile-editor/resume-profile-draft";
+import type { ResumeProfileDraft } from "@/components/features/resume/profile-editor/resume-profile-draft";
 import { DateTimePicker } from "@/components/date-time-picker";
 import {
   AlertDialog,
@@ -46,6 +56,7 @@ import {
   getResumeActionLockedReason,
   resumeLibraryEditFormSchema,
 } from "@app/shared/studio-resumes";
+import { resumeProfileEditSchema } from "@app/shared/resume-profile-edit";
 import {
   getScheduleEntryDateValue,
   scheduleEntryStatusMeta,
@@ -192,6 +203,10 @@ function ResumeEditBody({
 }: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
   const [hydratedFormKey, setHydratedFormKey] = useState<string | null>(null);
+  // 简历画像草稿与其初始快照；未改动时不提交，避免触发重新评价。
+  // Resume profile draft and its baseline; untouched drafts are not submitted.
+  const [profileDraft, setProfileDraft] = useState<ResumeProfileDraft | null>(null);
+  const [initialProfileDraft, setInitialProfileDraft] = useState<ResumeProfileDraft | null>(null);
 
   // 拉取当前记录详情，open + recordId 同时为真才触发。
   // Fetch the existing record; only enabled when the dialog is open and has a target id.
@@ -222,6 +237,23 @@ function ResumeEditBody({
       }
       // 编辑弹窗不再提交简历文件 / 系统评价（notes / resumeReview），服务端也会忽略这两项。
       // Edit dialog no longer submits resume file or system notes; backend ignores them too.
+      const profileChanged = Boolean(
+        profileDraft &&
+        initialProfileDraft &&
+        isResumeProfileDraftChanged(initialProfileDraft, profileDraft),
+      );
+      let resumeProfilePayload: string | null = null;
+      if (profileDraft && profileChanged) {
+        const draftError = getResumeProfileDraftError(profileDraft, { requireName: false });
+        const parsedProfile = resumeProfileEditSchema.safeParse(
+          toResumeProfileEditInput(profileDraft),
+        );
+        if (draftError || !parsedProfile.success) {
+          toast.error(draftError ?? parsedProfile.error?.issues[0]?.message ?? "简历解析信息无效");
+          return;
+        }
+        resumeProfilePayload = JSON.stringify(toResumeProfileEditInput(profileDraft));
+      }
       const formData = new FormData();
       formData.append("candidateName", value.candidateName);
       formData.append("candidateEmail", value.candidateEmail);
@@ -229,6 +261,9 @@ function ResumeEditBody({
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
       formData.append("hrResumeAssessment", value.hrResumeAssessment);
+      if (resumeProfilePayload) {
+        formData.append("resumeProfile", resumeProfilePayload);
+      }
 
       try {
         await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes/${recordId}`, {
@@ -253,11 +288,18 @@ function ResumeEditBody({
   useEffect(() => {
     if (!query.data) {
       form.reset(formDefaultValues);
+      setProfileDraft(null);
+      setInitialProfileDraft(null);
       setHydratedFormKey(null);
       return;
     }
     const nextHydratedFormKey = `${query.data.id}:${query.data.updatedAt}`;
     form.reset(formDefaultValues);
+    const nextProfileDraft = query.data.resumeProfile
+      ? createResumeProfileDraft(query.data.resumeProfile)
+      : null;
+    setProfileDraft(nextProfileDraft);
+    setInitialProfileDraft(nextProfileDraft);
     setHydratedFormKey(nextHydratedFormKey);
     // form 实例在渲染间稳定，此处仅依赖 query.data 的引用变化。
     // form instance is stable across renders; only depend on query.data identity.
@@ -329,6 +371,15 @@ function ResumeEditBody({
             showResumeFile={false}
             showSystemNotes={false}
           />
+          {profileDraft ? (
+            <div className="border-t pt-6">
+              <ResumeProfileEditor
+                disabled={isSubmitting || isResumeLocked}
+                onChange={setProfileDraft}
+                value={profileDraft}
+              />
+            </div>
+          ) : null}
         </form>
       )}
     </Modal>

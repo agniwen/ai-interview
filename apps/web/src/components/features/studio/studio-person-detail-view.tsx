@@ -10,7 +10,7 @@
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import { AnimatePresence, m } from "motion/react";
+import { CandidateActionDock } from "./candidate-action-dock/candidate-action-dock";
 import { createPortal } from "react-dom";
 import { cn } from "@app/shared/utils";
 
@@ -27,7 +27,6 @@ import {
 import { Tabs } from "@/components/ui/tabs";
 import { useHydrated } from "@/hooks/use-hydrated";
 
-import { DETAIL_PAGE_FLOATING_ACTION_CLASS } from "./studio-person-detail-model";
 import type { StudioPersonDetailSlots, StudioPersonDetailTab } from "./studio-person-detail-model";
 import { InterviewReportMetadataDialog } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
@@ -59,6 +58,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     description,
     dispatchUi,
     floatingActionBar,
+    floatingActionBarPlacement,
     headerExtra,
     humanInterviewQuestionDialogOpen,
     isLoading,
@@ -68,7 +68,6 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     onConfirmHumanInterviewQuestions,
     onHumanInterviewQuestionDialogOpenChange,
     pendingResetSubmissionId,
-    reduceMotion,
     setActiveTab,
     setMetadataReport,
     shell,
@@ -76,8 +75,29 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
   } = model;
 
   const body = <StudioPersonDetailBody model={model} />;
+  const actionDock = floatingActionBar ? (
+    <CandidateActionDock
+      placement={floatingActionBarPlacement}
+      key={`${model.slug}:${model.record?.id}`}
+      candidateName={model.record?.candidateName ?? "候选人"}
+    >
+      {floatingActionBar}
+      <HumanInterviewQuestionDialog
+        candidateName={model.record?.candidateName ?? null}
+        onConfirmed={onConfirmHumanInterviewQuestions}
+        onOpenChange={onHumanInterviewQuestionDialogOpenChange}
+        open={humanInterviewQuestionDialogOpen}
+        recordId={model.record?.id ?? null}
+      />
+    </CandidateActionDock>
+  ) : null;
   const footer = null;
-  const bodyClassName = undefined;
+  // 悬浮操作栏盖在弹窗底部，给主体留出同等空间，避免遮住最后的内容。
+  // Reserve room under the in-modal dock so it never covers the last content.
+  const bodyClassName =
+    floatingActionBar && floatingActionBarPlacement === "container"
+      ? "pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-[calc(5.5rem+env(safe-area-inset-bottom))]"
+      : undefined;
   const modalClassName = "sm:rounded-2xl";
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
@@ -88,6 +108,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
       <Tabs
         className={cn(
           floatingActionBar &&
+            floatingActionBarPlacement === "viewport" &&
             "pb-[calc(14rem+env(safe-area-inset-bottom))] md:pb-[calc(7rem+env(safe-area-inset-bottom))]",
         )}
         onValueChange={(value) => {
@@ -106,35 +127,14 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
           isLoading,
           modalClassName,
           modalSize,
+          // 弹窗里悬浮操作栏相对弹窗居中，交给外壳渲染在弹窗内部。
+          // In a modal the dock is rendered by the shell inside the modal so it centers there.
+          overlay: floatingActionBarPlacement === "container" ? actionDock : null,
           title,
         })}
       </Tabs>
-      {isHydrated
-        ? createPortal(
-            <AnimatePresence>
-              {floatingActionBar ? (
-                <m.div
-                  animate={{ opacity: 1, y: 0 }}
-                  className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center"
-                  exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
-                  initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
-                  transition={
-                    reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
-                  }
-                >
-                  <div
-                    className={cn(
-                      "pointer-events-auto flex w-full max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl p-2 md:w-auto md:rounded-md md:p-1",
-                      DETAIL_PAGE_FLOATING_ACTION_CLASS,
-                    )}
-                  >
-                    {floatingActionBar}
-                  </div>
-                </m.div>
-              ) : null}
-            </AnimatePresence>,
-            document.body,
-          )
+      {isHydrated && floatingActionBarPlacement === "viewport"
+        ? createPortal(actionDock, document.body)
         : null}
       {mode === "interview" && canViewReportMetadata ? (
         <InterviewReportMetadataDialog
@@ -146,7 +146,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
           report={metadataReport}
         />
       ) : null}
-      {mode === "resume" ? (
+      {mode === "resume" && !floatingActionBar ? (
         <HumanInterviewQuestionDialog
           candidateName={model.record?.candidateName ?? null}
           onConfirmed={onConfirmHumanInterviewQuestions}

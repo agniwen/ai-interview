@@ -1,11 +1,12 @@
 "use client";
 
-import { IconArrowDown, IconDownload } from "@tabler/icons-react";
+import { IconDownload } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
 
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { Button } from "@/components/ui/button";
+import { ScrollToBottomButton } from "@/components/ui/scroll-to-bottom-button";
 import { cn } from "@app/shared/utils";
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
@@ -63,7 +64,7 @@ export function ConversationEmptyState({
   );
 }
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
+export type ConversationScrollButtonProps = ComponentProps<typeof ScrollToBottomButton>;
 
 export function ConversationScrollButton({ className, ...props }: ConversationScrollButtonProps) {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
@@ -74,29 +75,21 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
 
   return (
     !isAtBottom && (
-      <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/40 bg-background/80 shadow-xs backdrop-blur-sm hover:bg-accent/60",
-          className,
-        )}
+      <ScrollToBottomButton
+        className={cn("absolute bottom-4 left-1/2 -translate-x-1/2", className)}
         onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
         {...props}
-      >
-        <IconArrowDown className="size-4" />
-      </Button>
+      />
     )
   );
 }
 
-export interface ConversationMessage {
+interface ConversationMessage {
   role: "user" | "assistant" | "system" | "data" | "tool";
   content: string;
 }
 
-export type ConversationDownloadProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
+type ConversationDownloadProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
   messages: ConversationMessage[];
   filename?: string;
   formatMessage?: (message: ConversationMessage, index: number) => string;
@@ -107,14 +100,14 @@ function defaultFormatMessage(message: ConversationMessage): string {
   return `**${roleLabel}:** ${message.content}`;
 }
 
-export function messagesToMarkdown(
+function messagesToMarkdown(
   messages: ConversationMessage[],
   formatMessage: (message: ConversationMessage, index: number) => string = defaultFormatMessage,
 ): string {
   return messages.map((msg, i) => formatMessage(msg, i)).join("\n\n");
 }
 
-export function ConversationDownload({
+function ConversationDownload({
   ref,
   messages,
   filename = "conversation.md",

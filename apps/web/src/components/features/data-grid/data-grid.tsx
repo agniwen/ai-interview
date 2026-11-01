@@ -5,6 +5,7 @@ import type {
   HeaderContext,
   OnChangeFn,
   PaginationState,
+  Row,
   RowData,
   RowSelectionState,
   SortingState,
@@ -32,7 +33,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@app/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
 import { Toolbar } from "./parts/toolbar";
+import { DataGridVirtualTable } from "./parts/virtual-table";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
+import { useTableViewportHeight } from "./use-table-viewport-height";
 import { ListLoadError } from "./list-load-error";
 import { dataGridFeatures } from "./table-features";
 import type { DataGridFeatures } from "./table-features";
@@ -42,6 +45,7 @@ const DEFAULT_END_COLUMN_PINNING = ["actions"];
 const EMPTY_COLUMN_PINNING: string[] = [];
 const EMPTY_SORTING: SortingState = [];
 const DATA_GRID_ROW_CLASS = "h-[53px]";
+const DATA_GRID_ROW_HEIGHT = 53;
 const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
 const EMPTY_SKELETON_ROWS: Record<string, never>[] = [];
 const DATA_GRID_I18N = {
@@ -117,7 +121,7 @@ function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowC
         tableClassNames={{ bodyRow: DATA_GRID_ROW_CLASS }}
         tableLayout={{ cellBorder: true, headerBackground: false, rowBorder: true, width: "auto" }}
       >
-        <ReuiDataGridContainer className="rounded-lg border shadow-none">
+        <ReuiDataGridContainer className="rounded-lg border border-border bg-control [--border:var(--table-border)]">
           <DataGridScrollArea>
             <DataGridTable />
           </DataGridScrollArea>
@@ -138,7 +142,7 @@ export function DataGridContentSkeleton({
   return <DataGridSkeleton columnCount={columnCount} rowCount={rowCount} />;
 }
 
-export interface BulkActionContext<TData> {
+interface BulkActionContext<TData> {
   selectedIds: string[];
   selectedRows: TData[];
   clearSelection: () => void;
@@ -176,6 +180,8 @@ export interface DataGridProps<TData extends RowData> {
 
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  /** 返回 false 的行不可勾选（全选也会跳过）。/ Rows returning false cannot be selected. */
+  canSelectRow?: (row: TData) => boolean;
 
   filters?: ToolbarFilterConfig[];
   filterStorageKey?: string;
@@ -187,6 +193,8 @@ export interface DataGridProps<TData extends RowData> {
    */
   filtersExtra?: ReactNode;
   toolbarRight?: ReactNode;
+  /** 渲染在工具栏最前面的节点。/ Node rendered first in the toolbar. */
+  toolbarLeft?: ReactNode;
   bulkActions?: (ctx: BulkActionContext<TData>) => ReactNode;
   headerExtra?: ReactNode;
 
@@ -202,6 +210,16 @@ export interface DataGridProps<TData extends RowData> {
    */
   maxHeight?: string | null;
 
+  /**
+   * 行虚拟化 + 滚动加载：PC 端自动适配剩余高度，maxHeight 用作移动端和测量前的高度。
+   * Desktop virtualized tables fit the available space; maxHeight is the mobile/SSR fallback.
+   */
+  virtualized?: {
+    hasNextPage: boolean;
+    isFetchingNextPage: boolean;
+    fetchNextPage: () => void;
+  };
+
   /** REUI spreadsheet editing stays opt-in so existing interactive cells keep their behavior. */
   cellSelection?: boolean;
   cellEditMode?: "click" | "dblclick";
@@ -210,10 +228,25 @@ export interface DataGridProps<TData extends RowData> {
   onCellEditRequest?: (request: DataGridCellEditRequest<TData>) => void;
 }
 
+function resolveRowSelectionEnabled<TData extends RowData>(
+  rowSelection: RowSelectionState | undefined,
+  canSelectRow: ((row: TData) => boolean) | undefined,
+): boolean | ((row: Row<DataGridFeatures, TData>) => boolean) {
+  if (rowSelection === undefined) {
+    return false;
+  }
+  return canSelectRow ? (row) => canSelectRow(row.original) : true;
+}
+
+function resolveTableMaxHeight(virtualized: boolean, maxHeight: string | null) {
+  return virtualized ? `var(--data-grid-auto-max-height, ${maxHeight ?? "60svh"})` : maxHeight;
+}
+
 export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
   const {
     bulkActions,
     canResetFilters,
+    canSelectRow,
     cellEditEnterAdvance,
     cellEditMode,
     cellSelection,
@@ -244,10 +277,15 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     rowSelection,
     sorting,
     sortableColumnIds,
+    toolbarLeft,
     toolbarRight,
     total,
     totalPages,
+    virtualized,
   } = props;
+
+  const tableHeightRef = useTableViewportHeight(Boolean(virtualized));
+  const tableMaxHeight = resolveTableMaxHeight(Boolean(virtualized), maxHeight);
 
   const normalizedPinning = useMemo(
     () => ({
@@ -355,7 +393,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     data,
     // Preserve V8 non-range checkbox behavior (V9 enables Shift range by default).
     enableRowRangeSelection: false,
-    enableRowSelection: rowSelection !== undefined,
+    enableRowSelection: resolveRowSelectionEnabled(rowSelection, canSelectRow),
     enableSortingRemoval: false,
     features: dataGridFeatures,
     getRowId,
@@ -414,20 +452,47 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         cellSelection,
         columnsPinnable: hasPinning,
         headerBackground: false,
-        headerSticky: Boolean(maxHeight),
+        headerSticky: Boolean(tableMaxHeight),
         rowBorder: true,
-        width: "auto",
+        // 虚拟滚动只渲染可视行，自动布局会随行内容改变列宽；固定布局按列 size 定宽，超出省略。
+        // Virtualized rows would reflow auto-layout widths while scrolling; fixed layout pins
+        // widths to column sizes and truncates overflow.
+        width: virtualized ? "fixed" : "auto",
       }}
       tableClassNames={{
+        base: virtualized ? "[&_td]:truncate" : undefined,
         bodyRow: DATA_GRID_ROW_CLASS,
-        headerSticky: "sticky top-0 z-40 bg-background",
+        // 与表格底色（bg-control）及固定列一致，避免表头出现两种底色。
+        // Matches the grid surface (bg-control) and pinned cells so the header is one color.
+        headerSticky: "sticky top-0 z-40 bg-control",
       }}
     >
-      <ReuiDataGridContainer className="rounded-lg border shadow-none">
-        <DataGridScrollArea style={maxHeight ? { maxHeight } : undefined}>
-          <DataGridTable />
+      <ReuiDataGridContainer className="rounded-lg border border-border bg-control [--border:var(--table-border)]">
+        <DataGridScrollArea
+          // 视口的 size-full 在只有 max-height 的根节点下不生效，需继承最大高度才能成为滚动容器。
+          // The viewport's size-full cannot resolve against a max-height-only root, so inherit it.
+          className={
+            tableMaxHeight ? "[&>[data-slot=scroll-area-viewport]]:max-h-[inherit]" : undefined
+          }
+          style={tableMaxHeight ? { maxHeight: tableMaxHeight } : undefined}
+        >
+          {virtualized && !showSkeleton ? (
+            <DataGridVirtualTable estimateRowHeight={DATA_GRID_ROW_HEIGHT} {...virtualized} />
+          ) : (
+            <DataGridTable />
+          )}
         </DataGridScrollArea>
-        <DataGridPagination sizes={[...pageSizeOptions]} />
+        {virtualized ? (
+          <div
+            aria-live="polite"
+            className="flex h-12 items-center justify-between border-t px-4 text-muted-foreground text-sm"
+          >
+            <span>共 {total} 条</span>
+            {virtualized.isFetchingNextPage ? <span>加载中…</span> : null}
+          </div>
+        ) : (
+          <DataGridPagination sizes={[...pageSizeOptions]} />
+        )}
       </ReuiDataGridContainer>
     </ReuiDataGrid>
   );
@@ -448,6 +513,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         onResetFilters={onResetFilters}
         refreshing={refetching}
         searchLoading={loading}
+        toolbarLeft={toolbarLeft}
         toolbarRight={toolbarRight}
       />
 
@@ -455,22 +521,24 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         <ListLoadError compact error={error} onRetry={onRetry ?? onRefresh} />
       ) : null}
 
-      <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
-        {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
+      <div ref={tableHeightRef} className="min-w-0">
+        <SkeletonReveal className="min-w-0" loading={isInitialLoading} skeleton={renderTable(true)}>
+          {rows.length > 0 ? renderTable(false) : !isInitialLoading && emptyContent}
 
-        {rows.length === 0 && !isInitialLoading ? (
-          <PaginationBar
-            loading={loading || refetching}
-            onPageChange={pagination.onPageChange}
-            onPageSizeChange={pagination.onPageSizeChange}
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            pageSizeOptions={pageSizeOptions}
-            total={total}
-            totalPages={totalPages}
-          />
-        ) : null}
-      </SkeletonReveal>
+          {rows.length === 0 && !isInitialLoading && !virtualized ? (
+            <PaginationBar
+              loading={loading || refetching}
+              onPageChange={pagination.onPageChange}
+              onPageSizeChange={pagination.onPageSizeChange}
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={pageSizeOptions}
+              total={total}
+              totalPages={totalPages}
+            />
+          ) : null}
+        </SkeletonReveal>
+      </div>
     </div>
   );
 }

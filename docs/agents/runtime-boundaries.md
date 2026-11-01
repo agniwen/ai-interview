@@ -4,22 +4,29 @@ Read before changing package exports, HTTP clients, SSR/server functions, shared
 
 ## Backend / Web Runtime Boundary
 
-The Hono backend must stay loadable outside the TanStack Start web runtime. Files under `apps/server/src/server/` and `apps/server/src/lib/server/` must not import web-app-local `@/` modules, browser-only modules, or TanStack Start route/server-function helpers.
+The Hono backend must stay loadable outside the TanStack Start web runtime. Implementation files under `apps/server/src/` must not import web-app-local `@/` modules, browser-only modules, or TanStack Start route/server-function helpers.
 
-The single backend app factory is `createServerApp()` in `apps/server/src/server/app.ts`. The TanStack Start web app mounts that factory from `apps/web/src/server.ts`; the standalone Node entrypoint is `apps/server/src/index.ts`. Do not fork route behavior between those two adapters.
+The single backend app factory is `createServerApp()` in `apps/server/src/app.ts`. The TanStack Start web app mounts that factory from `apps/web/src/server.ts`; the standalone Node entrypoint is `apps/server/src/index.ts`. Do not fork route behavior between those two adapters.
 
 When a backend route needs a web-runtime-only capability, introduce a small port in backend code and inject the implementation from the adapter layer. Current examples:
 
 - Better Auth request-scoped headers go through `auth-request-context`; backend route modules should not read TanStack Start request primitives directly.
 - Route/page SSR data belongs in TanStack Start route loaders or `createServerFn` handlers under `apps/web/src/`, not in backend DAOs.
 
-Backend runtime helpers live under `apps/server/src/lib/server/` (package-private). TanStack Start server-function helpers live under `apps/web/src/lib/start/*`; they may use `@tanstack/react-start/server` request primitives and must use declared public package exports rather than private source paths or duplicated backend logic.
+Backend adapters and host bindings (database pool, auth, semantic-index wiring) live under `apps/server/src/infrastructure/` (package-private). TanStack Start server-function helpers live under `apps/web/src/lib/start/*`; they may use `@tanstack/react-start/server` request primitives and must use declared public package exports rather than private source paths or duplicated backend logic.
 
 ## Server Package Interface
 
-Treat `apps/server/src/server/` and `apps/server/src/lib/server/` as package-private implementation. External workspace consumers use only the explicit entrypoints currently declared in `apps/server/package.json`. Read that exports map before adding an import; a path prefix is not permission to import private modules. Web and Worker code must not import `@app/server/server/*` or `@app/server/lib/server/*`; Server-internal code uses relative imports rather than `#server/*` or `#lib/server/*` aliases.
+Treat Server source directories as package-private implementation. `apps/server/package.json` declares exactly two entrypoints, and `src/exports/tests/package-boundary.test.ts` enforces the list:
 
-Add a consumer-facing capability to the closest existing entrypoint under `apps/server/src/exports/` rather than exporting its source directory. Keep `package.json` exports explicit; never add wildcard exports or expose a route/DAO path to make an import compile. If an entrypoint becomes broad or is consumed independently by multiple applications, extract a focused `@app/*` package instead of widening `@app/server`.
+- `./rpc-client` — the Hono RPC contract (`hcWithType`, `AppType`-derived client types) consumed by Web.
+- `./web/runtime` — the Web host entry: the Server environment contract plus lazily loaded `createServerApp`, `pingDatabase`, `initializeFeishuBots`, and `startHumanInterviewDocumentSync`. Keep its static imports limited to the environment contract so Web can import it at startup without evaluating the backend.
+
+The Worker does not depend on `@app/server`. Behavior needed by both runtimes belongs in a focused `@app/*` package (see [`packages/README.md`](../../packages/README.md)); never add a Server entry for the Worker, a wildcard export, or a route/DAO path to make an import compile. Server-internal code uses relative imports or package exports.
+
+## Shared Package Database
+
+Hosts own connection pools; packages never read `DATABASE_URL`. Package modules read the ambient database from `@app/database/context`. The Server registers its pool with `setDefaultDatabase` in `infrastructure/db`, and the Worker registers the shared-workflow pool at boot (`apps/worker/src/workflow-database.ts`). A call path that must use another database binds it with `withDatabase` or `bindDatabase`. In tests, mock `@app/database/context` (or bind a fake with `withDatabase`) when the code under test lives in a package.
 
 ## Frontend HTTP Calls
 
@@ -57,17 +64,20 @@ When changes touch Hono or TanStack Start/Router/Query APIs, consult the canonic
 
 Use the official Hono `parseResponse` / `DetailedError` rather than rolling new helpers — `rpcFetch` already wraps them; extend `rpcFetch` if you need new semantics rather than reimplementing.
 
-## Lib Layout (`src/lib/` and `packages/shared/`)
+## Runtime and Module Ownership
 
 `apps/web/src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on.
 
-- **`apps/server/src/lib/server/`** — Package-private backend runtime utilities. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3, PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. These files must avoid app-local `@/` and TanStack Start request primitives so the Hono app can run in a standalone Node process.
+- **`apps/server/src/infrastructure/`** — Package-private backend adapters, database connections, and host bindings such as the semantic-index wiring. Shared processing behavior belongs in its owning workspace package and is imported from there directly; do not add re-export facades. These files must avoid app-local `@/` and TanStack Start request primitives so the Hono app can run in a standalone Node process.
 - **`@/lib/start/*`** — TanStack Start server-function and route-loader helpers. These may use `createServerFn`, `@tanstack/react-start/server`, and backend primitives.
-- **`@/lib/server/*`** — Small web server helpers that belong to the TanStack Start app but are not shared with the standalone Hono runtime.
+- **`apps/web/nitro/`** — Nitro plugins, handlers, and helpers for deployment/runtime integrations; distinct from the TanStack Start adapter `src/server.ts`. Keep tests in `nitro/__tests__/`, outside auto-discovered `routes/`, `plugins/`, and `utils/`; colocated tests can become production endpoints or bundle dependencies.
+- **`@/lib/og-image/response.server.tsx`** — Web-owned server-only OG response generation, colocated with the OG feature.
 - **`@/lib/client/*`** — Browser helpers. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, and the `api/` wrapper layer.
 - **`@app/shared/*`** — Workspace package for pure types, Zod schemas, and isomorphic utilities (no web runtime, no server secrets, no Node-only APIs unless the API is also available in supported browsers/Node runtimes). Examples: `@app/shared/interview/agent-instructions`, `@app/shared/utils`, `@app/shared/data-url`, `@app/shared/file-hash`, `@app/shared/departments`, `@app/shared/studio-resumes`. Do not recreate `src/lib/shared/` inside the app.
 - **`@app/ai-runtime`**, **`@app/meeting-media`**, and **`@app/object-storage`** — App-owned server/Worker runtime tools extracted into workspace packages. New runtime, infrastructure, and stable-contract packages all use the `@app/*` scope.
 
-**Drizzle schema lives in the `@app/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. Import as `@app/db-schema/schema`, `@app/db-schema/relations`, `@app/db-schema/candidate-forms`, etc. The actual DB connection lives in `apps/server/src/lib/server/db/` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`.
+**Drizzle schema lives in the `@app/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. Import as `@app/db-schema/schema`, `@app/db-schema/relations`, `@app/db-schema/candidate-forms`, etc. The actual DB connection lives in `apps/server/src/infrastructure/db/` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`.
 
-When a module _mostly_ fits `@app/shared` but has one backend-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `apps/server/src/lib/server/` and keep the rest in `@app/shared`. Don't pull `node:*`, TanStack Start request helpers, or app-local `@/` imports into `packages/shared/src`.
+When a module _mostly_ fits `@app/shared` but has one backend-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `apps/server/src/infrastructure/` and keep the rest in `@app/shared`. Don't pull `node:*`, TanStack Start request helpers, or app-local `@/` imports into `packages/shared/src`.
+
+Use capability names for business modules and runtime names for adapters. Keep a module with its owning capability; reserve `utils` for focused local helpers. When reorganizing directories, preserve public export names and check import specifiers, configuration, build entrypoints, and documentation together.

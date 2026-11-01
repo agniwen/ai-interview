@@ -1,5 +1,4 @@
 import type {
-  HumanInitialInterviewDetail,
   InitialInterviewList,
   InitialInterviewRoles,
 } from "@app/shared/human-initial-interview";
@@ -11,12 +10,6 @@ function path(slug: string, recordId: string) {
 }
 export function fetchInitialInterviews(slug: string, recordId: string) {
   return apiJson<InitialInterviewList>(apiUrl(path(slug, recordId)), "加载评价表信息失败");
-}
-export function fetchInitialInterview(slug: string, recordId: string, snapshotId: string) {
-  return apiJson<HumanInitialInterviewDetail>(
-    apiUrl(`${path(slug, recordId)}/${encodeURIComponent(snapshotId)}`),
-    "加载资料快照失败",
-  );
 }
 export function createInitialInterview(
   slug: string,

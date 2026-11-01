@@ -1,13 +1,13 @@
 import {
   enqueueHumanInterviewEvaluationJobs,
   isHumanInterviewEvaluationQueueConfigured,
-} from "@app/meeting-processing-queue/human-interview-evaluation";
+} from "@app/job-queues/human-interview-evaluation";
 import {
   enqueueMeetingIntelligenceJobs,
   isMeetingIntelligenceQueueConfigured,
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
-} from "@app/meeting-processing-queue/meeting-intelligence";
+} from "@app/job-queues/meeting-intelligence";
 import type { MeetingIntelligenceTemplate } from "@app/shared/meeting-intelligence";
 
 interface MeetingIntelligenceAutomaticDependencies {

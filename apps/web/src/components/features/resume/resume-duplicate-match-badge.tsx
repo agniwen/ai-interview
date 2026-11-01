@@ -76,12 +76,7 @@ function DuplicateMatchBadgeContent({
       {description.creatorName && description.suffix ? (
         <span className="inline-flex min-w-0 items-center">
           <span className="shrink-0">{description.prefix}</span>
-          <Avatar
-            aria-hidden
-            className="mx-0.5 size-4"
-            generatedSize={16}
-            seed={`creator:${description.creatorName}`}
-          >
+          <Avatar aria-hidden className="mx-0.5 size-4" seed={`creator:${description.creatorName}`}>
             <AvatarImage alt="" src={description.creatorImage ?? undefined} />
             <AvatarFallback aria-hidden className="text-[8px] leading-none">
               {description.creatorName.slice(0, 1)}
@@ -116,7 +111,7 @@ export function ResumeDuplicateMatchBadge({
 
   if (!onClick) {
     return (
-      <Badge className="max-w-full" title={description.fullLabel} variant={variant}>
+      <Badge className="max-w-full" dot title={description.fullLabel} variant={variant}>
         <DuplicateMatchBadgeContent description={description} />
       </Badge>
     );
@@ -124,7 +119,8 @@ export function ResumeDuplicateMatchBadge({
 
   return (
     <Badge
-      className="max-w-full cursor-pointer"
+      className="max-w-full cursor-pointer focus-visible:border-transparent"
+      dot
       render={
         <button
           onClick={(event) => {
@@ -132,7 +128,7 @@ export function ResumeDuplicateMatchBadge({
             event.stopPropagation();
             onClick();
           }}
-          className="inline-flex min-w-0 items-center overflow-hidden"
+          className="inline-flex min-w-0 items-center overflow-hidden outline-none"
           type="button"
         >
           <DuplicateMatchBadgeContent description={description} />

@@ -25,7 +25,7 @@ import { getLocale, getTextDirection } from "@/paraglide/runtime";
 import { getSidebarInitialState } from "@/lib/start/sidebar-preferences";
 
 const ROOT_DESCRIPTION =
-  "面向招聘团队的 AI 协同工作台，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。AI Hiring Copilot — one connected hiring workflow.";
+  "Hireseer 是面向招聘团队的新一代招聘智能体，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。Hireseer — Next Recruiting Agent.";
 const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString();
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
@@ -94,15 +94,13 @@ export const Route = createRootRouteWithContext<{
   head: ({ matches }) => ({
     links: [
       {
-        href: "/favicon-light.ico",
-        id: "favicon-light",
+        href: "/favicon.ico",
         media: "(prefers-color-scheme: light)",
         rel: "icon",
         type: "image/x-icon",
       },
       {
         href: "/favicon-dark.ico",
-        id: "favicon-dark",
         media: "(prefers-color-scheme: dark)",
         rel: "icon",
         type: "image/x-icon",

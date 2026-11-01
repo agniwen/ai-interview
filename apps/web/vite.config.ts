@@ -11,7 +11,7 @@ import { shouldResolveTslibAsEsm } from "./src/build/tslib-esm-resolution";
 import { loadWebProcessEnv } from "./src/env/load";
 
 const requireFromQueuePackage = createRequire(
-  new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
+  new URL("../../packages/job-queues/package.json", import.meta.url),
 );
 const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/package.json"));
 const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
         "@assistant-ui/react",
         "@assistant-ui/react-ai-sdk",
         "@assistant-ui/react-lexical",
+        "@assistant-ui/react-streamdown",
         "@base-ui/react",
         "@base-ui/react/**",
         "@blobatar/react",
@@ -52,6 +53,7 @@ export default defineConfig(({ mode }) => {
         "@tanstack/react-router-ssr-query",
         "@tanstack/react-store",
         "@radix-ui/react-visually-hidden",
+        "@streamdown/cjk",
         "better-auth/client/plugins",
         "better-auth/react",
         "clsx",
@@ -68,6 +70,7 @@ export default defineConfig(({ mode }) => {
         "react-dom/client",
         "semver",
         "sonner",
+        "streamdown",
         "tailwind-merge",
         "zod",
       ],
@@ -84,6 +87,22 @@ export default defineConfig(({ mode }) => {
 
           return null;
         },
+      },
+      {
+        // Nitro's dev middleware treats any request whose Sec-Fetch-Dest is an asset type
+        // (e.g. <img src="/api/.../avatar">) as a Vite static asset, so extension-less API
+        // images 404 in development only. API routes are never static assets; let Nitro
+        // route them to the app like any other request. Must be registered before nitro().
+        apply: "serve",
+        configureServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url?.startsWith("/api/")) {
+              delete req.headers["sec-fetch-dest"];
+            }
+            next();
+          });
+        },
+        name: "arc-dev-api-not-static-asset",
       },
       tailwindcss(),
       tanstackStart({
@@ -132,7 +151,7 @@ export default defineConfig(({ mode }) => {
             },
           },
         },
-        serverDir: "./server",
+        serverDir: "./nitro",
       }),
     ],
     preview: {
