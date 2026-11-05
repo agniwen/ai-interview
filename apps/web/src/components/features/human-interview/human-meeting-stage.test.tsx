@@ -12,15 +12,19 @@ import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 
 const transcriptLifecycle = vi.hoisted(() => ({ mounted: vi.fn(), unmounted: vi.fn() }));
 
-const mediaState = vi.hoisted(() => ({
-  agent: false,
-  disconnect: vi.fn(),
-  metadata: "",
-  recording: true,
-  sharing: false,
-  source: "camera",
-  speaking: false,
-}));
+const mediaState = vi.hoisted(() => {
+  const videos: { identity: string; local?: boolean; muted?: boolean; source: string }[] = [];
+  return {
+    agent: false,
+    disconnect: vi.fn(),
+    metadata: "",
+    recording: true,
+    sharing: false,
+    source: "camera",
+    speaking: false,
+    videos,
+  };
+});
 
 vi.mock("@livekit/components-react", () => ({
   ConnectionQualityIndicator: () => <span aria-label="连接质量" />,
@@ -63,6 +67,7 @@ vi.mock("@livekit/components-react", () => ({
       {children}
     </button>
   ),
+  VideoTrack: () => <div aria-hidden="true" />,
   useIsRecording: () => mediaState.recording,
   useIsSpeaking: () => mediaState.speaking,
   useParticipants: () =>
@@ -83,6 +88,11 @@ vi.mock("@livekit/components-react", () => ({
     source: mediaState.source,
   }),
   useTracks: () => [
+    ...mediaState.videos.map(({ identity, local, muted, source }) => ({
+      participant: { identity, isLocal: local, name: identity },
+      publication: { isMuted: muted ?? false, trackSid: `${identity}-${source}` },
+      source,
+    })),
     ...(mediaState.agent
       ? [
           { participant: { identity: "collector", isAgent: true }, source: "camera" },
@@ -247,9 +257,68 @@ afterEach(() => {
   mediaState.speaking = false;
   mediaState.agent = false;
   mediaState.recording = true;
+  mediaState.videos = [];
 });
 
 describe("HumanMeetingStage realtime transcript", () => {
+  it("shows active screen shares and cameras in candidate materials and removes them when they stop", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const onViewModeChange = vi.fn();
+    const render = (viewMode: HumanMeetingViewMode) =>
+      act(() =>
+        root.render(
+          <HumanMeetingStage
+            canEndMeeting
+            canPublish
+            canUseLiveTranscript={false}
+            candidateMaterialsState={{ candidateId: null, questionsOpen: false }}
+            chatInviteToken="invite-1"
+            chatMode="interviewer"
+            inviteToken="invite-1"
+            isEnding={false}
+            onCandidateMaterialsStateChange={() => {}}
+            onEndMeeting={() => {}}
+            onViewModeChange={onViewModeChange}
+            title="真人复面"
+            viewMode={viewMode}
+          />,
+        ),
+      );
+    const preview = () => container.querySelector('[aria-label="会议画面预览"]');
+
+    mediaState.videos = [
+      { identity: "候选人", source: "camera" },
+      { identity: "候选人", source: "screen_share" },
+      { identity: "主持人", local: true, source: "camera" },
+      { identity: "旁听", muted: true, source: "camera" },
+    ];
+    render("meeting");
+    expect(preview()).toBeNull();
+    render("materials");
+    expect(
+      [...(preview()?.querySelectorAll("figure") ?? [])].map((tile) => tile.ariaLabel),
+    ).toEqual(["候选人的共享屏幕", "候选人的摄像头", "主持人的摄像头"]);
+    expect(onViewModeChange).not.toHaveBeenCalled();
+    act(() => preview()?.querySelector<HTMLButtonElement>('[aria-label="返回会议视图"]')?.click());
+    expect(onViewModeChange).toHaveBeenCalledWith("meeting");
+
+    mediaState.videos = [{ identity: "主持人", local: true, source: "screen_share" }];
+    onViewModeChange.mockClear();
+    render("materials");
+    expect(onViewModeChange).toHaveBeenCalledExactlyOnceWith("meeting");
+    render("meeting");
+    render("materials");
+    expect(preview()?.querySelector('[aria-label="主持人的共享屏幕"]')).not.toBeNull();
+    expect(onViewModeChange).toHaveBeenCalledTimes(1);
+
+    mediaState.videos = [{ identity: "主持人", muted: true, source: "camera" }];
+    render("materials");
+    expect(preview()).toBeNull();
+  });
+
   it("highlights a speaking camera tile and clears the highlight when speech stops", () => {
     mediaState.sharing = true;
     const container = document.createElement("div");

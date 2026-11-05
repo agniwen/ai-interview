@@ -21,7 +21,7 @@ export function resolveEffectiveCandidateId(
 
 export function shouldReturnToMeetingForLocalScreenShare(
   viewMode: HumanMeetingViewMode,
-  hasLocalScreenShare: boolean,
+  startedLocalScreenShare: boolean,
 ) {
-  return viewMode !== "meeting" && hasLocalScreenShare;
+  return viewMode !== "meeting" && startedLocalScreenShare;
 }

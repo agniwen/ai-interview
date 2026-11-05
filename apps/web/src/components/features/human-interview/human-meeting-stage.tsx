@@ -63,6 +63,7 @@ import { MicrophoneDeviceMenu } from "./human-meeting-audio-controls";
 import { shouldReturnToMeetingForLocalScreenShare } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
+import { HumanMeetingMediaPreview } from "./human-meeting-media-preview";
 import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
 import { HumanMeetingInProgressReview } from "./human-meeting-in-progress-review";
 import { HumanMeetingChat } from "./human-meeting-chat";
@@ -177,6 +178,7 @@ function HumanMeetingStageContent({
   const [headerActionsContainer, setHeaderActionsContainer] = useState<HTMLDivElement | null>(null);
   const closeChat = useCallback(() => setChatOpen(false), []);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
+  const wasLocallySharing = useRef(false);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
   const isRecording = useIsRecording();
   const participants = useParticipants().filter((participant) => !participant.isAgent);
@@ -200,12 +202,10 @@ function HumanMeetingStageContent({
   const hasLocalScreenShare = tracks.some(
     (track) => track.source === Track.Source.ScreenShare && track.participant.isLocal,
   );
-  const hasRemoteScreenShare = tracks.some(
-    (track) => track.source === Track.Source.ScreenShare && !track.participant.isLocal,
-  );
-
   useEffect(() => {
-    if (shouldReturnToMeetingForLocalScreenShare(viewMode, hasLocalScreenShare)) {
+    const startedLocalScreenShare = hasLocalScreenShare && !wasLocallySharing.current;
+    wasLocallySharing.current = hasLocalScreenShare;
+    if (shouldReturnToMeetingForLocalScreenShare(viewMode, startedLocalScreenShare)) {
       onViewModeChange("meeting");
     }
   }, [hasLocalScreenShare, onViewModeChange, viewMode]);
@@ -324,53 +324,54 @@ function HumanMeetingStageContent({
           data-slot="meeting-main-panels"
           className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         >
-          {focusedTrack ? (
-            <FocusLayoutContainer
-              data-slot="meeting-share-layout"
-              className={cn(
-                "grid min-h-0 min-w-0 flex-1 gap-1.5 overflow-hidden px-1.5 pb-1.5",
-                sideTracks.length > 0
-                  ? "grid-rows-[minmax(0,1fr)_8rem] md:grid-cols-[minmax(0,1fr)_clamp(9rem,18vw,13rem)] md:grid-rows-1"
-                  : "grid-cols-1 grid-rows-1",
-                viewMode !== "meeting" && "hidden",
-              )}
-            >
-              <div data-slot="meeting-share-main" className="min-h-0 min-w-0">
-                <TrackLoop tracks={[focusedTrack]}>
-                  <HumanParticipantTile
-                    onResetFocus={manuallyFocusedTrack ? () => setFocusedTrackKey(null) : undefined}
-                  />
+          {viewMode === "meeting" &&
+            (focusedTrack ? (
+              <FocusLayoutContainer
+                data-slot="meeting-share-layout"
+                className={cn(
+                  "grid min-h-0 min-w-0 flex-1 gap-1.5 overflow-hidden px-1.5 pb-1.5",
+                  sideTracks.length > 0
+                    ? "grid-rows-[minmax(0,1fr)_8rem] md:grid-cols-[minmax(0,1fr)_clamp(9rem,18vw,13rem)] md:grid-rows-1"
+                    : "grid-cols-1 grid-rows-1",
+                )}
+              >
+                <div data-slot="meeting-share-main" className="min-h-0 min-w-0">
+                  <TrackLoop tracks={[focusedTrack]}>
+                    <HumanParticipantTile
+                      onResetFocus={
+                        manuallyFocusedTrack ? () => setFocusedTrackKey(null) : undefined
+                      }
+                    />
+                  </TrackLoop>
+                </div>
+                {sideTracks.length > 0 ? (
+                  <aside
+                    aria-label="其他参会画面"
+                    data-slot="meeting-share-sidebar"
+                    className="grid min-h-0 min-w-0 auto-cols-[12rem] grid-flow-col gap-1.5 overflow-x-auto md:auto-cols-auto md:auto-rows-[8rem] md:grid-flow-row md:content-start md:overflow-x-hidden md:overflow-y-auto"
+                  >
+                    <TrackLoop tracks={sideTracks}>
+                      <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
+                    </TrackLoop>
+                  </aside>
+                ) : null}
+              </FocusLayoutContainer>
+            ) : (
+              <div
+                data-slot="meeting-grid-layout"
+                className={cn(
+                  "grid min-h-0 flex-1 gap-1.5 px-1.5 pb-1.5",
+                  "auto-rows-fr overflow-hidden",
+                  tracks.length <= 1 && "grid-cols-1",
+                  tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
+                  tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+                )}
+              >
+                <TrackLoop tracks={tracks}>
+                  <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
                 </TrackLoop>
               </div>
-              {sideTracks.length > 0 ? (
-                <aside
-                  aria-label="其他参会画面"
-                  data-slot="meeting-share-sidebar"
-                  className="grid min-h-0 min-w-0 auto-cols-[12rem] grid-flow-col gap-1.5 overflow-x-auto md:auto-cols-auto md:auto-rows-[8rem] md:grid-flow-row md:content-start md:overflow-x-hidden md:overflow-y-auto"
-                >
-                  <TrackLoop tracks={sideTracks}>
-                    <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
-                  </TrackLoop>
-                </aside>
-              ) : null}
-            </FocusLayoutContainer>
-          ) : (
-            <div
-              data-slot="meeting-grid-layout"
-              className={cn(
-                "grid min-h-0 flex-1 gap-1.5 px-1.5 pb-1.5",
-                "auto-rows-fr overflow-hidden",
-                viewMode !== "meeting" && "hidden",
-                tracks.length <= 1 && "grid-cols-1",
-                tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
-                tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
-              )}
-            >
-              <TrackLoop tracks={tracks}>
-                <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
-              </TrackLoop>
-            </div>
-          )}
+            ))}
 
           {inviteToken ? (
             <div
@@ -379,19 +380,6 @@ function HumanMeetingStageContent({
                 viewMode !== "materials" && "hidden",
               )}
             >
-              {viewMode === "materials" && hasRemoteScreenShare ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-2 md:bottom-6">
-                  <Button
-                    className="pointer-events-auto shadow-sm"
-                    onClick={() => onViewModeChange("meeting")}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    <IconDeviceDesktopUp className="size-4" />
-                    正在共享屏幕 · 返回会议
-                  </Button>
-                </div>
-              ) : null}
               <div className="min-h-0 flex-1">
                 <InterviewerCandidateMaterials
                   showQuestions
@@ -402,6 +390,11 @@ function HumanMeetingStageContent({
                   state={candidateMaterialsState}
                 />
               </div>
+              <HumanMeetingMediaPreview
+                active={viewMode === "materials"}
+                onReturnToMeeting={() => onViewModeChange("meeting")}
+                tracks={tracks}
+              />
             </div>
           ) : null}
         </div>
