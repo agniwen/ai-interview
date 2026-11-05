@@ -803,7 +803,7 @@ describe("human interview meetings DAO", () => {
         ),
       );
 
-    const updated = await updateHumanInterviewMeetingSchedule({
+    const { meeting: updated } = await updateHumanInterviewMeetingSchedule({
       actorUserId: HR_USER,
       input: {
         interviewerIds: [INTERVIEWER_B, INTERVIEWER_A],
@@ -850,7 +850,7 @@ describe("human interview meetings DAO", () => {
       })
       .where(eq(humanInterviewMeeting.id, meeting.id));
 
-    const updated = await updateHumanInterviewMeetingSchedule({
+    const { meeting: updated } = await updateHumanInterviewMeetingSchedule({
       actorUserId: HR_USER,
       input: {
         scheduledAt: "2026-05-31T10:00:00.000Z",

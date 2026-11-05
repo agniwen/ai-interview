@@ -263,12 +263,13 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
                 );
               }
             }
-            const updated = await updateHumanInterviewMeetingSchedule({
-              actorUserId: user.id,
-              input,
-              meetingId,
-              organizationId: activeOrg.id,
-            });
+            const { feishuProviderToSync, meeting: updated } =
+              await updateHumanInterviewMeetingSchedule({
+                actorUserId: user.id,
+                input,
+                meetingId,
+                organizationId: activeOrg.id,
+              });
             await Promise.all(
               updated.rounds.map((round) =>
                 recordCandidateActivity({
@@ -285,12 +286,12 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
               ),
             );
 
-            if (!isFeishuHumanInterviewEnabled() || !updated.feishu) {
+            if (!isFeishuHumanInterviewEnabled() || !feishuProviderToSync) {
               return c.json(updated, 200);
             }
 
             try {
-              const credentials = getFeishuAppCredentials(updated.feishu.providerId);
+              const credentials = getFeishuAppCredentials(feishuProviderToSync);
               const accessToken = await getFeishuTenantAccessToken(
                 credentials.appId,
                 credentials.appSecret,
@@ -299,7 +300,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
                 accessToken,
                 meetingId,
                 organizationId: activeOrg.id,
-                providerId: updated.feishu.providerId,
+                providerId: feishuProviderToSync,
               });
               return c.json(synced, 200);
             } catch (error) {

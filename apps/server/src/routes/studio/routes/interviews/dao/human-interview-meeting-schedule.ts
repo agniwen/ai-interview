@@ -8,7 +8,10 @@ import {
   humanInterviewRound,
   humanInterviewRoundInterviewer,
 } from "@app/db-schema/schema";
-import type { HumanInterviewMeetingScheduleUpdate } from "@app/db-schema/studio-interviews";
+import type {
+  FeishuHumanInterviewProviderId,
+  HumanInterviewMeetingScheduleUpdate,
+} from "@app/db-schema/studio-interviews";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
   HumanInterviewMeetingError,
@@ -29,7 +32,10 @@ export async function updateHumanInterviewMeetingSchedule({
   input: HumanInterviewMeetingScheduleUpdate;
   meetingId: string;
   organizationId: string;
-}): Promise<HumanInterviewMeetingRecord> {
+}): Promise<{
+  meeting: HumanInterviewMeetingRecord;
+  feishuProviderToSync: FeishuHumanInterviewProviderId | null;
+}> {
   const scheduledAt = new Date(input.scheduledAt);
   if (Number.isNaN(scheduledAt.getTime())) {
     throw new HumanInterviewMeetingError("请输入有效的面试时间。", 400);
@@ -41,7 +47,7 @@ export async function updateHumanInterviewMeetingSchedule({
       })
     : null;
 
-  await db.transaction(async (tx) => {
+  const feishuProviderToSync = await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
       .from(humanInterviewMeeting)
@@ -59,19 +65,15 @@ export async function updateHumanInterviewMeetingSchedule({
     if (existing.status !== "scheduled" && existing.status !== "not_held") {
       throw new HumanInterviewMeetingError("已开始、已结束或已取消的会议不能调整时间。", 400);
     }
-    if (existing.feishuProviderId && existing.feishuSyncStatus === "pending") {
-      throw new HumanInterviewMeetingError("飞书会议尚未同步完成，请先完成同步再调整时间。", 400);
-    }
     if (existing.feishuSyncStatus === "creating") {
       throw new HumanInterviewMeetingError("飞书会议正在同步，请稍后再调整时间。", 400);
     }
-    if (existing.feishuSyncStatus === "unknown") {
-      throw new HumanInterviewMeetingError(
-        "历史飞书同步结果未知，请先在飞书中核查后再调整时间。",
-        400,
-      );
-    }
 
+    // 改期只更新已知的飞书日程，历史未同步的会议可仅调整站内时间。
+    const providerToSync =
+      existing.feishuCalendarEventId && existing.feishuSyncStatus !== "unknown"
+        ? existing.feishuProviderId
+        : null;
     const validUntil = resolveValidUntilInput({
       existingValidUntil: existing.validUntil,
       scheduledAt,
@@ -92,8 +94,8 @@ export async function updateHumanInterviewMeetingSchedule({
         attendanceAlertedAt: null,
         endedAt: reopeningNotHeldMeeting ? null : existing.endedAt,
         establishedAt: null,
-        feishuLastError: null,
-        feishuSyncStatus: existing.feishuProviderId ? "pending" : null,
+        feishuLastError: providerToSync ? null : existing.feishuLastError,
+        feishuSyncStatus: providerToSync ? "pending" : existing.feishuSyncStatus,
         lifecycleOccurredAt: reopeningNotHeldMeeting ? null : existing.lifecycleOccurredAt,
         lifecycleSource: reopeningNotHeldMeeting ? null : existing.lifecycleSource,
         scheduleVersion: sql`${humanInterviewMeeting.scheduleVersion} + 1`,
@@ -236,11 +238,12 @@ export async function updateHumanInterviewMeetingSchedule({
         type: "human_interview_rescheduled",
       });
     }
+    return providerToSync;
   });
 
   const updated = await loadHumanInterviewMeetingById(meetingId, organizationId);
   if (!updated) {
     throw new Error("更新真人复面会议后查询失败");
   }
-  return updated;
+  return { feishuProviderToSync, meeting: updated };
 }

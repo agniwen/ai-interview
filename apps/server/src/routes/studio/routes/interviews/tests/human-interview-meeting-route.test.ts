@@ -636,6 +636,44 @@ describe.skipIf(!isolatedDatabase)("POST /human-interview-meetings", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it.each(["pending", "failed", "unknown"] as const)(
+    "reschedules a not-held meeting with %s Feishu sync without creating a calendar event",
+    async (feishuSyncStatus) => {
+      const meetingId = "test_feishu_unsynced_reschedule";
+      await seedReadyFeishuMeeting(meetingId);
+      await db
+        .update(humanInterviewMeeting)
+        .set({
+          endedAt: NOW,
+          feishuCalendarEventId: null,
+          feishuCalendarEventUrl: null,
+          feishuSyncStatus,
+          feishuSyncedAt: null,
+          status: "not_held",
+        })
+        .where(eq(humanInterviewMeeting.id, meetingId));
+      const fetchMock = vi.spyOn(globalThis, "fetch");
+      const scheduledAt = "2026-08-07T10:30:00.000Z";
+      const validUntil = "2026-08-07T11:30:00.000Z";
+
+      const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+        body: JSON.stringify({ interviewerIds: [INTERVIEWER_ID], scheduledAt, validUntil }),
+        headers: { "content-type": "application/json" },
+        method: "PATCH",
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        endedAt: null,
+        feishu: { calendarEventUrl: null, status: feishuSyncStatus },
+        scheduledAt,
+        status: "scheduled",
+        validUntil,
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("updates only the existing Feishu calendar event when the meeting time changes", async () => {
     process.env.BETTER_AUTH_URL = "https://interview.example.test";
     const meetingId = "test_feishu_schedule_update";
