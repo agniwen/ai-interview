@@ -46,8 +46,8 @@ const messageAuthorSchema = z.object({
 
 const SUBJECT_COPY = {
   candidate_form_template: {
-    description: "可以让 Hireseer Agent 设计表单题目、题型和选项。",
-    placeholder: "让 Hireseer Agent 修改表单题…",
+    description: "可以让 AInterviewer Agent 设计表单题目、题型和选项。",
+    placeholder: "让 AInterviewer Agent 修改表单题…",
     suggestions: [
       "帮我设计一份候选人基础信息表单",
       "把开放式问题尽量改成选择题",
@@ -55,8 +55,8 @@ const SUBJECT_COPY = {
     ],
   },
   interview_question_template: {
-    description: "可以让 Hireseer Agent 出题，并补充难度、考核点和追问方向。",
-    placeholder: "让 Hireseer Agent 修改沟通题…",
+    description: "可以让 AInterviewer Agent 出题，并补充难度、考核点和追问方向。",
+    placeholder: "让 AInterviewer Agent 修改沟通题…",
     suggestions: [
       "帮我出 5 道考察项目经验的沟通题",
       "为每道题补充考核点和追问方向",
@@ -64,8 +64,8 @@ const SUBJECT_COPY = {
     ],
   },
   job_description: {
-    description: "可以让 Hireseer Agent 完善岗位 JD、内部标准等设置。",
-    placeholder: "让 Hireseer Agent 修改岗位设置…",
+    description: "可以让 AInterviewer Agent 完善岗位 JD、内部标准等设置。",
+    placeholder: "让 AInterviewer Agent 修改岗位设置…",
     suggestions: [
       "帮我检查岗位 JD 还缺哪些关键信息",
       "把岗位 JD 改写成职责和要求分开的结构",
@@ -168,7 +168,7 @@ function EmptyThread({ canSend }: { canSend: boolean }) {
   return (
     <div className="flex flex-col gap-3 px-2 py-6">
       <div>
-        <p className="font-medium text-sm">Hireseer Agent</p>
+        <p className="font-medium text-sm">AInterviewer Agent</p>
         <p className="mt-1 text-muted-foreground text-sm leading-6">
           {`${copy.description}修改建议需要应用到表单并保存后才会生效，对话对能查看该记录的成员可见。`}
         </p>
@@ -203,7 +203,7 @@ function Composer() {
       >
         <div className={composerShellClass} ref={composerShellRef}>
           <LexicalComposerInput
-            aria-label="向 Hireseer Agent 提问"
+            aria-label="向 AInterviewer Agent 提问"
             autoFocus
             className={composerInputClass}
             placeholder={SUBJECT_COPY[subject.kind].placeholder}

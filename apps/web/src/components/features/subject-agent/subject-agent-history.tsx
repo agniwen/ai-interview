@@ -155,7 +155,7 @@ function HistoryPreviewDialog({
           const author = previewAuthorSchema.safeParse(message.metadata);
           const name =
             message.role === "assistant"
-              ? "Hireseer Agent"
+              ? "AInterviewer Agent"
               : ((author.success ? author.data.author?.name : null) ?? "成员");
           return (
             <li key={message.id} className="text-sm">

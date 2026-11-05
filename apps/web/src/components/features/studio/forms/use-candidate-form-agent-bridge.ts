@@ -14,7 +14,7 @@ import type { SubjectAgentFormBridge } from "@/components/features/subject-agent
 
 type AgentWritableField = "description" | "jobDescriptionIds" | "questions" | "scope" | "title";
 
-/** 表单题编辑器中 Hireseer Agent 需要的读写能力。 */
+/** 表单题编辑器中 AInterviewer Agent 需要的读写能力。 */
 interface CandidateFormAgentEditor {
   /** 最近一次保存的内容；新建时为 null。 */
   savedValues: CandidateFormTemplateInput | null;
@@ -32,7 +32,7 @@ interface CandidateFormAgentEditor {
 }
 
 /**
- * 在表单题编辑器中登记 Hireseer Agent 的读写接口（ADR-0045）：只写入未保存的表单；题目列表
+ * 在表单题编辑器中登记 AInterviewer Agent 的读写接口（ADR-0045）：只写入未保存的表单；题目列表
  * 被替换后，原选中题目不存在时改选第一题。不在 Agent Provider 内（如弹窗编辑）时为空操作。
  */
 export function useCandidateFormAgentBridge(editor: CandidateFormAgentEditor) {

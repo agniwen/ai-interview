@@ -31,16 +31,16 @@ import type { SubjectThreadState } from "./subject-agent-context";
 import { SubjectAgentHistoryButton } from "./subject-agent-history";
 import { SubjectAgentThread } from "./subject-agent-thread";
 
-const PANE_TITLE = "Hireseer Agent";
+const PANE_TITLE = "AInterviewer Agent";
 
 function SubjectAgentSkeleton() {
   return (
     <div
       aria-busy="true"
-      aria-label="正在加载 Hireseer Agent 对话"
+      aria-label="正在加载 AInterviewer Agent 对话"
       className="flex min-h-0 flex-1 flex-col"
     >
-      <span className="sr-only">正在加载 Hireseer Agent 对话</span>
+      <span className="sr-only">正在加载 AInterviewer Agent 对话</span>
       <div aria-hidden="true" className="min-h-0 flex-1 space-y-5 overflow-hidden px-4 pt-3">
         <div className="flex flex-col items-end gap-1.5">
           <Skeleton className="h-3 w-16" />
@@ -127,13 +127,13 @@ function resolveBlockedReason(
   isLocalRunning: boolean,
 ): string | null {
   if (!data.permissions.canEdit) {
-    return "你可以查看对话，但需要编辑权限才能向 Hireseer Agent 提问。";
+    return "你可以查看对话，但需要编辑权限才能向 AInterviewer Agent 提问。";
   }
   const run = data.thread?.run;
   if (run && !isLocalRunning) {
     return run.user?.id === currentUserId
       ? "你在其他页面中的对话仍在生成，完成后可以继续提问。"
-      : `${run.user?.name ?? "其他成员"} 正在与 Hireseer Agent 对话，完成后可以继续提问。`;
+      : `${run.user?.name ?? "其他成员"} 正在与 AInterviewer Agent 对话，完成后可以继续提问。`;
   }
   return null;
 }

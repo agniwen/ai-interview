@@ -8,7 +8,7 @@ import {
 
 describe("formatDocumentTitle", () => {
   it("appends the application name", () => {
-    expect(formatDocumentTitle("登录")).toBe("登录 · Hireseer");
+    expect(formatDocumentTitle("登录")).toBe("登录 · AInterviewer");
   });
 
   it("does not append the application name twice", () => {
@@ -18,14 +18,14 @@ describe("formatDocumentTitle", () => {
 
 describe("resolveDocumentTitle", () => {
   it.each([
-    ["/", "Hireseer"],
-    ["/unknown-page", "Hireseer"],
-    ["/invite/invite-token", "加入工作区 · Hireseer"],
-    ["/interview/interview-id", "AI 面试 · Hireseer"],
-    ["/w/acme/agent", "Hireseer Agent"],
-    ["/w/acme/agent/session-id", "对话 · Hireseer Agent"],
-    ["/w/acme/studio/dashboard", "Studio · Hireseer"],
-    ["/platform/organizations", "平台管理 · Hireseer"],
+    ["/", "AInterviewer"],
+    ["/unknown-page", "AInterviewer"],
+    ["/invite/invite-token", "加入工作区 · AInterviewer"],
+    ["/interview/interview-id", "AI 面试 · AInterviewer"],
+    ["/w/acme/agent", "AInterviewer Agent"],
+    ["/w/acme/agent/session-id", "对话 · AInterviewer Agent"],
+    ["/w/acme/studio/dashboard", "Studio · AInterviewer"],
+    ["/platform/organizations", "平台管理 · AInterviewer"],
   ])("resolves %s", (pathname, expectedTitle) => {
     expect(resolveDocumentTitle(pathname)).toBe(expectedTitle);
   });
@@ -37,6 +37,6 @@ describe("resolveDocumentTitle", () => {
         { pathname: "/platform" },
         { pathname: "/platform/organizations" },
       ]),
-    ).toEqual([{ title: "平台管理 · Hireseer" }]);
+    ).toEqual([{ title: "平台管理 · AInterviewer" }]);
   });
 });

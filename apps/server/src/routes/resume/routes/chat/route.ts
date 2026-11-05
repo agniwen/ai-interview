@@ -186,7 +186,7 @@ export const resumeChatRouter = factory
           console.error("[copilot-chat] failed to persist assistant message", error);
         }
       },
-      onError: () => "Hireseer Agent 暂时无法响应，请稍后重试。",
+      onError: () => "AInterviewer Agent 暂时无法响应，请稍后重试。",
       originalMessages: messages,
     });
 

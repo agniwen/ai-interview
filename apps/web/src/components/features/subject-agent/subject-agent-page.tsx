@@ -43,7 +43,7 @@ export function useSubjectAgentSubject({
   );
 }
 
-/** 顶栏中的 Hireseer Agent 入口；没有主体时不显示。 */
+/** 顶栏中的 AInterviewer Agent 入口；没有主体时不显示。 */
 export function useSubjectAgentHeaderActions(subject: SubjectRef | null): ReactNode {
   return useMemo(() => (subject ? <SubjectAgentTrigger /> : null), [subject]);
 }

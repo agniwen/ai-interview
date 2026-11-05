@@ -175,7 +175,7 @@ export function InterviewQuestionTemplateEditorDialog({
       form.reset(resolvedInitialValues);
     }
   }, [open, form, resolvedInitialValues]);
-  // Hireseer Agent 只写入未保存的表单（ADR-0045）；不在 Agent Provider 内时登记为空操作。
+  // AInterviewer Agent 只写入未保存的表单（ADR-0045）；不在 Agent Provider 内时登记为空操作。
   const agentFormBridge = useMemo<SubjectAgentFormBridge>(
     () => ({
       getPageContext: () => pickInterviewQuestionAgentPageContext(form.state.values),

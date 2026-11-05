@@ -1,6 +1,6 @@
-# Hireseer
+# AInterviewer
 
-Hireseer (Next Recruiting Agent) is a Chinese-first recruiting agent for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
+AInterviewer (Next Recruiting Agent) is a Chinese-first recruiting agent for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
 
 ## Frontend Module Boundary
 

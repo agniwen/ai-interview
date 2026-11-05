@@ -1,6 +1,6 @@
 # Studio 详情页 Agent 会话方案
 
-状态：岗位创建/编辑、沟通题创建/编辑、表单题编辑已接入（面板名称 Hireseer Agent）；表单题创建仍为弹窗，未接入
+状态：岗位创建/编辑、沟通题创建/编辑、表单题编辑已接入（面板名称 AInterviewer Agent）；表单题创建仍为弹窗，未接入
 日期：2026-10-28
 已确认：会话为 **团队共享**（2026-10-28），决策记录见 [ADR 0045](../adr/0045-use-shared-subject-threads-for-studio-detail-agents.md)
 

@@ -1,4 +1,4 @@
-// 智能体与 Studio 侧面板 Hireseer Agent 共用的消息样式，两处气泡保持一致。
+// 智能体与 Studio 侧面板 AInterviewer Agent 共用的消息样式，两处气泡保持一致。
 // Message styles shared by the workspace copilot thread and the Studio side-pane agent.
 
 export const userMessageRootClass =

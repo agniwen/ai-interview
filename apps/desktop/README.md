@@ -1,4 +1,4 @@
-# Echo (Hireseer Desktop)
+# Echo (AInterviewer Desktop)
 
 Electron desktop app for Echo (`@app/desktop`) — HR–candidate conversation capture and transcription (electron-vite + React + TypeScript).
 

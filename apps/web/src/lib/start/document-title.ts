@@ -1,4 +1,4 @@
-const APPLICATION_NAME = "Hireseer";
+const APPLICATION_NAME = "AInterviewer";
 const AGENT_DISPLAY_NAME = `${APPLICATION_NAME} Agent`;
 export const ROOT_DOCUMENT_TITLE = APPLICATION_NAME;
 
