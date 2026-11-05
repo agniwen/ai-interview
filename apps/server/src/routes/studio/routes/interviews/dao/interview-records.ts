@@ -36,10 +36,7 @@ import {
   humanInterviewRoundStatusSchema,
   scheduleEntryStatusSchema,
 } from "@app/db-schema/studio-interviews";
-import type {
-  HumanInterviewRoundStatus,
-  ScheduleEntryStatus,
-} from "@app/db-schema/studio-interviews";
+import type { ScheduleEntryStatus } from "@app/db-schema/studio-interviews";
 import { loadCandidateAvatarVersions } from "@app/resume-processing/review/support/candidate-avatars-dao";
 import { intersectRequestedCreatorIds } from "@app/resume-processing/review/support/access-recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@app/resume-processing/review/support/access-recruiting-visibility";
@@ -96,8 +93,10 @@ function isAiStatus(status: string): status is ScheduleEntryStatus {
   return scheduleEntryStatusSchema.safeParse(status).success;
 }
 
-function isHumanStatus(status: string): status is HumanInterviewRoundStatus {
-  return humanInterviewRoundStatusSchema.safeParse(status).success;
+function isHumanRecordStatus(
+  status: string,
+): status is StudioHumanInterviewRecordListRecord["status"] {
+  return status === "in_progress" || humanInterviewRoundStatusSchema.safeParse(status).success;
 }
 const RECORD_STATUSES = new Set<string>(studioInterviewRecordStatusValues);
 
@@ -235,6 +234,27 @@ const humanLastInterviewAt = sql<Date | null>`(
   WHERE ${humanInterviewMeetingRound.roundId} = ${humanInterviewRound.id}
 )`;
 
+const currentHumanMeetingStatus = sql<string | null>`(
+  SELECT ${humanInterviewMeeting.status}
+  FROM ${humanInterviewMeetingRound}
+  INNER JOIN ${humanInterviewMeeting}
+    ON ${humanInterviewMeeting.id} = ${humanInterviewMeetingRound.meetingId}
+    AND ${humanInterviewMeeting.organizationId} = ${humanInterviewMeetingRound.organizationId}
+  WHERE ${humanInterviewMeetingRound.roundId} = ${humanInterviewRound.id}
+    AND ${humanInterviewMeetingRound.organizationId} = ${humanInterviewRound.organizationId}
+  ORDER BY (${humanInterviewMeeting.status} = 'cancelled') ASC,
+    ${humanInterviewMeeting.createdAt} DESC, ${humanInterviewMeeting.id} DESC
+  LIMIT 1
+)`;
+
+// 轮次待处理期间，以关联会议的进行中状态为准。
+const humanRecordStatus = sql<StudioHumanInterviewRecordListRecord["status"]>`(CASE
+  WHEN ${humanInterviewRound.status} = 'pending'
+    AND ${currentHumanMeetingStatus} = 'in_progress' THEN 'in_progress'
+  ELSE ${humanInterviewRound.status}
+END)`;
+const humanSummaryStatus = humanRecordStatus.as("record_status");
+
 function aiBranch({
   creatorIds,
   filters,
@@ -291,12 +311,12 @@ function humanBranch({
   statuses,
   withLastInterviewAt,
 }: BranchScope) {
-  const humanStatuses = statuses?.filter(isHumanStatus);
+  const humanStatuses = statuses?.filter(isHumanRecordStatus);
   // 真人轮次的创建人与可见范围都按招聘记录的创建人判断。
   // Human rounds are attributed to, and scoped by, the recruiting record's creator.
   const where = and(
     eq(humanInterviewRound.organizationId, organizationId),
-    humanStatuses ? inArray(humanInterviewRound.status, humanStatuses) : undefined,
+    humanStatuses ? inArray(humanRecordStatus, humanStatuses) : undefined,
     results ? humanResultWhere(results) : undefined,
     creatorIds ? inArray(searchRecord.createdBy, creatorIds) : undefined,
     hasTextSearch(filters) ? buildSearchWhere(filters, humanInterviewRound.label) : undefined,
@@ -370,24 +390,14 @@ async function loadHumanInterviewRecordListRecords(
         jobDescriptionId: recruitingRecordReadModel.jobDescriptionId,
         jobDescriptionName: jobDescription.name,
         label: humanInterviewRound.label,
-        meetingStatus: sql<string | null>`(
-          SELECT ${humanInterviewMeeting.status}
-          FROM ${humanInterviewMeetingRound}
-          INNER JOIN ${humanInterviewMeeting}
-            ON ${humanInterviewMeeting.id} = ${humanInterviewMeetingRound.meetingId}
-          WHERE ${humanInterviewMeetingRound.roundId} = ${humanInterviewRound.id}
-            AND ${humanInterviewMeeting.organizationId} = ${humanInterviewRound.organizationId}
-          ORDER BY (${humanInterviewMeeting.status} = 'cancelled') ASC,
-            ${humanInterviewMeeting.createdAt} DESC, ${humanInterviewMeeting.id} DESC
-          LIMIT 1
-        )`,
+        meetingStatus: currentHumanMeetingStatus,
         outcome: humanInterviewRound.outcome,
         recruitingRecordId: humanInterviewRound.recruitingRecordId,
         resumeContentHash: recruitingRecordReadModel.resumeContentHash,
         resumeFileName: recruitingRecordReadModel.resumeFileName,
         resumeStorageKey: recruitingRecordReadModel.resumeStorageKey,
         scheduledAt: humanInterviewRound.scheduledAt,
-        status: humanInterviewRound.status,
+        status: humanRecordStatus,
         updatedAt: humanInterviewRound.updatedAt,
       })
       .from(humanInterviewRound)
@@ -698,7 +708,7 @@ export async function summarizeInterviewRecordCounts(
       .groupBy(aiInterviewRound.status),
     access.includeHuman
       ? db
-          .select({ count: count(), status: humanInterviewRound.status })
+          .select({ count: count(), status: humanSummaryStatus })
           .from(humanInterviewRound)
           .innerJoin(
             searchRecord,
@@ -713,7 +723,7 @@ export async function summarizeInterviewRecordCounts(
               creatorIds ? inArray(searchRecord.createdBy, creatorIds) : undefined,
             ),
           )
-          .groupBy(humanInterviewRound.status)
+          .groupBy(humanSummaryStatus)
       : [],
   ]);
 

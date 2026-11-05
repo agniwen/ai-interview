@@ -11,6 +11,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../../../../../infrastructure/db/index";
 import {
   aiInterviewConversation,
+  humanInterviewMeeting,
+  humanInterviewMeetingRound,
   humanInterviewRound,
   recruitingNotificationDelivery,
   recruitingEvaluationDocument,
@@ -626,5 +628,50 @@ describe("queryPaginatedInterviewRecords (AI + human rounds)", () => {
     expect(summary.pending).toBe(2);
     expect(summary.completed).toBe(1);
     expect(summary.cancelled).toBe(1);
+  });
+
+  it("shows and counts a pending human round as in progress while its meeting is live", async () => {
+    const roundId = "hrnd-live-meeting";
+    const meetingId = "meeting-records-dao-live";
+    await db.insert(humanInterviewRound).values({
+      format: "online",
+      id: roundId,
+      label: "线上复试",
+      organizationId: ORG,
+      recruitingRecordId: "cand-a",
+      roundKind: "second_interview",
+      status: "pending",
+    });
+    try {
+      await db.insert(humanInterviewMeeting).values({
+        id: meetingId,
+        organizationId: ORG,
+        startedAt: NOW,
+        status: "in_progress",
+        title: "线上复试",
+      });
+      await db
+        .insert(humanInterviewMeetingRound)
+        .values({ meetingId, organizationId: ORG, roundId });
+
+      const access = { includeHuman: true };
+      const [listing, inProgress, pending, summary] = await Promise.all([
+        queryPaginatedInterviewRecords(ORG, undefined, undefined, access),
+        queryPaginatedInterviewRecords(ORG, { status: "in_progress" }, undefined, access),
+        queryPaginatedInterviewRecords(ORG, { status: "pending" }, undefined, access),
+        summarizeInterviewRecordCounts(ORG, access),
+      ]);
+      expect(listing.records.find((record) => record.id === roundId)).toMatchObject({
+        meetingStatus: "in_progress",
+        status: "in_progress",
+      });
+      expect(inProgress.total).toBe(1);
+      expect(inProgress.records.map((record) => record.id)).toEqual([roundId]);
+      expect(pending.records.map((record) => record.id).toSorted()).toEqual(["rnd-a1", "rnd-a2"]);
+      expect(summary).toMatchObject({ inProgress: 1, pending: 2, total: 5 });
+    } finally {
+      await db.delete(humanInterviewMeeting).where(eq(humanInterviewMeeting.id, meetingId));
+      await db.delete(humanInterviewRound).where(eq(humanInterviewRound.id, roundId));
+    }
   });
 });

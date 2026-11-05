@@ -109,7 +109,7 @@ export interface PaginatedStudioInterviewRoundsResult {
 
 export type StudioInterviewRecordKind = "ai" | "human";
 
-/** 两类轮次状态的并集，供列表筛选与统计使用。/ Union of AI and human round statuses. */
+/** 面试管理的展示状态，供列表、筛选与统计使用。/ Display statuses for interview management. */
 export const studioInterviewRecordStatusValues = [
   "pending",
   "in_progress",
@@ -152,7 +152,8 @@ export interface StudioHumanInterviewRecordListRecord {
   lastInterviewAt: string | null;
   /** 最近一场面试（会话/会议）的结束时间；尚未结束为 null。/ End of the latest session; null until it ends. */
   lastInterviewEndedAt: string | null;
-  status: HumanInterviewRoundStatus;
+  /** 待处理轮次的关联会议已开始时显示为进行中。 */
+  status: HumanInterviewRoundStatus | "in_progress";
   /** 当前关联会议状态，用于安排编辑守卫。 */
   meetingStatus: string | null;
   interviewers: StudioHumanInterviewRecordInterviewer[];
