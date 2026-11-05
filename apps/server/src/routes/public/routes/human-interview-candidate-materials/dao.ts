@@ -44,24 +44,20 @@ export type HumanInterviewCandidateMaterialsAuthorization =
   | { status: "not_found" }
   | { status: "unavailable" };
 
-// Before completion, materials use the meeting window. After completion, the
-// verified interviewer invite lifetime governs read-only access for evaluation.
-export const HUMAN_INTERVIEW_CANDIDATE_MATERIALS_GRACE_MS = 60 * 60 * 1000;
+const HUMAN_INTERVIEW_CANDIDATE_MATERIALS_GRACE_MS = 24 * 60 * 60 * 1000;
 
 export function isHumanInterviewCandidateMaterialsAvailable(
-  scope: Pick<HumanInterviewCandidateMaterialsScope, "status" | "validUntil">,
+  scope: Pick<HumanInterviewCandidateMaterialsScope, "endedAt" | "status" | "validUntil">,
   now = Date.now(),
 ): boolean {
-  if (scope.status === "cancelled" || !scope.validUntil) {
+  if (scope.status === "cancelled") {
     return false;
   }
-  if (scope.status === "ended") {
+  if (scope.status === "in_progress") {
     return true;
   }
-  const validUntil = Date.parse(scope.validUntil);
-  return (
-    !Number.isNaN(validUntil) && validUntil + HUMAN_INTERVIEW_CANDIDATE_MATERIALS_GRACE_MS >= now
-  );
+  const end = scope.status === "ended" ? (scope.endedAt ?? scope.validUntil) : scope.validUntil;
+  return end !== null && now < Date.parse(end) + HUMAN_INTERVIEW_CANDIDATE_MATERIALS_GRACE_MS;
 }
 
 export async function authorizeHumanInterviewCandidateMaterials(input: {

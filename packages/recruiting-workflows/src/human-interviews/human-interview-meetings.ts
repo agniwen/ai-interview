@@ -519,6 +519,7 @@ export interface HumanInterviewMeetingInviteScope extends PublicHumanInterviewMe
 }
 
 export interface HumanInterviewMeetingInterviewerInviteScope extends PublicHumanInterviewInterviewerPreview {
+  endedAt: string | null;
   interviewerImage: string | null;
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
@@ -623,6 +624,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
 }): Promise<HumanInterviewMeetingInterviewerInviteScope | null> {
   const [row] = await db
     .select({
+      endedAt: humanInterviewMeeting.endedAt,
       interviewerImage: user.image,
       interviewerName: user.name,
       liveKitRoomName: humanInterviewMeeting.liveKitRoomName,
@@ -707,6 +709,7 @@ export async function loadHumanInterviewMeetingInterviewerScope(payload: {
 
   return {
     candidateName: context.candidateName,
+    endedAt: serializeDate(row.endedAt),
     interviewerImage: row.interviewerImage,
     interviewerName: row.interviewerName ?? "未命名",
     jobDescriptionDepartmentName: context.jobDescriptionDepartmentName,
