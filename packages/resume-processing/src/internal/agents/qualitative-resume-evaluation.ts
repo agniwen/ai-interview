@@ -9,8 +9,9 @@ import {
   generateStructuredWithMastraAgent,
   resumeReviewQualitativeAgent,
 } from "@app/ai-runtime/simple-generators";
+import { z } from "zod";
 
-export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v10";
+export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v11";
 
 const generatedQualitativeResumeEvaluationSchema = currentQualitativeResumeEvaluationSchema
   .omit({ schemaVersion: true })
@@ -21,18 +22,24 @@ const generatedQualitativeResumeEvaluationSchema = currentQualitativeResumeEvalu
   })
   .strict();
 
+const generatedQualitativeResumeEvaluationJsonSchema = JSON.stringify(
+  z.toJSONSchema(generatedQualitativeResumeEvaluationSchema),
+);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // oxlint-disable anti-slop/no-known-value-widening, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- Mastra's normalizeInvalid boundary receives untrusted provider output; the generated schema parses this normalized value immediately afterward.
-/** 风险条目缺少简历证据时，模型常省略字段或输出空串；统一为 null 以符合契约。 */
 function normalizeGeneratedDetailedOverall(value: unknown): unknown {
   if (!isRecord(value) || !Array.isArray(value.risks)) {
     return value;
   }
+  // 有结构化风险列表时，忽略模型额外生成的风险备注。
+  const { risksNote: _risksNote, ...details } = value;
   return {
-    ...value,
+    ...details,
+    // 风险没有简历证据时，缺省字段和空字符串统一为 null。
     risks: value.risks.map((risk: unknown) =>
       isRecord(risk) && (risk.resumeEvidence === undefined || risk.resumeEvidence === "")
         ? { ...risk, resumeEvidence: null }
@@ -78,7 +85,7 @@ type QualitativeGenerator = typeof generateStructuredWithMastraAgent;
 export function buildQualitativeResumeEvaluationPrompt(
   input: QualitativeResumeEvaluationInput,
 ): string {
-  return `你正在执行候选人简历的六维定性评价。只可使用下面给出的岗位 JD 快照、岗位内部标准快照和候选人简历事实，不得引用旧评分配置、硬性规则、权重或任何外部资料。
+  return `你正在执行候选人简历的六维定性评价。只可使用下面给出的岗位 JD 快照、岗位内部标准快照和候选人简历事实，不得引用旧评分配置、硬性规则、权重或任何外部资料。岗位名称仅用于识别岗位，不得从中推断 JD 或内部标准之外的要求。
 
 评价日期：${input.evaluationAsOf}
 岗位名称：${input.jobDescriptionName}
@@ -107,14 +114,17 @@ ${input.resumeText ?? "未提供"}
    - content：1–2 句说明简历事实与该要求的关系和程度，不得只复述证据或要求。
    matchingEvidence 按重要性输出 2–5 条（最多 8 条），只写候选人符合或部分符合的要求点，resumeEvidence 必填；找不到任何符合岗位要求的简历证据时，输出 1 条说明缺乏直接匹配证据，resumeEvidence 摘录与之最接近的简历原文。
    risks 按重要性输出 1–5 条（最多 8 条），写不符合、存在偏差、证据缺失或需要面试确认的要求点，content 要说明风险或需要确认的内容；简历中有相关事实时 resumeEvidence 摘录该原文，简历完全没有相关事实时 resumeEvidence 为 null。同一要求点不得同时出现在 matchingEvidence 和 risks 中。
-7. 六个维度是 skillMatch（技能匹配）、experienceRelevance（经验相关性）、projectMatch（项目匹配）、educationBackground（教育/背景）、potential（潜力）、stability（稳定性）。只输出四档 level，不要输出任何数值分数、权重或条件命中列表；前端会直接依据 level 绘制定性雷达图。
+7. 六个维度是 skillMatch（技能匹配）、experienceRelevance（经验相关性）、projectMatch（项目匹配）、educationBackground（教育/背景）、potential（潜力）、stability（稳定性）。每个维度都必须包含 level、evaluation 和 basis。level 只能使用四档等级枚举，不要输出任何数值分数、权重或条件命中列表。
 8. 只有简历事实足以支持时才给 seniorityRecommendation 和 teamPositioning，否则返回 null，不得省略字段。seniorityRecommendation 只能是 null 或 {"level":"职级建议","rationale":"依据"}；teamPositioning 只能是 null 或 {"suggestion":"团队定位建议","rationale":"依据"}。
 9. detailedOverall.judgment、六个 dimensions.*.evaluation，以及可选建议中的 rationale 使用受限 Markdown。仅允许粗体、斜体和有序列表；需要强调关键要求或差距时可使用 **粗体**。列点时只允许使用有序列表，依实际条目数量按 1、2、3、4……连续编号，不得使用无序列表。每个列表项必须独占一行，编号后保留一个空格；列表示例必须输出为以下实际换行格式，不要把多个编号写在同一行：
 1. 第一项
 2. 第二项
 3. 第三项
 4. 第四项
-不得使用 Markdown 标题、链接、图片、表格、代码、引用、分隔线、任务列表或 HTML。conciseOverall、level、suggestion 以及 matchingEvidence、risks 中的所有字段保持纯文本。`;
+不得使用 Markdown 标题、链接、图片、表格、代码、引用、分隔线、任务列表或 HTML。conciseOverall、level、suggestion 以及 matchingEvidence、risks 中的所有字段保持纯文本。
+
+只返回一个符合以下 JSON Schema 的评价对象。逐一检查所有必填字段和枚举值，不要添加 Schema 之外的字段。
+${generatedQualitativeResumeEvaluationJsonSchema}`;
 }
 
 export async function generateQualitativeResumeEvaluation(

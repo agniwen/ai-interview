@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  QUALITATIVE_RESUME_PROMPT_VERSION,
   buildQualitativeResumeEvaluationPrompt,
   generateQualitativeResumeEvaluation,
   normalizeGeneratedQualitativeResumeEvaluation,
@@ -140,7 +141,7 @@ describe("qualitative resume evaluation prompt", () => {
       expect.objectContaining({
         maxOutputTokens: 8192,
         normalizeInvalid: normalizeGeneratedQualitativeResumeEvaluation,
-        observabilityLabel: "qualitative-resume-v10",
+        observabilityLabel: QUALITATIVE_RESUME_PROMPT_VERSION,
         temperature: 0,
       }),
     );

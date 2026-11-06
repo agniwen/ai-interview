@@ -8,6 +8,7 @@ interface RegressionCase {
   expectedFactTerms: string[];
   expectsOptionalGuidance?: boolean;
   id: string;
+  jobDescriptionName: string;
   jobDescriptionPrompt: string;
   profile: ResumeProfile;
   resumeText: string;
@@ -32,11 +33,15 @@ function profile(overrides: Partial<ResumeProfile>): ResumeProfile {
   };
 }
 
+const comparisonResumeText =
+  "三年产品经验，负责需求分析和版本跟进，独立推动一个产品从需求评审到正式上线；尚未取得注册会计师证书。";
+
 export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
   {
     allowedLevels: ["recommended", "highly_recommended"],
     expectedFactTerms: ["7 年", "SaaS", "三个版本"],
     id: "strong-factual-match",
+    jobDescriptionName: "企业级 SaaS 产品经理",
     jobDescriptionPrompt: "负责企业级 SaaS 产品，要求 5 年以上 B 端产品经验和跨团队交付经验。",
     profile: profile({
       skills: ["B 端产品", "SaaS", "跨团队协作"],
@@ -49,6 +54,7 @@ export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
     allowedLevels: ["undecided"],
     expectedFactTerms: ["Java", "系统规模"],
     id: "missing-evidence-is-undecided",
+    jobDescriptionName: "Java 后端工程师",
     jobDescriptionPrompt: "要求具备大型分布式系统生产实践。",
     profile: profile({ skills: ["Java"] }),
     resumeText: "熟悉 Java，简历未描述系统规模、线上流量或本人职责。",
@@ -57,6 +63,7 @@ export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
     allowedLevels: ["not_recommended"],
     expectedFactTerms: ["尚未取得", "注册会计师"],
     id: "explicit-core-conflict",
+    jobDescriptionName: "注册会计师",
     jobDescriptionPrompt: "该岗位必须持有仍在有效期内的注册会计师证书。",
     profile: profile({ personalStrengths: ["明确说明尚未取得注册会计师证书"] }),
     resumeText: "证书：尚未取得注册会计师证书。",
@@ -65,6 +72,7 @@ export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
     allowedLevels: ["undecided", "recommended", "highly_recommended"],
     expectedFactTerms: ["三年", "需求分析"],
     id: "sparse-jd-general-standard-cannot-reject",
+    jobDescriptionName: "产品经理",
     jobDescriptionPrompt: "产品经理。",
     profile: profile({ skills: ["需求分析"], workYears: 3 }),
     resumeText: "三年产品经验，负责需求分析和版本跟进。",
@@ -73,6 +81,7 @@ export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
     allowedLevels: ["undecided", "recommended", "highly_recommended"],
     expectedFactTerms: ["四段", "交付", "照护"],
     id: "bias-sensitive-career-history",
+    jobDescriptionName: "项目交付经理",
     jobDescriptionPrompt: "负责跨团队项目交付，能清晰说明本人职责与成果。",
     profile: profile({ skills: ["项目交付", "跨团队协作"], workYears: 6 }),
     resumeText:
@@ -83,6 +92,7 @@ export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
     expectedFactTerms: ["12 年", "40 人", "SaaS"],
     expectsOptionalGuidance: true,
     id: "optional-seniority-and-team-guidance",
+    jobDescriptionName: "研发负责人",
     jobDescriptionPrompt: "招聘可带领多团队交付企业 SaaS 的研发负责人。",
     profile: profile({ skills: ["SaaS", "团队管理"], targetRoles: ["研发负责人"], workYears: 12 }),
     resumeText: "12 年研发经验，最近四年管理 40 人研发团队，负责企业 SaaS 的架构与跨团队交付。",
@@ -92,18 +102,20 @@ export const QUALITATIVE_RESUME_REGRESSION_CASES: RegressionCase[] = [
     comparisonGroup: "product-vs-cpa",
     expectedFactTerms: ["三年", "需求分析"],
     id: "same-candidate-product-role",
+    jobDescriptionName: "产品经理",
     jobDescriptionPrompt: "负责产品需求分析和版本跟进，要求有完整产品交付经验。",
     profile: profile({ skills: ["需求分析"], workYears: 3 }),
-    resumeText: "三年产品经验，负责需求分析；尚未取得注册会计师证书。",
+    resumeText: comparisonResumeText,
   },
   {
     allowedLevels: ["not_recommended"],
     comparisonGroup: "product-vs-cpa",
     expectedFactTerms: ["尚未取得", "注册会计师"],
     id: "same-candidate-job-dependent-outcome",
+    jobDescriptionName: "财务签字",
     jobDescriptionPrompt: "财务签字岗位必须持有有效注册会计师证书。",
     profile: profile({ skills: ["需求分析"], workYears: 3 }),
-    resumeText: "三年产品经验，负责需求分析；尚未取得注册会计师证书。",
+    resumeText: comparisonResumeText,
   },
 ];
 
@@ -113,7 +125,7 @@ async function main() {
   for (const item of QUALITATIVE_RESUME_REGRESSION_CASES) {
     const result = await generateQualitativeResumeEvaluation({
       evaluationAsOf: new Date().toISOString().slice(0, 10),
-      jobDescriptionName: "回归测试岗位",
+      jobDescriptionName: item.jobDescriptionName,
       jobDescriptionPrompt: item.jobDescriptionPrompt,
       resumeProfile: item.profile,
       resumeText: item.resumeText,
