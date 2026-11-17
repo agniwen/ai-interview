@@ -9,6 +9,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ExternalApplicationLinkControl } from "@/components/features/external-applications/link-control";
 import { useDataGridState } from "@/components/features/data-grid";
 import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
@@ -70,7 +71,7 @@ import type { ResumePoolFilters } from "./resume-pool-page-model";
 const resumePoolDetailRouteApi = getRouteApi("/w/$slug/studio/resume-pool/overlay/$recordId");
 const RESUME_POOL_INITIAL_PAGE_SIZE = 60;
 
-export function ResumePoolPage() {
+export function ResumePoolPage({ externalOnly = false }: { externalOnly?: boolean }) {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
   const { data: session } = authClient.useSession();
@@ -133,9 +134,9 @@ export function ResumePoolPage() {
               ? params.sortBy
               : undefined,
           sortOrder: params.sortOrder,
-          sourceType: params.filters.sourceType,
+          sourceType: externalOnly ? "external_application" : params.filters.sourceType,
           textFilters: params.filters.textFilters || undefined,
-          uploaderIds: params.filters.uploaderIds || undefined,
+          uploaderIds: externalOnly ? undefined : params.filters.uploaderIds || undefined,
         });
         return {
           records: result.records,
@@ -143,7 +144,7 @@ export function ResumePoolPage() {
           totalPages: Math.max(1, Math.ceil(result.total / params.pageSize)),
         };
       },
-    [slug],
+    [externalOnly, slug],
   );
   const grid = useDataGridState<ResumePoolListRecord, ResumePoolFilters>({
     allowedSortIds: ["createdAt", "candidateName", "updatedAt"],
@@ -152,7 +153,7 @@ export function ResumePoolPage() {
     initialFilters: initialPoolFilters,
     maxPageSize: 100,
     queryFn: fetcher,
-    queryKeyBase: ["resume-pool", slug, scope],
+    queryKeyBase: ["resume-pool", slug, scope, externalOnly ? "external" : "all"],
   });
 
   useEffect(() => {
@@ -327,7 +328,9 @@ export function ResumePoolPage() {
       params: { recordId: record.id, slug },
       resetScroll: false,
       state: (previous) => ({ ...previous, fromResumePoolList: true }),
-      to: "/w/$slug/studio/resume-pool/overlay/$recordId",
+      to: externalOnly
+        ? "/w/$slug/studio/external-applications/overlay/$recordId"
+        : "/w/$slug/studio/resume-pool/overlay/$recordId",
     });
   }
 
@@ -370,9 +373,10 @@ export function ResumePoolPage() {
     },
   });
 
+  const defaultEmptyTitle = externalOnly ? "暂无外部投递简历" : "公共简历池暂无简历";
   const emptyTitle = grid.bind.filterValues.createdAtRange
     ? "当前时间范围内暂无人才"
-    : "公共简历池暂无简历";
+    : defaultEmptyTitle;
   const uploaderFilterOptions = useMemo(
     () => buildResumePoolUploaderFilterOptions(uploadersQuery.data ?? []),
     [uploadersQuery.data],
@@ -429,7 +433,7 @@ export function ResumePoolPage() {
       ? "正在加载更多人才"
       : `已显示 ${visibleRecordCount} / ${totalRecordCount} 条，继续下滑加载更多`;
   } else if (totalRecordCount > 0) {
-    loadMoreStatusText = "已显示全部人才";
+    loadMoreStatusText = externalOnly ? "已显示全部外部投递" : "已显示全部人才";
   }
 
   return (
@@ -438,36 +442,43 @@ export function ResumePoolPage() {
         <PageHeader
           className="max-w-3xl"
           description="推进到招聘台后进入招聘流程。"
-          title="人才库"
+          title={externalOnly ? "外部投递" : "人才库"}
         />
         <div className="flex flex-col gap-4">
           <Toolbar
-            filterStorageKey="resume-pool"
+            filterStorageKey={externalOnly ? "external-applications" : "resume-pool"}
             canResetFilters={grid.bind.canResetFilters}
             filterValues={grid.bind.filterValues}
-            filters={filtersConfig}
+            filters={
+              externalOnly
+                ? filtersConfig.filter(({ key }) => key !== "sourceType" && key !== "uploaderIds")
+                : filtersConfig
+            }
             onFilterChange={grid.bind.onFilterChange}
             onRefresh={refreshPool}
             onResetFilters={grid.bind.onResetFilters}
             refreshing={grid.bind.refetching}
             searchLoading={grid.bind.loading}
             toolbarRight={
-              <ResumePoolToolbarActions
-                canOpenBatchList={canReadResumeUploadBatch}
-                canUpload={canUploadResumePool}
-                hasActiveUploadBatches={hasActiveUploadBatches}
-                onOpenBatchList={() => setBatchListOpen(true)}
-                onUpload={() => {
-                  if (
-                    bulk.state.canRetry ||
-                    ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
-                  ) {
-                    setProgressOpen(true);
-                  } else {
-                    setUploadEntryOpen(true);
-                  }
-                }}
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                {externalOnly ? <ExternalApplicationLinkControl slug={slug} /> : null}
+                <ResumePoolToolbarActions
+                  canOpenBatchList={!externalOnly && canReadResumeUploadBatch}
+                  canUpload={!externalOnly && canUploadResumePool}
+                  hasActiveUploadBatches={hasActiveUploadBatches}
+                  onOpenBatchList={() => setBatchListOpen(true)}
+                  onUpload={() => {
+                    if (
+                      bulk.state.canRetry ||
+                      ["uploading", "creating", "batch_failed"].includes(bulk.state.phase)
+                    ) {
+                      setProgressOpen(true);
+                    } else {
+                      setUploadEntryOpen(true);
+                    }
+                  }}
+                />
+              </div>
             }
           />
           <ResumePoolListContent
@@ -482,7 +493,7 @@ export function ResumePoolPage() {
             canRecommend={canImportResumePool && canReadJobDescriptions}
             canRetryResumeParse={canRetryResumeParse}
             canResetFilters={grid.bind.canResetFilters}
-            canUpload={canUploadResumePool}
+            canUpload={!externalOnly && canUploadResumePool}
             currentOrganizationId={workspaceId}
             currentUserId={currentUserId}
             deletingRecordId={
@@ -542,7 +553,7 @@ export function ResumePoolPage() {
                   className={isPoolBusy ? "animate-spin" : undefined}
                   data-icon="inline-start"
                 />
-                刷新人才库
+                {externalOnly ? "刷新外部投递" : "刷新人才库"}
               </Button>
             </div>
           ) : null}

@@ -88,7 +88,11 @@ async function loadMailMatchContext(input: {
     )
     .limit(1);
 
-  if (!row?.jobMatchRequestedAt || row.sourceChannel !== "mail_ingest" || !row.resumeProfile) {
+  if (
+    !row?.jobMatchRequestedAt ||
+    (row.sourceChannel !== "mail_ingest" && row.sourceChannel !== "external_application") ||
+    !row.resumeProfile
+  ) {
     return null;
   }
 

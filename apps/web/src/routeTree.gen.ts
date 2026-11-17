@@ -20,6 +20,7 @@ import { Route as StudioRouteImport } from './routes/studio'
 import { Route as WaitRouteImport } from './routes/wait'
 import { Route as AiInterviewInviteInviteTokenRouteImport } from './routes/ai-interview-invite.$inviteToken'
 import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as ApplyTokenRouteImport } from './routes/apply.$token'
 import { Route as BackgroundCheckTokenRouteImport } from './routes/background-check.$token'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
 import { Route as InterviewIndexRouteImport } from './routes/interview.index'
@@ -66,6 +67,7 @@ import { Route as WSlugStudioIndexRouteImport } from './routes/w.$slug.studio.in
 import { Route as WSlugStudioCalendarRouteImport } from './routes/w.$slug.studio.calendar'
 import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studio.dashboard'
 import { Route as WSlugStudioDepartmentsRouteImport } from './routes/w.$slug.studio.departments'
+import { Route as WSlugStudioExternalApplicationsRouteImport } from './routes/w.$slug.studio.external-applications'
 import { Route as WSlugStudioFormsRouteImport } from './routes/w.$slug.studio.forms'
 import { Route as WSlugStudioGlobalConfigRouteImport } from './routes/w.$slug.studio.global-config'
 import { Route as WSlugStudioInterviewQuestionsRouteImport } from './routes/w.$slug.studio.interview-questions'
@@ -93,6 +95,7 @@ import { Route as WSlugStudioQuestionBankFormsRouteImport } from './routes/w.$sl
 import { Route as WSlugStudioQuestionBankInterviewQuestionsRouteImport } from './routes/w.$slug.studio.question-bank.interview-questions'
 import { Route as WSlugStudioResumePoolRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.$recordId'
 import { Route as WSlugStudioResumesRecordIdRouteImport } from './routes/w.$slug.studio.resumes.$recordId'
+import { Route as WSlugStudioExternalApplicationsOverlayRecordIdRouteImport } from './routes/w.$slug.studio.external-applications.overlay.$recordId'
 import { Route as WSlugStudioJobDescriptionsOverlayJobIdRouteImport } from './routes/w.$slug.studio.job-descriptions.overlay.$jobId'
 import { Route as WSlugStudioQuestionBankFormsTemplateIdRouteImport } from './routes/w.$slug.studio.question-bank.forms.$templateId'
 import { Route as WSlugStudioQuestionBankInterviewQuestionsTemplateIdRouteImport } from './routes/w.$slug.studio.question-bank.interview-questions.$templateId'
@@ -157,6 +160,11 @@ const AiInterviewInviteInviteTokenRoute =
 const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
   id: '/api/app-version',
   path: '/api/app-version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplyTokenRoute = ApplyTokenRouteImport.update({
+  id: '/apply/$token',
+  path: '/apply/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BackgroundCheckTokenRoute = BackgroundCheckTokenRouteImport.update({
@@ -395,6 +403,12 @@ const WSlugStudioDepartmentsRoute = WSlugStudioDepartmentsRouteImport.update({
   path: '/departments',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
+const WSlugStudioExternalApplicationsRoute =
+  WSlugStudioExternalApplicationsRouteImport.update({
+    id: '/external-applications',
+    path: '/external-applications',
+    getParentRoute: () => WSlugStudioRoute,
+  } as any)
 const WSlugStudioFormsRoute = WSlugStudioFormsRouteImport.update({
   id: '/forms',
   path: '/forms',
@@ -547,6 +561,12 @@ const WSlugStudioResumesRecordIdRoute =
     path: '/$recordId',
     getParentRoute: () => WSlugStudioResumesRoute,
   } as any)
+const WSlugStudioExternalApplicationsOverlayRecordIdRoute =
+  WSlugStudioExternalApplicationsOverlayRecordIdRouteImport.update({
+    id: '/overlay/$recordId',
+    path: '/overlay/$recordId',
+    getParentRoute: () => WSlugStudioExternalApplicationsRoute,
+  } as any)
 const WSlugStudioJobDescriptionsOverlayJobIdRoute =
   WSlugStudioJobDescriptionsOverlayJobIdRouteImport.update({
     id: '/overlay/$jobId',
@@ -618,6 +638,7 @@ export interface FileRoutesByFullPath {
   '/wait': typeof WaitRoute
   '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
+  '/apply/$token': typeof ApplyTokenRoute
   '/background-check/$token': typeof BackgroundCheckTokenRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
@@ -661,6 +682,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
+  '/w/$slug/studio/external-applications': typeof WSlugStudioExternalApplicationsRouteWithChildren
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
   '/w/$slug/studio/global-config': typeof WSlugStudioGlobalConfigRoute
   '/w/$slug/studio/interview-questions': typeof WSlugStudioInterviewQuestionsRoute
@@ -691,6 +713,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/offer-approval-templates/': typeof WSlugStudioOfferApprovalTemplatesIndexRoute
   '/w/$slug/studio/offer-approvals/': typeof WSlugStudioOfferApprovalsIndexRoute
   '/w/$slug/studio/question-bank/': typeof WSlugStudioQuestionBankIndexRoute
+  '/w/$slug/studio/external-applications/overlay/$recordId': typeof WSlugStudioExternalApplicationsOverlayRecordIdRoute
   '/w/$slug/studio/job-descriptions/overlay/$jobId': typeof WSlugStudioJobDescriptionsOverlayJobIdRoute
   '/w/$slug/studio/question-bank/forms/$templateId': typeof WSlugStudioQuestionBankFormsTemplateIdRoute
   '/w/$slug/studio/question-bank/interview-questions/$templateId': typeof WSlugStudioQuestionBankInterviewQuestionsTemplateIdRoute
@@ -710,6 +733,7 @@ export interface FileRoutesByTo {
   '/wait': typeof WaitRoute
   '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
+  '/apply/$token': typeof ApplyTokenRoute
   '/background-check/$token': typeof BackgroundCheckTokenRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
@@ -748,6 +772,7 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
+  '/w/$slug/studio/external-applications': typeof WSlugStudioExternalApplicationsRouteWithChildren
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
   '/w/$slug/studio/global-config': typeof WSlugStudioGlobalConfigRoute
   '/w/$slug/studio/interview-questions': typeof WSlugStudioInterviewQuestionsRoute
@@ -775,6 +800,7 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/offer-approval-templates': typeof WSlugStudioOfferApprovalTemplatesIndexRoute
   '/w/$slug/studio/offer-approvals': typeof WSlugStudioOfferApprovalsIndexRoute
   '/w/$slug/studio/question-bank': typeof WSlugStudioQuestionBankIndexRoute
+  '/w/$slug/studio/external-applications/overlay/$recordId': typeof WSlugStudioExternalApplicationsOverlayRecordIdRoute
   '/w/$slug/studio/job-descriptions/overlay/$jobId': typeof WSlugStudioJobDescriptionsOverlayJobIdRoute
   '/w/$slug/studio/question-bank/forms/$templateId': typeof WSlugStudioQuestionBankFormsTemplateIdRoute
   '/w/$slug/studio/question-bank/interview-questions/$templateId': typeof WSlugStudioQuestionBankInterviewQuestionsTemplateIdRoute
@@ -798,6 +824,7 @@ export interface FileRoutesById {
   '/wait': typeof WaitRoute
   '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
+  '/apply/$token': typeof ApplyTokenRoute
   '/background-check/$token': typeof BackgroundCheckTokenRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
@@ -841,6 +868,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
+  '/w/$slug/studio/external-applications': typeof WSlugStudioExternalApplicationsRouteWithChildren
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
   '/w/$slug/studio/global-config': typeof WSlugStudioGlobalConfigRoute
   '/w/$slug/studio/interview-questions': typeof WSlugStudioInterviewQuestionsRoute
@@ -871,6 +899,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/offer-approval-templates/': typeof WSlugStudioOfferApprovalTemplatesIndexRoute
   '/w/$slug/studio/offer-approvals/': typeof WSlugStudioOfferApprovalsIndexRoute
   '/w/$slug/studio/question-bank/': typeof WSlugStudioQuestionBankIndexRoute
+  '/w/$slug/studio/external-applications/overlay/$recordId': typeof WSlugStudioExternalApplicationsOverlayRecordIdRoute
   '/w/$slug/studio/job-descriptions/overlay/$jobId': typeof WSlugStudioJobDescriptionsOverlayJobIdRoute
   '/w/$slug/studio/question-bank/forms/$templateId': typeof WSlugStudioQuestionBankFormsTemplateIdRoute
   '/w/$slug/studio/question-bank/interview-questions/$templateId': typeof WSlugStudioQuestionBankInterviewQuestionsTemplateIdRoute
@@ -895,6 +924,7 @@ export interface FileRouteTypes {
     | '/wait'
     | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
+    | '/apply/$token'
     | '/background-check/$token'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
@@ -938,6 +968,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
+    | '/w/$slug/studio/external-applications'
     | '/w/$slug/studio/forms'
     | '/w/$slug/studio/global-config'
     | '/w/$slug/studio/interview-questions'
@@ -968,6 +999,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates/'
     | '/w/$slug/studio/offer-approvals/'
     | '/w/$slug/studio/question-bank/'
+    | '/w/$slug/studio/external-applications/overlay/$recordId'
     | '/w/$slug/studio/job-descriptions/overlay/$jobId'
     | '/w/$slug/studio/question-bank/forms/$templateId'
     | '/w/$slug/studio/question-bank/interview-questions/$templateId'
@@ -987,6 +1019,7 @@ export interface FileRouteTypes {
     | '/wait'
     | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
+    | '/apply/$token'
     | '/background-check/$token'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
@@ -1025,6 +1058,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
+    | '/w/$slug/studio/external-applications'
     | '/w/$slug/studio/forms'
     | '/w/$slug/studio/global-config'
     | '/w/$slug/studio/interview-questions'
@@ -1052,6 +1086,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates'
     | '/w/$slug/studio/offer-approvals'
     | '/w/$slug/studio/question-bank'
+    | '/w/$slug/studio/external-applications/overlay/$recordId'
     | '/w/$slug/studio/job-descriptions/overlay/$jobId'
     | '/w/$slug/studio/question-bank/forms/$templateId'
     | '/w/$slug/studio/question-bank/interview-questions/$templateId'
@@ -1074,6 +1109,7 @@ export interface FileRouteTypes {
     | '/wait'
     | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
+    | '/apply/$token'
     | '/background-check/$token'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
@@ -1117,6 +1153,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
+    | '/w/$slug/studio/external-applications'
     | '/w/$slug/studio/forms'
     | '/w/$slug/studio/global-config'
     | '/w/$slug/studio/interview-questions'
@@ -1147,6 +1184,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/offer-approval-templates/'
     | '/w/$slug/studio/offer-approvals/'
     | '/w/$slug/studio/question-bank/'
+    | '/w/$slug/studio/external-applications/overlay/$recordId'
     | '/w/$slug/studio/job-descriptions/overlay/$jobId'
     | '/w/$slug/studio/question-bank/forms/$templateId'
     | '/w/$slug/studio/question-bank/interview-questions/$templateId'
@@ -1170,6 +1208,7 @@ export interface RootRouteChildren {
   WaitRoute: typeof WaitRoute
   AiInterviewInviteInviteTokenRoute: typeof AiInterviewInviteInviteTokenRoute
   ApiAppVersionRoute: typeof ApiAppVersionRoute
+  ApplyTokenRoute: typeof ApplyTokenRoute
   BackgroundCheckTokenRoute: typeof BackgroundCheckTokenRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -1262,6 +1301,13 @@ declare module '@tanstack/react-router' {
       path: '/api/app-version'
       fullPath: '/api/app-version'
       preLoaderRoute: typeof ApiAppVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/apply/$token': {
+      id: '/apply/$token'
+      path: '/apply/$token'
+      fullPath: '/apply/$token'
+      preLoaderRoute: typeof ApplyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/background-check/$token': {
@@ -1586,6 +1632,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioDepartmentsRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
+    '/w/$slug/studio/external-applications': {
+      id: '/w/$slug/studio/external-applications'
+      path: '/external-applications'
+      fullPath: '/w/$slug/studio/external-applications'
+      preLoaderRoute: typeof WSlugStudioExternalApplicationsRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
     '/w/$slug/studio/forms': {
       id: '/w/$slug/studio/forms'
       path: '/forms'
@@ -1775,6 +1828,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioResumesRecordIdRouteImport
       parentRoute: typeof WSlugStudioResumesRoute
     }
+    '/w/$slug/studio/external-applications/overlay/$recordId': {
+      id: '/w/$slug/studio/external-applications/overlay/$recordId'
+      path: '/overlay/$recordId'
+      fullPath: '/w/$slug/studio/external-applications/overlay/$recordId'
+      preLoaderRoute: typeof WSlugStudioExternalApplicationsOverlayRecordIdRouteImport
+      parentRoute: typeof WSlugStudioExternalApplicationsRoute
+    }
     '/w/$slug/studio/job-descriptions/overlay/$jobId': {
       id: '/w/$slug/studio/job-descriptions/overlay/$jobId'
       path: '/overlay/$jobId'
@@ -1960,6 +2020,21 @@ const WSlugChatRouteWithChildren = WSlugChatRoute._addFileChildren(
   WSlugChatRouteChildren,
 )
 
+interface WSlugStudioExternalApplicationsRouteChildren {
+  WSlugStudioExternalApplicationsOverlayRecordIdRoute: typeof WSlugStudioExternalApplicationsOverlayRecordIdRoute
+}
+
+const WSlugStudioExternalApplicationsRouteChildren: WSlugStudioExternalApplicationsRouteChildren =
+  {
+    WSlugStudioExternalApplicationsOverlayRecordIdRoute:
+      WSlugStudioExternalApplicationsOverlayRecordIdRoute,
+  }
+
+const WSlugStudioExternalApplicationsRouteWithChildren =
+  WSlugStudioExternalApplicationsRoute._addFileChildren(
+    WSlugStudioExternalApplicationsRouteChildren,
+  )
+
 interface WSlugStudioInterviewsRouteChildren {
   WSlugStudioInterviewsRoundIdRoute: typeof WSlugStudioInterviewsRoundIdRoute
 }
@@ -2124,6 +2199,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioCalendarRoute: typeof WSlugStudioCalendarRoute
   WSlugStudioDashboardRoute: typeof WSlugStudioDashboardRoute
   WSlugStudioDepartmentsRoute: typeof WSlugStudioDepartmentsRoute
+  WSlugStudioExternalApplicationsRoute: typeof WSlugStudioExternalApplicationsRouteWithChildren
   WSlugStudioFormsRoute: typeof WSlugStudioFormsRoute
   WSlugStudioGlobalConfigRoute: typeof WSlugStudioGlobalConfigRoute
   WSlugStudioInterviewQuestionsRoute: typeof WSlugStudioInterviewQuestionsRoute
@@ -2146,6 +2222,8 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
   WSlugStudioCalendarRoute: WSlugStudioCalendarRoute,
   WSlugStudioDashboardRoute: WSlugStudioDashboardRoute,
   WSlugStudioDepartmentsRoute: WSlugStudioDepartmentsRoute,
+  WSlugStudioExternalApplicationsRoute:
+    WSlugStudioExternalApplicationsRouteWithChildren,
   WSlugStudioFormsRoute: WSlugStudioFormsRoute,
   WSlugStudioGlobalConfigRoute: WSlugStudioGlobalConfigRoute,
   WSlugStudioInterviewQuestionsRoute: WSlugStudioInterviewQuestionsRoute,
@@ -2197,6 +2275,7 @@ const rootRouteChildren: RootRouteChildren = {
   WaitRoute: WaitRoute,
   AiInterviewInviteInviteTokenRoute: AiInterviewInviteInviteTokenRoute,
   ApiAppVersionRoute: ApiAppVersionRoute,
+  ApplyTokenRoute: ApplyTokenRoute,
   BackgroundCheckTokenRoute: BackgroundCheckTokenRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,

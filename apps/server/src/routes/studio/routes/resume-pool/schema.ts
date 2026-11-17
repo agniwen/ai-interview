@@ -15,7 +15,7 @@ export const resumePoolListQuerySchema = createdAtDateQuerySchema.safeExtend({
   search: z.string().trim().max(200).optional(),
   sortBy: z.enum(["candidateName", "createdAt", "updatedAt"]).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
-  sourceType: z.enum(["all", "non_referral", "referral"]).default("all"),
+  sourceType: z.enum(["all", "non_referral", "referral", "external_application"]).default("all"),
   textFilters: listTextFiltersSchema("resumes"),
   uploaderId: z.string().trim().min(1).optional(),
   uploaderIds: z.string().trim().optional(),

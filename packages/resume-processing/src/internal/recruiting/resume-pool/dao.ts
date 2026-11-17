@@ -135,7 +135,7 @@ export interface QueryResumePoolItemsInput {
   sortBy?: "candidateName" | "createdAt" | "updatedAt";
   sortOrder?: "asc" | "desc";
   scope: ResumePoolScope;
-  sourceType?: "all" | "non_referral" | "referral";
+  sourceType?: "all" | "non_referral" | "referral" | "external_application";
 }
 
 export interface PublishPrivatePoolItemInput {
@@ -719,6 +719,9 @@ export async function queryResumePoolItems(
     input.createdAtBefore ? lt(resumePoolItem.createdAt, input.createdAtBefore) : undefined,
     input.creatorIds && input.scope === "public"
       ? inArray(resumePoolItem.createdBy, input.creatorIds)
+      : undefined,
+    input.sourceType === "external_application"
+      ? eq(resumePoolItem.sourceChannel, "external_application")
       : undefined,
     input.sourceType === "referral" ? eq(resumePoolItem.sourceChannel, "referral") : undefined,
     input.sourceType === "non_referral"

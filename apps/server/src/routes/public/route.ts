@@ -1,3 +1,4 @@
+import { externalApplicationsRouter } from "./routes/external-applications/route";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { RecruitingJobNotAcceptingCandidatesError } from "@app/recruiting/records";
 // 中文：公开访问入口路由族。挂在 /api/public 下，不依赖 workspace
@@ -113,6 +114,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
   return factory
     .createApp()
     .route("/auth-config", authConfigRouter)
+    .route("/external-applications", externalApplicationsRouter)
     .route("/background-checks", publicBackgroundChecksRouter)
     .route("/offers", publicOffersRouter)
     .route("/human-interview-candidate-materials", humanInterviewCandidateMaterialsRouter)

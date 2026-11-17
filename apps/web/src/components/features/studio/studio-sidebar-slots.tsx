@@ -7,6 +7,7 @@ import {
   IconChevronRight,
   IconFileText,
   IconLayoutGrid,
+  IconInbox,
   IconListCheck,
   IconMessageChatbot,
   IconShieldCheck,
@@ -80,6 +81,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/resume-pool",
         resource: "page",
         title: "人才库",
+      },
+      {
+        action: "resumePool",
+        icon: IconInbox,
+        path: "/studio/external-applications",
+        resource: "page",
+        title: "外部投递",
       },
       {
         action: "interviews",

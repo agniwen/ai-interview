@@ -1,0 +1,1 @@
+ALTER TABLE "resume_pool_item" DROP CONSTRAINT "resume_pool_item_source_channel_check", ADD CONSTRAINT "resume_pool_item_source_channel_check" CHECK ("source_channel" IS NULL OR "source_channel" IN ('mail_ingest', 'referral', 'external_application'));

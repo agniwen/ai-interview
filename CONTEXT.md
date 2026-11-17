@@ -52,6 +52,9 @@ _Avoid_: Invite link
 
 ### Recruiting Setup
 
+**External Application Link**:
+A reusable link shared by a workspace that lets people submit resumes without signing in. While enabled, it accepts applications for any actively recruiting position in that workspace and offers automatic matching across those positions.
+
 **Job Description**:
 A saved position definition used to evaluate resumes and drive interview questions. It becomes available to recruiting workflows on its first save, and each later save creates a new current job evaluation version.
 _Avoid_: JD when writing user-facing copy, role posting

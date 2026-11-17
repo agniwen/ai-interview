@@ -1,3 +1,4 @@
+import { externalApplicationLinkRouter } from "./routes/external-application-link/route";
 import { offerApprovalsRouter } from "./routes/offer-approvals/route";
 import { factory } from "../../factory";
 import { departmentsRouter } from "./routes/departments/route";
@@ -26,6 +27,7 @@ export const studioRouter = factory
   .route("/resume-upload-batches", resumeUploadBatchesRouter)
   .route("/departments", departmentsRouter)
   .route("/global-config", globalConfigRouter)
+  .route("/external-application-link", externalApplicationLinkRouter)
   .route("/interviewers", interviewersRouter)
   .route("/job-descriptions", jobDescriptionsRouter)
   .route("/mail-ingest-accounts", mailIngestRouter)

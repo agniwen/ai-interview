@@ -324,6 +324,14 @@ export const organization = pgTable("organization", {
   slug: text("slug").notNull().unique(),
 });
 
+export const externalApplicationLink = pgTable("external_application_link", {
+  enabled: boolean("enabled").notNull(),
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+});
+
 export const member = pgTable(
   "member",
   {
@@ -2673,7 +2681,7 @@ export const studioOfferDraft = pgTable(
 
 export type ResumePoolScope = "private" | "public";
 export type ResumePoolStatus = "active" | "archived";
-export type ResumePoolSourceChannel = "mail_ingest" | "referral";
+export type ResumePoolSourceChannel = "mail_ingest" | "referral" | "external_application";
 export type ResumePoolEventType =
   | "created"
   | "parsed"
@@ -2795,7 +2803,7 @@ export const resumePoolItem = pgTable(
     ),
     check(
       "resume_pool_item_source_channel_check",
-      sql`${table.sourceChannel} IS NULL OR ${table.sourceChannel} IN ('mail_ingest', 'referral')`,
+      sql`${table.sourceChannel} IS NULL OR ${table.sourceChannel} IN ('mail_ingest', 'referral', 'external_application')`,
     ),
     index("resume_pool_item_source_pool_item_idx").on(table.sourcePoolItemId),
     index("resume_pool_item_skills_normalized_idx").using("gin", table.skillsNormalized),

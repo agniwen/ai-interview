@@ -217,6 +217,9 @@ function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
 }
 
 export function sourceLabel(record: ResumePoolListRecord) {
+  if (record.sourceChannel === "external_application") {
+    return "外部投递";
+  }
   if (record.sourceChannel === "referral") {
     return "内推";
   }
@@ -230,6 +233,9 @@ export function sourceLabel(record: ResumePoolListRecord) {
 }
 
 export function uploaderUserLabel(record: ResumePoolListRecord) {
+  if (record.sourceChannel === "external_application") {
+    return "工作空间";
+  }
   return record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知上传人";
 }
 
@@ -246,6 +252,9 @@ export function uploaderMetaSegments(record: ResumePoolListRecord) {
 }
 
 export function uploaderMetaLabel(record: ResumePoolListRecord) {
+  if (record.sourceChannel === "external_application") {
+    return `${formatDateInAppTimeZone(record.createdAt, "YY年MM月DD日:HH:mm")} 外部投递`;
+  }
   const { leadingText, trailingText, userName } = uploaderMetaSegments(record);
   if (record.sourceChannel === "mail_ingest") {
     return `${leadingText}${userName}${trailingText}`;
@@ -258,6 +267,9 @@ export function resumePoolCreatedAtRangeLabel(value: string): string {
 }
 
 export function sourceActorLabel(record: ResumePoolListRecord) {
+  if (record.sourceChannel === "external_application") {
+    return "接收方";
+  }
   return record.sourceChannel === "referral" ? "内推人" : "上传人";
 }
 

@@ -24,6 +24,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "审批流配置" }, prefix: "/studio/offer-approval-templates" },
   { meta: { title: "Offer 审批" }, prefix: "/studio/offer-approvals" },
   { meta: { title: "招聘台账" }, prefix: "/studio/recruiting-ledger" },
+  { meta: { title: "外部投递" }, prefix: "/studio/external-applications" },
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
   { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
   { meta: { title: "面试管理" }, prefix: "/studio/interviews" },

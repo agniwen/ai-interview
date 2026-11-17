@@ -174,6 +174,13 @@ function ResumePoolCardMeta({
 }
 
 function ResumePoolUploaderMeta({ record }: { record: ResumePoolListRecord }) {
+  if (record.sourceChannel === "external_application") {
+    return (
+      <span className="hidden text-muted-foreground text-xs md:inline xl:hidden 2xl:inline">
+        {uploaderMetaLabel(record)}
+      </span>
+    );
+  }
   const segments = uploaderMetaSegments(record);
 
   return (
@@ -501,6 +508,9 @@ export function ResumePoolCard({
               {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
               {resumeRecruitingStatusBadge(record)}
               {record.sourceChannel === "referral" ? <Badge variant="secondary">内推</Badge> : null}
+              {record.sourceChannel === "external_application" ? (
+                <Badge variant="secondary">外部投递</Badge>
+              ) : null}
             </div>
           </div>
 

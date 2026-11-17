@@ -29,7 +29,7 @@ export function fetchResumePoolItems(
     textFilters?: string;
     sortBy?: "candidateName" | "createdAt" | "updatedAt";
     sortOrder?: "asc" | "desc";
-    sourceType?: "all" | "non_referral" | "referral";
+    sourceType?: "all" | "non_referral" | "referral" | "external_application";
     uploaderId?: string;
     uploaderIds?: string;
   } = {},

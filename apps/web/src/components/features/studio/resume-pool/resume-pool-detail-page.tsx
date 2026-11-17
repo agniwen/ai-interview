@@ -73,10 +73,11 @@ const RESUME_POOL_DETAIL_DIMENSION_SKELETON_ROWS = [
   "stability",
 ] as const;
 
-function ResumePoolDetailHeaderOverride({ onBack }: { onBack: () => void }) {
+function ResumePoolDetailHeaderOverride({ label, onBack }: { label: string; onBack: () => void }) {
   const header = useMemo(
     () => (
       <Button
+        aria-label={label}
         className="-ml-1 shrink-0 px-2 text-muted-foreground hover:text-foreground"
         onClick={onBack}
         size="sm"
@@ -84,10 +85,10 @@ function ResumePoolDetailHeaderOverride({ onBack }: { onBack: () => void }) {
         variant="ghost"
       >
         <IconArrowLeft data-icon="inline-start" />
-        <span className="hidden sm:inline">返回人才库</span>
+        <span className="hidden sm:inline">{label}</span>
       </Button>
     ),
-    [onBack],
+    [label, onBack],
   );
   useStudioHeaderOverride(header);
   return null;
@@ -217,9 +218,11 @@ export function ResumePoolDetailPageSkeleton() {
 }
 
 export function ResumePoolDetailPage({
+  externalOnly = false,
   onBack,
   recordId,
 }: {
+  externalOnly?: boolean;
   onBack: () => void;
   recordId: string;
 }) {
@@ -243,7 +246,10 @@ export function ResumePoolDetailPage({
     queryKey: ["resume-pool", "detail", slug, recordId] as const,
     staleTime: 30_000,
   });
-  const detail = detailQuery.data ?? null;
+  const backLabel = externalOnly ? "返回外部投递" : "返回人才库";
+  const loadedDetail = detailQuery.data ?? null;
+  const detail =
+    externalOnly && loadedDetail?.sourceChannel !== "external_application" ? null : loadedDetail;
   const canManageJobBinding = canManageResumePoolJobBinding({
     canRecommend,
     currentUserId,
@@ -263,7 +269,7 @@ export function ResumePoolDetailPage({
   if (detailQuery.isError || !detail) {
     return (
       <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-        <ResumePoolDetailHeaderOverride onBack={onBack} />
+        <ResumePoolDetailHeaderOverride label={backLabel} onBack={onBack} />
         <Empty className="border-border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -282,7 +288,7 @@ export function ResumePoolDetailPage({
   return (
     <>
       <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-6 pb-[calc(7rem+env(safe-area-inset-bottom))]">
-        <ResumePoolDetailHeaderOverride onBack={onBack} />
+        <ResumePoolDetailHeaderOverride label={backLabel} onBack={onBack} />
         <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-5">
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">

@@ -168,3 +168,21 @@ export function getResumeDocumentExtension(input: {
 
   return extension ?? "bin";
 }
+
+const externalApplicationResumeKinds = new Set<ResumeDocumentKind>(["image", "pdf", "doc", "docx"]);
+
+export const externalApplicationResumeAccept = [...externalApplicationResumeKinds]
+  .flatMap((kind) => resumeDocumentFormats[kind].extensions.map((extension) => `.${extension}`))
+  .join(",");
+
+export const externalApplicationResumeLabel = "JPG、JPEG、PNG、PDF、DOC、DOCX";
+
+export function isExternalApplicationResume(input: { fileName: string; mediaType?: string }) {
+  const kind = getResumeDocumentKind({ fileName: input.fileName });
+  const declaredKind = getResumeDocumentKind({ mediaType: input.mediaType });
+  return (
+    kind !== null &&
+    externalApplicationResumeKinds.has(kind) &&
+    (declaredKind === null || declaredKind === kind)
+  );
+}
