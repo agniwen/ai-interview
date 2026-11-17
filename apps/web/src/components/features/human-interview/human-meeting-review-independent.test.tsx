@@ -26,12 +26,19 @@ const flush = async () => {
     await Promise.resolve();
   });
 };
-async function renderReview() {
+async function renderReview(inlineCandidateMaterials = false) {
   const container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   const route = createRootRoute({
-    component: () => <HumanMeetingReview active inviteToken="reviewer" onClose={() => {}} />,
+    component: () => (
+      <HumanMeetingReview
+        active
+        inlineCandidateMaterials={inlineCandidateMaterials}
+        inviteToken="reviewer"
+        onClose={() => {}}
+      />
+    ),
   });
   const router = createRouter({ history: createMemoryHistory(), routeTree: route });
   await act(async () => {
@@ -177,4 +184,58 @@ it("lets only the round's interviewers write or submit an evaluation", async () 
   const actions = [...container.querySelectorAll("button")].map((item) => item.textContent);
   expect(actions).not.toContain("提交评价");
   expect(actions).not.toContain("保存草稿");
+});
+
+it("submits a failed review with rating D and only the overall evaluation", async () => {
+  currentReview = reviewRecord({
+    evaluation: { ...evaluation, salaryRecommendation: "旧薪资建议" },
+  });
+  const container = await renderReview();
+  const conclusion = container.querySelector<HTMLButtonElement>('button[id$="-outcome"]');
+  await act(() => conclusion?.click());
+  const fail = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (option) => option.getAttribute("aria-label") === "不通过",
+  );
+  expect(fail).toBeDefined();
+  await act(() => fail?.click());
+
+  expect(container.querySelector('[aria-label="评级"]')).toBeNull();
+  expect(container.querySelector('[aria-label="专业技能"]')).toBeNull();
+  expect(container.querySelector('[aria-label="角色定位"]')).toBeNull();
+  expect(container.querySelector('[aria-label="薪资建议"]')).toBeNull();
+
+  act(() => button(container, "提交评价").click());
+  await flush();
+
+  const submission = fetchMock.mock.calls.find(([request]) =>
+    String(request).endsWith("/evaluation-submit"),
+  );
+  expect(submission).toBeDefined();
+  expect(JSON.parse(String(submission?.[1]?.body))).toMatchObject({
+    evaluation: {
+      overallEvaluation: evaluation.overallEvaluation,
+      professionalSkill: "",
+      rating: "D",
+      rolePosition: "",
+      salaryRecommendation: "",
+    },
+    outcome: "fail",
+  });
+});
+
+it("reveals optional evaluation fields without offering a collapse action", async () => {
+  currentReview = reviewRecord();
+  const container = await renderReview(true);
+  const roleField = () =>
+    container.querySelector<HTMLTextAreaElement>('textarea[aria-label="角色定位"]');
+  expect(roleField()).toBeNull();
+  expect(container.querySelector('[aria-label="薪资建议"]')).toBeNull();
+  await act(() => button(container, "评价更多").click());
+  expect(roleField()?.value).toBe(evaluation.rolePosition);
+  expect(container.querySelector('[aria-label="薪资建议"]')).not.toBeNull();
+  expect(
+    [...container.querySelectorAll("button")].some(
+      (item) => item.textContent?.includes("更多评价") || item.textContent?.includes("评价更多"),
+    ),
+  ).toBe(false);
 });

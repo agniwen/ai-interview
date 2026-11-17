@@ -14,7 +14,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 
-type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
+type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full" | "viewport";
 type HeaderLayout = "stack" | "row";
 
 // 不同尺寸映射到 Tailwind max-width 类，"full" 对应详情类弹窗的近全屏样态。
@@ -26,6 +26,7 @@ const SIZE_CLASS: Record<ModalSize, string> = {
   lg: "sm:max-w-2xl",
   md: "sm:max-w-lg",
   sm: "sm:max-w-md",
+  viewport: "w-[90dvw] max-w-none",
   xl: "sm:max-w-3xl",
 };
 
@@ -53,6 +54,7 @@ export interface ModalProps {
    */
   placement?: "center" | "right";
   fullScreen?: boolean;
+  mobilePresentation?: "drawer" | "dialog";
   showCloseButton?: boolean;
   /** 为 false 时屏蔽 ESC、点击遮罩关闭与移动端下滑关闭，调用方需自己提供关闭路径。 */
   dismissible?: boolean;
@@ -64,7 +66,11 @@ export interface ModalProps {
 
 export function Modal(props: ModalProps) {
   const isMobile = useIsMobile();
-  return isMobile ? <DrawerModal {...props} /> : <DialogModal {...props} />;
+  return isMobile && props.mobilePresentation !== "dialog" ? (
+    <DrawerModal {...props} />
+  ) : (
+    <DialogModal {...props} />
+  );
 }
 
 function DialogModal({

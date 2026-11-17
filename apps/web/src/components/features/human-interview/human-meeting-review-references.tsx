@@ -3,6 +3,7 @@ import type {
   HumanInterviewReviewRecord,
   HumanInterviewReviewerEvaluationRecord,
 } from "@app/shared/studio-pipeline-stages";
+import { cn } from "@app/shared/utils";
 import { IconChevronRight } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,12 @@ function statusLabel(item: HumanInterviewReviewerEvaluationRecord) {
 }
 export function HumanMeetingReviewReferences({
   review,
+  compact = false,
   canAdopt,
   onAdopt,
 }: {
   review: HumanInterviewReviewRecord;
+  compact?: boolean;
   canAdopt: boolean;
   onAdopt?: (evaluation: HumanInterviewEvaluationDraft) => void;
 }) {
@@ -30,8 +33,13 @@ export function HumanMeetingReviewReferences({
   }
   const suggestion = review.aiEvaluation;
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
-      <div className="space-y-2 px-4 py-3">
+    <div
+      className={cn(
+        "mt-4 overflow-hidden rounded-xl border border-border/60 bg-muted/20",
+        compact && "mt-2 [&_summary]:px-3 [&_summary]:py-1.5",
+      )}
+    >
+      <div className={cn("space-y-2 px-4 py-3", compact && "space-y-1 px-3 py-1.5")}>
         <output aria-label="本轮结论" className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium">本轮结论</span>
           {review.roundOutcome ? (
@@ -44,7 +52,9 @@ export function HumanMeetingReviewReferences({
           ) : null}
         </output>
         <p className="text-muted-foreground text-xs leading-5">
-          每位面试官独立填写。首次提交通过或不通过即完成轮次，后续评价沿用结论；待定不锁定。
+          {compact
+            ? "首次提交通过或不通过后锁定结论。"
+            : "每位面试官独立填写。首次提交通过或不通过即完成轮次，后续评价沿用结论；待定不锁定。"}
         </p>
       </div>
       {suggestion ? (

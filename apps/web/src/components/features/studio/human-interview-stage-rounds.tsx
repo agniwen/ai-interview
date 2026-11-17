@@ -47,6 +47,7 @@ import {
   addOneHourToIsoString,
   canCancelHumanInterviewRound,
   canCompleteHumanInterviewRound,
+  canReviewHumanInterviewRound,
   canEndHumanInterviewMeeting,
   canOpenMeetingLinks,
   canRescheduleHumanInterviewRound,
@@ -170,11 +171,8 @@ export function RoundCard({
     Boolean(round.scheduledAt);
   const canCancelRound = canDelete && canCancelHumanInterviewRound(round, meeting, disabled);
   const canCompleteRound = canUpdate && canCompleteHumanInterviewRound(round, meeting, disabled);
-  const canReviewRound = Boolean(
-    canUpdate &&
-    (round.status === "completed" || (canWrite && round.status === "pending")) &&
-    meeting?.status === "ended",
-  );
+  const canReviewRound =
+    canUpdate && canReviewHumanInterviewRound(round.status, meeting?.status, disabled);
 
   return (
     <Frame>

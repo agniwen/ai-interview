@@ -24,11 +24,13 @@ function transcriptTime(ms: number) {
 }
 
 function MaterialsPanel({
+  title,
   open,
   isMobile,
   onClose,
   children,
 }: {
+  title: string;
   open: boolean;
   isMobile: boolean;
   onClose: () => void;
@@ -57,12 +59,8 @@ function MaterialsPanel({
   const content = (
     <>
       <div className="flex shrink-0 items-center justify-between p-4">
-        {isMobile ? (
-          <DrawerTitle>候选人资料</DrawerTitle>
-        ) : (
-          <h2 className="font-semibold">候选人资料</h2>
-        )}
-        <Button variant="ghost" size="icon-sm" aria-label="关闭候选人资料" onClick={onClose}>
+        {isMobile ? <DrawerTitle>{title}</DrawerTitle> : <h2 className="font-semibold">{title}</h2>}
+        <Button variant="ghost" size="icon-sm" aria-label={`关闭${title}`} onClick={onClose}>
           <IconX />
         </Button>
       </div>
@@ -90,7 +88,7 @@ function MaterialsPanel({
       open={open}
       ref={panelRef}
       tabIndex={-1}
-      aria-label="候选人资料"
+      aria-label={title}
       className="fixed inset-y-0 right-0 bottom-0 h-dvh max-h-none w-[min(46vw,44rem)] rounded-none border-y-0 border-r-0 animate-in slide-in-from-right duration-200 motion-reduce:animate-none"
     >
       {content}
@@ -102,6 +100,7 @@ function MaterialsPanel({
 export function HumanMeetingReviewMaterials({
   inviteToken,
   transcript,
+  transcriptOnly = false,
   currentReviewerId,
   interviewers = [],
   onDesktopOpenChange,
@@ -110,6 +109,7 @@ export function HumanMeetingReviewMaterials({
   onDesktopOpenChange?: (open: boolean) => void;
   currentReviewerId?: string;
   interviewers?: HumanInterviewReviewRecord["transcriptInterviewers"];
+  transcriptOnly?: boolean;
   transcript: HumanInterviewReviewRecord["transcript"];
 }) {
   const [open, setOpen] = useState(false);
@@ -126,28 +126,42 @@ export function HumanMeetingReviewMaterials({
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <IconFileDescription data-icon="inline-start" />
-        查看候选人资料
+        {transcriptOnly ? "查看面试转录" : "查看候选人资料"}
       </Button>
-      <MaterialsPanel open={open} isMobile={isMobile} onClose={closePanel}>
+      <MaterialsPanel
+        title={transcriptOnly ? "面试转录" : "候选人资料"}
+        open={open}
+        isMobile={isMobile}
+        onClose={closePanel}
+      >
         {open ? (
-          <Tabs defaultValue="overview" className="min-h-0 flex-1 px-4 pb-4">
-            <TabsList aria-label="候选人资料内容">
-              <TabsTrigger value="overview">面试概览与简历</TabsTrigger>
-              <TabsTrigger value="transcript">面试转录</TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview" className="min-h-0 flex-1 overflow-hidden">
-              <Suspense
-                fallback={<p className="p-4 text-muted-foreground text-sm">正在加载候选人资料…</p>}
-              >
-                <CandidateMaterials
-                  active
-                  showTimeline={false}
-                  inviteToken={inviteToken}
-                  state={state}
-                  onStateChange={setState}
-                />
-              </Suspense>
-            </TabsContent>
+          <Tabs
+            defaultValue={transcriptOnly ? "transcript" : "overview"}
+            className="min-h-0 flex-1 px-4 pb-4"
+          >
+            {transcriptOnly ? null : (
+              <>
+                <TabsList aria-label="候选人资料内容">
+                  <TabsTrigger value="overview">面试概览与简历</TabsTrigger>
+                  <TabsTrigger value="transcript">面试转录</TabsTrigger>
+                </TabsList>
+                <TabsContent value="overview" className="min-h-0 flex-1 overflow-hidden">
+                  <Suspense
+                    fallback={
+                      <p className="p-4 text-muted-foreground text-sm">正在加载候选人资料…</p>
+                    }
+                  >
+                    <CandidateMaterials
+                      active
+                      showTimeline={false}
+                      inviteToken={inviteToken}
+                      state={state}
+                      onStateChange={setState}
+                    />
+                  </Suspense>
+                </TabsContent>
+              </>
+            )}
             <TabsContent value="transcript" className="min-h-0 flex-1 overflow-hidden">
               {transcript?.turns.length ? (
                 <ScrollArea className="h-full">

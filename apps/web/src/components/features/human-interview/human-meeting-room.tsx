@@ -29,7 +29,7 @@ import { meetingCameraCaptureOptions } from "./human-meeting-video-quality";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
-import { HumanMeetingReview } from "./human-meeting-review";
+import { HumanMeetingPostReview } from "./human-meeting-post-review";
 import {
   defaultHumanMeetingPrejoinMediaSettings,
   HumanMeetingPrejoinMediaControls,
@@ -318,7 +318,6 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [candidateResponsePending, setCandidateResponsePending] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState(props.preview.recordingStatus);
   const [recordingFailedPolls, setRecordingFailedPolls] = useState(0);
-  const [reviewMaterialsOpen, setReviewMaterialsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<HumanMeetingViewMode>(() =>
     resolveInitialHumanMeetingViewMode(props.mode, props.preview.status),
   );
@@ -461,18 +460,8 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     if (props.mode === "interviewer" && viewMode !== "meeting") {
       return (
         <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-          <div
-            className={cn(
-              "shrink-0",
-              viewMode === "review" && reviewMaterialsOpen && "md:pr-[min(46vw,44rem)]",
-            )}
-          >
-            <header
-              className={cn(
-                "flex shrink-0 items-center gap-3 px-4",
-                viewMode === "review" ? "mx-auto w-full max-w-5xl py-3" : "h-11 md:h-12",
-              )}
-            >
+          <div className="shrink-0">
+            <header className="flex h-11 shrink-0 items-center gap-3 px-4 md:h-12">
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 {viewMode === "materials" ? (
                   <Button
@@ -518,11 +507,10 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
                 state={candidateMaterialsState}
               />
             ) : (
-              <HumanMeetingReview
-                active
+              <HumanMeetingPostReview
                 inviteToken={props.inviteToken}
-                onMaterialsOpenChange={setReviewMaterialsOpen}
-                onClose={() => setViewMode("meeting")}
+                materials={candidateMaterialsState}
+                onMaterialsChange={setCandidateMaterialsState}
               />
             )}
           </div>

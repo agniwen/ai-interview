@@ -125,6 +125,17 @@ export function canCancelHumanInterviewRound(
   return meeting === null || meeting.status === "scheduled" || meeting.status === "not_held";
 }
 
+export function canReviewHumanInterviewRound(
+  roundStatus: string,
+  meetingStatus: string | null | undefined,
+  disabled = false,
+): boolean {
+  return (
+    meetingStatus === "ended" &&
+    (roundStatus === "completed" || (!disabled && roundStatus === "pending"))
+  );
+}
+
 export function canCompleteHumanInterviewRound(
   _round: Pick<HumanInterviewRoundRecord, "status">,
   _meeting: Pick<HumanInterviewMeetingRecord, "status"> | null,

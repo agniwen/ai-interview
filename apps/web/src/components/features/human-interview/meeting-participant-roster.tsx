@@ -76,6 +76,7 @@ function RosterItem({ participant }: { participant: Participant }) {
           "size-7 ring-2 transition-shadow duration-200",
           isSpeaking ? "ring-green" : "ring-background",
         )}
+        data-meeting-avatar-participant={participant.identity}
         seed={isCandidate ? name || "未命名候选人" : participant.identity}
       >
         {image ? <AvatarImage alt="" src={image} /> : null}

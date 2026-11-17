@@ -1,11 +1,87 @@
 import type { HumanInterviewReviewRecord } from "@app/shared/studio-pipeline-stages";
 import { atom } from "jotai";
 import type { SetStateAction } from "react";
+import {
+  HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH,
+  HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH,
+  humanInterviewEvaluationRatingSchema,
+  humanInterviewRoundOutcomeSchema,
+} from "@app/db-schema/studio-interviews";
 import type {
   HumanInterviewEvaluationDraft,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
 import { requestReviewJson } from "./human-meeting-review-api";
+
+export type EvaluationTextFieldKey =
+  | "overallEvaluation"
+  | "professionalSkill"
+  | "rolePosition"
+  | "salaryRecommendation";
+
+export const EVALUATION_FIELDS: {
+  key: EvaluationTextFieldKey;
+  label: string;
+  minHeight: number;
+  placeholder: string;
+  wide?: boolean;
+}[] = [
+  {
+    key: "overallEvaluation",
+    label: "整体评价",
+    minHeight: 104,
+    placeholder: "概括岗位匹配情况，并说明主要判断依据",
+    wide: true,
+  },
+  {
+    key: "rolePosition",
+    label: "角色定位",
+    minHeight: 48,
+    placeholder: "填写适合承担的角色",
+  },
+  {
+    key: "salaryRecommendation",
+    label: "薪资建议",
+    minHeight: 88,
+    placeholder: "选填，填写建议薪资范围及依据",
+  },
+  {
+    key: "professionalSkill",
+    label: "专业技能",
+    minHeight: 88,
+    placeholder: "请选择专业技能等级",
+  },
+];
+
+export interface ReviewFormValues {
+  evaluation: HumanInterviewEvaluationDraft;
+  outcome: HumanInterviewRoundOutcome | "";
+}
+
+export function validateReview({ evaluation, outcome }: ReviewFormValues) {
+  const fields: Record<string, string> = {};
+  if (!humanInterviewRoundOutcomeSchema.safeParse(outcome).success) {
+    fields.outcome = "请选择本轮结论：通过、待定或不通过";
+  }
+  if (
+    outcome !== "fail" &&
+    !humanInterviewEvaluationRatingSchema.safeParse(evaluation.rating).success
+  ) {
+    fields["evaluation.rating"] = "请选择评级";
+  }
+  for (const { key, label, wide } of EVALUATION_FIELDS) {
+    if (outcome === "fail" && key !== "overallEvaluation") {
+      continue;
+    }
+    const limit = wide
+      ? HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH
+      : HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH;
+    if (evaluation[key].trim().length > limit) {
+      fields[`evaluation.${key}`] = `${label}最多填写 ${limit.toLocaleString()} 字`;
+    }
+  }
+  return Object.keys(fields).length ? { fields } : undefined;
+}
 
 export const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
   detailedAnalysis: "",
@@ -19,6 +95,16 @@ export const EMPTY_EVALUATION: HumanInterviewEvaluationDraft = {
   seniorityPosition: "",
   strengths: "",
 };
+
+export function evaluationForOutcome(
+  evaluation: HumanInterviewEvaluationDraft,
+  outcome: HumanInterviewRoundOutcome | "",
+): HumanInterviewEvaluationDraft {
+  if (outcome !== "fail") {
+    return evaluation;
+  }
+  return { ...EMPTY_EVALUATION, overallEvaluation: evaluation.overallEvaluation, rating: "D" };
+}
 
 export interface MeetingReviewDraft {
   inviteToken: string;

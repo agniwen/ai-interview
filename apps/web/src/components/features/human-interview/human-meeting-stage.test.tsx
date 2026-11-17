@@ -164,7 +164,7 @@ function verifyBackgroundTranscript(
 ) {
   for (const viewMode of ["materials", "meeting"] as const) {
     renderStage(viewMode);
-    const panel = container.querySelector('[data-slot="meeting-transcript-panel"]');
+    const panel = container.querySelector('[data-slot="meeting-tools-panel"]');
     if (window.innerWidth < 768) {
       expect(panel).toBeNull();
     } else {
@@ -195,40 +195,27 @@ function verifyChatPanel(
   );
   expect(chatTrigger).not.toBeNull();
   act(() => chatTrigger?.click());
-  expect(
-    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
-  ).toBe("true");
+  const shell = document.querySelector('[data-slot="meeting-tools-panel"]');
+  expect(shell).not.toBeNull();
+  const tabs = [...(shell?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [])];
+  expect(tabs.map((tab) => tab.textContent)).toEqual(["面试题", "字幕", "聊天"]);
+  const [questionsTab, transcriptTab, chatTab] = tabs;
+  expect(chatTab?.getAttribute("aria-selected")).toBe("true");
   renderStage("materials");
-  expect(
-    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
-  ).toBe("true");
-  act(() => chatTrigger?.click());
-  expect(
-    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
-  ).toBe("false");
-  renderStage("meeting");
-  const subtitleTrigger = container.querySelector<HTMLButtonElement>(
-    '[data-slot="meeting-transcript-toggle"]',
-  );
-  act(() => subtitleTrigger?.click());
-  expect(subtitleTrigger?.getAttribute("aria-expanded")).toBe("true");
-  expect(document.querySelector('[data-slot="meeting-transcript-panel"]')?.textContent).toContain(
+  expect(document.querySelector('[data-slot="meeting-tools-panel"]')).toBe(shell);
+  act(() => transcriptTab?.click());
+  expect(transcriptTab?.getAttribute("aria-selected")).toBe("true");
+  expect(shell?.querySelector('[data-slot="meeting-transcript-panel"]')?.textContent).toContain(
     "自动实时转录窗口",
   );
-  act(() => chatTrigger?.click());
-  expect(subtitleTrigger?.getAttribute("aria-expanded")).toBe("false");
-  expect(
-    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
-  ).toBe("true");
-  act(() => subtitleTrigger?.click());
-  expect(
-    container.querySelector<HTMLElement>('[data-slot="meeting-chat-panel"]')?.dataset.open,
-  ).toBe("false");
-  const close = document.querySelector<HTMLButtonElement>(
-    '[data-slot="meeting-transcript-panel"] button[aria-label="关闭字幕"]',
-  );
+  act(() => questionsTab?.click());
+  expect(questionsTab?.getAttribute("aria-selected")).toBe("true");
+  act(() => chatTab?.click());
+  expect(chatTab?.getAttribute("aria-selected")).toBe("true");
+  const close = shell?.querySelector<HTMLButtonElement>('button[aria-label="关闭会议工具"]');
   act(() => close?.click());
-  expect(subtitleTrigger?.getAttribute("aria-expanded")).toBe("false");
+  expect(chatTrigger?.getAttribute("aria-expanded")).toBe("false");
+  renderStage("meeting");
   expect(transcriptLifecycle.mounted).toHaveBeenCalledTimes(1);
   expect(transcriptLifecycle.unmounted).not.toHaveBeenCalled();
 }
@@ -527,6 +514,8 @@ describe("HumanMeetingStage realtime transcript", () => {
         );
       renderStage("meeting");
       verifyChatPanel(container, renderStage);
+      const materials = container.querySelector('[data-testid="candidate-materials"]');
+      expect(materials?.closest("[inert]")).not.toBeNull();
       act(() =>
         [...container.querySelectorAll("button")]
           .find((button) => button.textContent === "候选人信息")
@@ -535,6 +524,7 @@ describe("HumanMeetingStage realtime transcript", () => {
       expect(onCandidateMaterialsStateChange).not.toHaveBeenCalled();
       expect(onViewModeChange).toHaveBeenLastCalledWith("materials");
       renderStage("materials");
+      expect(materials?.closest("[inert]")).toBeNull();
       expect(
         container.querySelector<HTMLElement>('[data-testid="candidate-materials"]')?.dataset
           .showQuestions,

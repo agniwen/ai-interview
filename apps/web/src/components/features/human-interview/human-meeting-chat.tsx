@@ -33,10 +33,12 @@ function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
 
 export function HumanMeetingChat({
   access,
+  embedded = false,
   open,
   onClose,
 }: {
   access: HumanInterviewChatAccess;
+  embedded?: boolean;
   open: boolean;
   onClose: () => void;
 }) {
@@ -74,7 +76,7 @@ export function HumanMeetingChat({
   }, [lastMessageId, open]);
 
   useEffect(() => {
-    if (!open) {
+    if (!open || embedded) {
       return;
     }
     if (!isMobile) {
@@ -87,10 +89,10 @@ export function HumanMeetingChat({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isMobile, onClose, open]);
+  }, [embedded, isMobile, onClose, open]);
 
   useEffect(() => {
-    if (!isMobile || !open || !window.visualViewport) {
+    if (embedded || !isMobile || !open || !window.visualViewport) {
       return;
     }
     const { visualViewport } = window;
@@ -109,7 +111,7 @@ export function HumanMeetingChat({
       visualViewport.removeEventListener("resize", updateDrawerBounds);
       visualViewport.removeEventListener("scroll", updateDrawerBounds);
     };
-  }, [isMobile, open]);
+  }, [embedded, isMobile, open]);
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,16 +144,18 @@ export function HumanMeetingChat({
 
   const content = (
     <>
-      <div className="flex shrink-0 items-center gap-2 px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-        <Button aria-label="关闭聊天" onClick={onClose} size="icon-sm" variant="ghost">
-          <IconX className="size-4" />
-        </Button>
-        {isMobile ? (
-          <DrawerTitle className="text-sm font-medium">聊天</DrawerTitle>
-        ) : (
-          <h2 className="text-sm font-medium">聊天</h2>
-        )}
-      </div>
+      {embedded ? null : (
+        <div className="flex shrink-0 items-center gap-2 px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+          <Button aria-label="关闭聊天" onClick={onClose} size="icon-sm" variant="ghost">
+            <IconX className="size-4" />
+          </Button>
+          {isMobile ? (
+            <DrawerTitle className="text-sm font-medium">聊天</DrawerTitle>
+          ) : (
+            <h2 className="text-sm font-medium">聊天</h2>
+          )}
+        </div>
+      )}
       <ScrollArea
         className="min-h-0 flex-1"
         scrollFade
@@ -202,6 +206,10 @@ export function HumanMeetingChat({
       </form>
     </>
   );
+
+  if (embedded) {
+    return content;
+  }
 
   if (isMobile) {
     return (

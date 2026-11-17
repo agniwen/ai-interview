@@ -12,9 +12,8 @@ import {
 } from "@tabler/icons-react";
 import type { QualitativeResumeEvaluationWithDimensionLevels } from "@app/db-schema/qualitative-resume-evaluation";
 import { getResumeDocumentKind } from "@app/shared/resume-documents";
-import { cn } from "@app/shared/utils";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useId, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { DataField } from "@/components/features/display/data-field";
@@ -94,6 +93,7 @@ interface InterviewerCandidateMaterialsProps {
   showQuestions?: boolean;
   active: boolean;
   headerActionsContainer?: HTMLElement | null;
+  questionsTarget?: HTMLElement | null;
   inviteToken: string;
   onStateChange: (state: InterviewerCandidateMaterialsState) => void;
   state: InterviewerCandidateMaterialsState;
@@ -180,13 +180,11 @@ export function AiEvaluationContent({
 }
 
 function CandidateEvaluations({
-  compact,
   showTimeline,
   query,
   aiQuery,
   resumePreview,
 }: {
-  compact: boolean;
   showTimeline?: boolean;
   resumePreview: ReactNode;
   query: ReturnType<typeof useHrInformationQuery>;
@@ -220,7 +218,6 @@ function CandidateEvaluations({
   }
   return (
     <CandidateInterviewHistory
-      compact={compact}
       showTimeline={showTimeline}
       resumePreview={resumePreview}
       aiEvaluation={aiEvaluation ?? (aiQuery.isPending || aiQuery.isError ? aiStatus : null)}
@@ -549,8 +546,9 @@ function CandidateResumeDialog({
     <Modal
       open={open}
       onOpenChange={() => onClose()}
-      size="full"
-      fullScreen
+      size="viewport"
+      mobilePresentation="dialog"
+      className="h-[90dvh] max-h-[90dvh]"
       bodyClassName="overflow-hidden p-0"
       title={
         isMobile ? (
@@ -652,17 +650,16 @@ export function InterviewerCandidateMaterials({
   headerActionsContainer,
   inviteToken,
   onStateChange,
+  questionsTarget,
   state,
 }: InterviewerCandidateMaterialsProps) {
-  const isMobile = useIsMobile();
   const questionsPanelId = useId();
   const questionsButtonRef = useRef<HTMLButtonElement>(null);
-  const questionsOpen = showQuestions && state.questionsOpen;
-  const desktopQuestionsOpen = questionsOpen && !isMobile;
-  const closeQuestions = () => {
+  const { questionsOpen } = state;
+  const closeQuestions = useCallback(() => {
     onStateChange({ ...state, questionsOpen: false });
     questionsButtonRef.current?.focus();
-  };
+  }, [onStateChange, state]);
   const [resumeDialogCandidateId, setResumeDialogCandidateId] = useState<string | null>(null);
   const listQuery = useQuery({
     ...MATERIALS_QUERY_OPTIONS,
@@ -676,7 +673,7 @@ export function InterviewerCandidateMaterials({
   const aiQuery = useAiEvaluationQuery(active, inviteToken, effectiveCandidateId);
   const hrQuery = useHrInformationQuery(active, inviteToken, effectiveCandidateId);
   const questionsQuery = useQuestionsQuery(
-    active && showQuestions,
+    (active || Boolean(questionsTarget)) && showQuestions,
     inviteToken,
     effectiveCandidateId,
   );
@@ -732,6 +729,15 @@ export function InterviewerCandidateMaterials({
       <span>面试题</span>
     </Button>
   ) : null;
+  const questions = showQuestions ? (
+    <ScrollArea className="min-h-0 flex-1" scrollFade scrollbars="leave">
+      <CandidateQuestions
+        query={questionsQuery}
+        inviteToken={inviteToken}
+        candidateId={effectiveCandidateId}
+      />
+    </ScrollArea>
+  ) : null;
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
       {candidateSelector}
@@ -740,17 +746,9 @@ export function InterviewerCandidateMaterials({
         : showQuestions && (
             <div className="flex shrink-0 justify-end px-3 py-2">{questionsButton}</div>
           )}
-      <div
-        className={cn(
-          "grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-200 ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
-          desktopQuestionsOpen
-            ? "grid-cols-[minmax(0,1fr)_min(32%,30rem)]"
-            : "grid-cols-[minmax(0,1fr)_0px]",
-        )}
-      >
-        <section aria-label="候选人概览" className="min-h-0 min-w-0 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <section aria-label="候选人概览" className="h-full min-w-0 overflow-hidden">
           <CandidateEvaluations
-            compact={desktopQuestionsOpen}
             showTimeline={showTimeline}
             key={effectiveCandidateId}
             aiQuery={aiQuery}
@@ -772,20 +770,13 @@ export function InterviewerCandidateMaterials({
             }
           />
         </section>
-        {showQuestions ? (
-          <CandidateQuestionsPanel
-            id={questionsPanelId}
-            isMobile={isMobile}
-            open={questionsOpen}
-            onClose={closeQuestions}
-          >
-            <CandidateQuestions
-              query={questionsQuery}
-              inviteToken={inviteToken}
-              candidateId={effectiveCandidateId ?? ""}
-            />
-          </CandidateQuestionsPanel>
-        ) : null}
+        <CandidateQuestionsPanel
+          closeQuestions={closeQuestions}
+          id={questionsPanelId}
+          open={questionsOpen}
+          questions={questions}
+          target={questionsTarget}
+        />
       </div>
       <CandidateResumeDialog
         key={effectiveCandidateId}

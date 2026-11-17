@@ -1,14 +1,20 @@
 "use client";
-import { EMPTY_EVALUATION, getReviewFormOutcome } from "./human-meeting-review-state";
+import {
+  EMPTY_EVALUATION,
+  EVALUATION_FIELDS,
+  evaluationForOutcome,
+  getReviewFormOutcome,
+  validateReview,
+} from "./human-meeting-review-state";
+import type { EvaluationTextFieldKey, ReviewFormValues } from "./human-meeting-review-state";
 import { HumanMeetingReviewMaterials } from "./human-meeting-review-materials";
 import { HumanMeetingReviewReferences } from "./human-meeting-review-references";
 import { HumanMeetingReviewReadOnly } from "./human-meeting-review-read-only";
 import { HumanMeetingReviewField as Field } from "./human-meeting-review-field";
-
 import { IconLoader2 } from "@tabler/icons-react";
 import { useForm, useStore, revalidateLogic } from "@tanstack/react-form";
 import { useBlocker } from "@tanstack/react-router";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, SetStateAction } from "react";
 import { toast } from "sonner";
 import { requestReviewJson as requestJson } from "./human-meeting-review-api";
@@ -41,85 +47,22 @@ import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/mark
 import { useMeetingReviewAutosave } from "./use-meeting-review-autosave";
 import { HumanMeetingReviewSaveStatus } from "./human-meeting-review-save-status";
 
-type EvaluationTextFieldKey =
-  | "overallEvaluation"
-  | "professionalSkill"
-  | "rolePosition"
-  | "salaryRecommendation";
-
-const EVALUATION_FIELDS: {
-  key: EvaluationTextFieldKey;
-  label: string;
-  minHeight: number;
-  placeholder: string;
-  wide?: boolean;
-}[] = [
-  {
-    key: "overallEvaluation",
-    label: "整体评价",
-    minHeight: 104,
-    placeholder: "概括岗位匹配情况，并说明主要判断依据",
-    wide: true,
-  },
-  {
-    key: "rolePosition",
-    label: "角色定位",
-    minHeight: 48,
-    placeholder: "填写适合承担的角色",
-  },
-  {
-    key: "salaryRecommendation",
-    label: "薪资建议",
-    minHeight: 88,
-    placeholder: "选填，填写建议薪资范围及依据",
-  },
-  {
-    key: "professionalSkill",
-    label: "专业技能",
-    minHeight: 88,
-    placeholder: "请选择专业技能等级",
-  },
-];
 const LEGACY_EVALUATION_FIELDS = [
   { key: "strengths", label: "优势特点" },
   { key: "risks", label: "劣势风险" },
 ] as const;
 
 const PROFESSIONAL_SKILL_GRADES = ["优", "良", "中", "差"];
-
 const OUTCOME_LABELS = {
   fail: "不通过",
   inconclusive: "待定",
   pass: "通过",
 } as const satisfies Record<HumanInterviewRoundOutcome, string>;
 
-interface ReviewFormValues {
-  evaluation: HumanInterviewEvaluationDraft;
-  outcome: HumanInterviewRoundOutcome | "";
-}
-
-function validateReview({ evaluation, outcome }: ReviewFormValues) {
-  const fields: Record<string, string> = {};
-  if (!humanInterviewRoundOutcomeSchema.safeParse(outcome).success) {
-    fields.outcome = "请选择本轮结论：通过、待定或不通过";
-  }
-  if (!humanInterviewEvaluationRatingSchema.safeParse(evaluation.rating).success) {
-    fields["evaluation.rating"] = "请选择评级";
-  }
-  for (const { key, label, wide } of EVALUATION_FIELDS) {
-    const limit = wide
-      ? HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH
-      : HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH;
-    if (evaluation[key].trim().length > limit) {
-      fields[`evaluation.${key}`] = `${label}最多填写 ${limit.toLocaleString()} 字`;
-    }
-  }
-  return Object.keys(fields).length ? { fields } : undefined;
-}
-
 type ReviewProps = {
   active: boolean;
   draftOnly?: boolean;
+  inlineCandidateMaterials?: boolean;
   selectPortalContainer?: HTMLElement | null;
   onClose: () => void;
   onSaved?: () => void;
@@ -148,6 +91,7 @@ function HumanMeetingReviewShell({
 function HumanMeetingReviewForm({
   active,
   draftOnly = false,
+  inlineCandidateMaterials = false,
   inviteToken,
   selectPortalContainer,
   basePath,
@@ -158,6 +102,7 @@ function HumanMeetingReviewForm({
 }: {
   active: boolean;
   draftOnly?: boolean;
+  inlineCandidateMaterials?: boolean;
   selectPortalContainer?: HTMLElement | null;
   basePath: string;
   inviteToken?: string;
@@ -167,6 +112,7 @@ function HumanMeetingReviewForm({
   renderShell?: ReviewProps["renderShell"];
 }) {
   const fieldId = useId();
+  const [moreOpen, setMoreOpen] = useState(false);
   const ratingTriggerRef = useRef<HTMLButtonElement>(null);
   const outcomeTriggerRef = useRef<HTMLButtonElement>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -193,7 +139,6 @@ function HumanMeetingReviewForm({
     shouldBlockFn: async () => (draftOnly ? !(await saveDraft()) : hasUnsavedChanges()),
     withResolver: true,
   });
-
   async function run(name: string, task: () => Promise<void>) {
     setBusy(name);
     try {
@@ -213,13 +158,17 @@ function HumanMeetingReviewForm({
         return;
       }
       const transcriptRevisionId = review?.transcript?.id ?? null;
-      const { draftOutcome: _draftOutcome, ...submittedEvaluation } = evaluation;
+      const submittedOutcome = review?.lockedOutcome ?? outcome;
+      const { draftOutcome: _draftOutcome, ...submittedEvaluation } = evaluationForOutcome(
+        evaluation,
+        submittedOutcome,
+      );
       await run("submit", async () => {
         await requestJson<unknown>(`${basePath}/evaluation-submit`, {
           body: JSON.stringify({
             evaluation: submittedEvaluation,
             expectedVersion: evaluationVersionRef.current,
-            outcome: review?.lockedOutcome ?? outcome,
+            outcome: submittedOutcome,
             transcriptRevisionId,
           }),
           headers: { "Content-Type": "application/json" },
@@ -346,7 +295,6 @@ function HumanMeetingReviewForm({
     setConfirmDiscard(false);
     navigationBlocker.reset?.();
   }
-
   function wrap(content: ReactNode) {
     return (
       <>
@@ -396,21 +344,30 @@ function HumanMeetingReviewForm({
 
   if (!review) {
     return wrap(
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-muted-foreground text-sm">
-        {loadError ? (
-          <p role="alert">{loadError}</p>
-        ) : (
-          <>
-            <IconLoader2 className="size-4 animate-spin" />
-            加载面试评价…
-          </>
-        )}
-        {loadError ? (
-          <Button variant="outline" onClick={() => run("reload", load)}>
-            重试
-          </Button>
+      <>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-muted-foreground text-sm">
+          {loadError ? (
+            <p role="alert">{loadError}</p>
+          ) : (
+            <>
+              <IconLoader2 className="size-4 animate-spin" />
+              加载面试评价…
+            </>
+          )}
+          {loadError ? (
+            <Button variant="outline" onClick={() => run("reload", load)}>
+              重试
+            </Button>
+          ) : null}
+        </div>
+        {inlineCandidateMaterials ? (
+          <div className="flex shrink-0 justify-end border-t p-2">
+            <Button size="sm" onClick={onClose} variant="ghost">
+              关闭
+            </Button>
+          </div>
         ) : null}
-      </div>,
+      </>,
     );
   }
 
@@ -428,8 +385,8 @@ function HumanMeetingReviewForm({
   const isSubmitted =
     review.evaluationStatus === "submitted" ||
     (!review.personalEvaluation && review.roundStatus === "completed");
+  const overallOnly = !isSubmitted && outcome === "fail";
   const submittedOutcomeLabel = review.outcome ? OUTCOME_LABELS[review.outcome] : "已完成";
-
   const professionalSkill = evaluation.professionalSkill.trim();
   const hasSkillGrade = PROFESSIONAL_SKILL_GRADES.includes(professionalSkill);
   const legacySkill = !hasSkillGrade && professionalSkill !== "-" ? professionalSkill : "";
@@ -440,7 +397,6 @@ function HumanMeetingReviewForm({
     EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()) ||
     LEGACY_EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()),
   );
-
   function renderEditor(
     key: EvaluationTextFieldKey,
     label: string,
@@ -457,7 +413,7 @@ function HumanMeetingReviewForm({
             maxLength={HUMAN_INTERVIEW_EVALUATION_SHORT_TEXT_MAX_LENGTH}
             id={`${fieldId}-${key}`}
             className="field-sizing-fixed resize-none overflow-y-auto"
-            rows={4}
+            rows={inlineCandidateMaterials ? 2 : 4}
             placeholder={placeholder}
             disabled={isSubmitted || Boolean(busy)}
             onChange={(event) => {
@@ -484,7 +440,7 @@ function HumanMeetingReviewForm({
         aria-label={label}
         aria-invalid={Boolean(errors?.[`evaluation.${key}`])}
         id={`${fieldId}-${key}`}
-        minHeight={minHeight}
+        minHeight={inlineCandidateMaterials ? 64 : minHeight}
         maxLength={HUMAN_INTERVIEW_EVALUATION_LONG_TEXT_MAX_LENGTH}
         placeholder={placeholder}
         toolbarMode="focus"
@@ -498,38 +454,49 @@ function HumanMeetingReviewForm({
     );
   }
 
+  const reviewHeader = draftOnly ? null : (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3",
+        inlineCandidateMaterials && "min-h-7 gap-2 [&_h2]:text-sm",
+      )}
+    >
+      <div>
+        <h2 className="font-medium text-lg">面试评价</h2>
+        <output className="mt-1 flex items-center gap-2 whitespace-pre-wrap text-muted-foreground text-xs">
+          {!isSubmitted && review.evaluationStatus === "generating" ? (
+            <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+          ) : null}
+        </output>
+      </div>
+      {inviteToken ? (
+        <HumanMeetingReviewMaterials
+          onDesktopOpenChange={setMaterialsOpen}
+          transcriptOnly={inlineCandidateMaterials}
+          inviteToken={inviteToken}
+          transcript={review.transcript}
+          currentReviewerId={review.currentReviewerId}
+          interviewers={review.transcriptInterviewers}
+        />
+      ) : null}
+    </div>
+  );
   return wrap(
     <section
       className={cn(
         "flex min-h-0 flex-1 flex-col overflow-hidden",
-        materialsOpen && "md:pr-[min(46vw,44rem)]",
+        materialsOpen && !inlineCandidateMaterials && "md:pr-[min(46vw,44rem)]",
       )}
     >
+      {inlineCandidateMaterials ? (
+        <header className="shrink-0 border-b px-3 py-2">{reviewHeader}</header>
+      ) : null}
       <ScrollArea className="min-h-0 flex-1" scrollFade={!renderShell} scrollbars="never">
-        <div className="mx-auto w-full max-w-5xl p-4">
-          {draftOnly ? null : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-medium text-lg">面试评价</h2>
-                <output className="mt-1 flex items-center gap-2 whitespace-pre-wrap text-muted-foreground text-xs">
-                  {!isSubmitted && review.evaluationStatus === "generating" ? (
-                    <IconLoader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-                  ) : null}
-                </output>
-              </div>
-              {inviteToken ? (
-                <HumanMeetingReviewMaterials
-                  onDesktopOpenChange={setMaterialsOpen}
-                  inviteToken={inviteToken}
-                  transcript={review.transcript}
-                  currentReviewerId={review.currentReviewerId}
-                  interviewers={review.transcriptInterviewers}
-                />
-              ) : null}
-            </div>
-          )}
+        <div className={cn("mx-auto w-full max-w-5xl p-4", inlineCandidateMaterials && "p-3")}>
+          {inlineCandidateMaterials ? null : reviewHeader}
           <HumanMeetingReviewReferences
             review={review}
+            compact={inlineCandidateMaterials}
             canAdopt={!isSubmitted && !hasDraftContent}
             onAdopt={(suggestion) => {
               setEvaluation(suggestion);
@@ -538,7 +505,12 @@ function HumanMeetingReviewForm({
               }
             }}
           />
-          <FieldGroup className="mt-4 grid gap-5 md:grid-cols-3">
+          <FieldGroup
+            className={cn(
+              "mt-4 grid gap-5 md:grid-cols-3",
+              inlineCandidateMaterials && "mt-3 gap-3",
+            )}
+          >
             <Field
               label={review.personalEvaluation ? "我的结论" : "本轮结论"}
               id={`${fieldId}-outcome`}
@@ -568,72 +540,89 @@ function HumanMeetingReviewForm({
                 }}
               />
             </Field>
-            <Field
-              label="评级"
-              id={`${fieldId}-rating`}
-              required
-              error={errors?.["evaluation.rating"]}
-            >
-              <HumanMeetingReviewSelect
-                portalContainer={selectPortalContainer}
-                id={`${fieldId}-rating`}
-                label="评级"
-                invalid={Boolean(errors?.["evaluation.rating"])}
-                placeholder="请选择评级"
-                triggerRef={ratingTriggerRef}
-                disabled={isSubmitted || Boolean(busy)}
-                value={evaluation.rating}
-                options={[
-                  { description: "超出预期 · 薪资110%~130%", label: "A", value: "A" },
-                  { description: "完全匹配 · 薪资100%~120%", label: "B", value: "B" },
-                  { description: "基本匹配 · 薪资90%~110%", label: "C", value: "C" },
-                  { description: "勉强接受 · 薪资80%~100%", label: "D", value: "D" },
-                ]}
-                onValueChange={(value) => {
-                  const rating = humanInterviewEvaluationRatingSchema.safeParse(value);
-                  if (!rating.success) {
-                    return;
-                  }
-                  evaluationDirtyRef.current = true;
-                  setEvaluation((current) => ({ ...current, rating: rating.data }));
-                }}
-              />
-            </Field>
-            <Field
-              label="专业技能"
-              id={`${fieldId}-professionalSkill`}
-              error={errors?.["evaluation.professionalSkill"]}
-            >
-              <HumanMeetingReviewSelect
-                portalContainer={selectPortalContainer}
-                id={`${fieldId}-professionalSkill`}
-                label="专业技能"
-                placeholder="请选择专业技能等级"
-                required={false}
-                invalid={Boolean(errors?.["evaluation.professionalSkill"])}
-                disabled={isSubmitted || Boolean(busy)}
-                value={hasSkillGrade ? professionalSkill : null}
-                options={PROFESSIONAL_SKILL_GRADES.map((value) => ({ label: value, value }))}
-                onValueChange={(value) => {
-                  if (value === null) {
-                    return;
-                  }
-                  evaluationDirtyRef.current = true;
-                  setEvaluation((current) => ({ ...current, professionalSkill: value }));
-                }}
-              />
-              {legacySkill ? (
-                <p className="whitespace-pre-wrap break-words text-muted-foreground text-sm">
-                  {legacySkill}
-                </p>
-              ) : null}
-            </Field>
-          </FieldGroup>
-          <FieldGroup className="mt-6 grid gap-5 md:grid-cols-2">
-            {EVALUATION_FIELDS.filter(({ key }) => key !== "professionalSkill").map(
-              ({ key, label, minHeight, placeholder, wide }) => (
+            {overallOnly ? null : (
+              <>
                 <Field
-                  key={key}
+                  label="评级"
+                  id={`${fieldId}-rating`}
+                  required
+                  error={errors?.["evaluation.rating"]}
+                >
+                  <HumanMeetingReviewSelect
+                    portalContainer={selectPortalContainer}
+                    id={`${fieldId}-rating`}
+                    label="评级"
+                    invalid={Boolean(errors?.["evaluation.rating"])}
+                    placeholder="请选择评级"
+                    triggerRef={ratingTriggerRef}
+                    disabled={isSubmitted || Boolean(busy)}
+                    value={evaluation.rating}
+                    options={[
+                      { description: "超出预期 · 薪资110%~130%", label: "A", value: "A" },
+                      { description: "完全匹配 · 薪资100%~120%", label: "B", value: "B" },
+                      { description: "基本匹配 · 薪资90%~110%", label: "C", value: "C" },
+                      { description: "勉强接受 · 薪资80%~100%", label: "D", value: "D" },
+                    ]}
+                    onValueChange={(value) => {
+                      const rating = humanInterviewEvaluationRatingSchema.safeParse(value);
+                      if (!rating.success) {
+                        return;
+                      }
+                      evaluationDirtyRef.current = true;
+                      setEvaluation((current) => ({ ...current, rating: rating.data }));
+                    }}
+                  />
+                </Field>
+                <Field
+                  label="专业技能"
+                  id={`${fieldId}-professionalSkill`}
+                  error={errors?.["evaluation.professionalSkill"]}
+                >
+                  <HumanMeetingReviewSelect
+                    portalContainer={selectPortalContainer}
+                    id={`${fieldId}-professionalSkill`}
+                    label="专业技能"
+                    placeholder="请选择专业技能等级"
+                    required={false}
+                    invalid={Boolean(errors?.["evaluation.professionalSkill"])}
+                    disabled={isSubmitted || Boolean(busy)}
+                    value={hasSkillGrade ? professionalSkill : null}
+                    options={PROFESSIONAL_SKILL_GRADES.map((value) => ({ label: value, value }))}
+                    onValueChange={(value) => {
+                      if (value === null) {
+                        return;
+                      }
+                      evaluationDirtyRef.current = true;
+                      setEvaluation((current) => ({ ...current, professionalSkill: value }));
+                    }}
+                  />
+                  {legacySkill ? (
+                    <p className="whitespace-pre-wrap break-words text-muted-foreground text-sm">
+                      {legacySkill}
+                    </p>
+                  ) : null}
+                </Field>
+              </>
+            )}
+          </FieldGroup>
+          <FieldGroup
+            className={cn(
+              "mt-6 grid gap-5 md:grid-cols-2",
+              inlineCandidateMaterials && "mt-3 gap-3",
+            )}
+          >
+            {EVALUATION_FIELDS.filter(({ key }) => {
+              if (key === "overallEvaluation") {
+                return true;
+              }
+              return (
+                key !== "professionalSkill" &&
+                !overallOnly &&
+                (!inlineCandidateMaterials || moreOpen)
+              );
+            }).map(({ key, label, minHeight, placeholder, wide }) => (
+              <Fragment key={key}>
+                <Field
                   id={`${fieldId}-${key}`}
                   label={label}
                   wide={wide}
@@ -641,10 +630,26 @@ function HumanMeetingReviewForm({
                 >
                   {renderEditor(key, label, minHeight, placeholder)}
                 </Field>
-              ),
-            )}
+                {inlineCandidateMaterials &&
+                !overallOnly &&
+                !moreOpen &&
+                key === "overallEvaluation" ? (
+                  <div className="flex justify-center md:col-span-2">
+                    <Button
+                      aria-expanded={false}
+                      onClick={() => setMoreOpen(true)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      评价更多
+                    </Button>
+                  </div>
+                ) : null}
+              </Fragment>
+            ))}
           </FieldGroup>
-          {LEGACY_EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()) ? (
+          {!overallOnly && LEGACY_EVALUATION_FIELDS.some(({ key }) => evaluation[key].trim()) ? (
             <div className="mt-6 grid gap-5 md:grid-cols-2">
               {LEGACY_EVALUATION_FIELDS.map(({ key, label }) =>
                 evaluation[key].trim() ? (
@@ -718,6 +723,7 @@ function HumanMeetingReviewForm({
         className={cn(
           "mx-auto flex w-full max-w-5xl shrink-0 flex-wrap items-end justify-between gap-3 bg-background p-4",
           renderShell && "border-t",
+          inlineCandidateMaterials && "px-3 py-2",
         )}
       >
         {draftOnly && !isSubmitted ? <HumanMeetingReviewSaveStatus onClose={requestClose} /> : null}
@@ -726,7 +732,11 @@ function HumanMeetingReviewForm({
             <div className="flex items-center gap-2">
               <div className="font-medium text-sm">我的评价已保存 · {submittedOutcomeLabel}</div>
               {renderShell ? (
-                <Button disabled={Boolean(busy)} onClick={requestClose} variant="outline">
+                <Button
+                  disabled={Boolean(busy)}
+                  onClick={inlineCandidateMaterials ? onClose : requestClose}
+                  variant="outline"
+                >
                   关闭
                 </Button>
               ) : null}
@@ -734,7 +744,11 @@ function HumanMeetingReviewForm({
           ) : (
             <div className="ml-auto flex w-full gap-2 md:w-auto max-md:[&>button]:flex-1">
               {renderShell ? (
-                <Button disabled={Boolean(busy)} onClick={requestClose} variant="ghost">
+                <Button
+                  disabled={Boolean(busy)}
+                  onClick={inlineCandidateMaterials ? onClose : requestClose}
+                  variant="ghost"
+                >
                   关闭
                 </Button>
               ) : null}
@@ -746,7 +760,7 @@ function HumanMeetingReviewForm({
                     await requestJson<unknown>(`${basePath}/evaluation-draft`, {
                       body: JSON.stringify({
                         evaluation: {
-                          ...evaluation,
+                          ...evaluationForOutcome(evaluation, outcome),
                           draftOutcome: outcome || null,
                         },
                         expectedVersion: evaluationVersionRef.current,

@@ -246,7 +246,9 @@ it("keeps the questions toggle in the header on desktop and mobile", async () =>
     await act(() => toggle?.click());
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
     expect(
-      materials.querySelector('section[aria-label="面试题"]')?.getAttribute("aria-hidden"),
+      materials
+        .querySelector('[aria-label="面试题"][data-slot="meeting-questions-panel"]')
+        ?.getAttribute("aria-hidden"),
     ).toBe("false");
     await act(() => toggle?.click());
     vi.stubGlobal("innerWidth", 390);
@@ -314,7 +316,9 @@ it.each([
       }
       const toggle = container.querySelector<HTMLButtonElement>("button[aria-expanded]");
       expect(Boolean(toggle)).toBe(showQuestions);
-      const panel = container.querySelector('section[aria-label="面试题"]');
+      const panel = container.querySelector(
+        '[aria-label="面试题"][data-slot="meeting-questions-panel"]',
+      );
       if (width >= 768 && showQuestions) {
         expect(panel?.getAttribute("aria-hidden")).toBe("true");
       }

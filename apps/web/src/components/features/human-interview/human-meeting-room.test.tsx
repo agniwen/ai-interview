@@ -31,7 +31,23 @@ vi.mock("@livekit/components-react", () => ({
   useRoomContext: () => ({ off: vi.fn(), on: vi.fn(), state: "disconnected" }),
 }));
 vi.mock("@/components/theme/theme-toggle", () => ({ ThemeToggle: () => null }));
-vi.mock("./human-meeting-review", () => ({ HumanMeetingReview: () => null }));
+vi.mock("./human-meeting-review", () => ({
+  HumanMeetingReview: ({
+    onClose,
+    renderShell,
+  }: {
+    onClose: () => void;
+    renderShell: (content: ReactNode) => ReactNode;
+  }) =>
+    renderShell(
+      <>
+        <textarea aria-label="评价内容" />
+        <button type="button" onClick={onClose}>
+          关闭
+        </button>
+      </>,
+    ),
+}));
 vi.mock("./human-meeting-stage", () => ({
   HumanMeetingStage: ({
     candidateMaterialsState,
@@ -190,6 +206,34 @@ it("opens materials before join time without connecting, and preserves selection
   );
   expect(loadCandidates).toHaveBeenCalledTimes(1);
   expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
+});
+
+it("keeps candidate materials and the evaluation draft mounted when collapsing the review", async () => {
+  await act(() =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <HumanMeetingRoom
+          inviteToken="invite-1"
+          mode="interviewer"
+          preview={{ ...preview, status: "ended" }}
+        />
+      </QueryClientProvider>,
+    ),
+  );
+  const materials = button("候选人资料");
+  const form = container.querySelector<HTMLTextAreaElement>('[aria-label="评价内容"]');
+  if (!form) {
+    throw new Error("Missing review editor");
+  }
+  expect(form.closest("[hidden]")).toBeNull();
+  form.value = "评价草稿";
+  await act(() => button("关闭").click());
+  expect(form.closest("[hidden]")).not.toBeNull();
+  expect(button("候选人资料")).toBe(materials);
+  await act(() => button("评价").click());
+  expect(form.closest("[hidden]")).toBeNull();
+  expect(form.value).toBe("评价草稿");
+  expect(media.connect).not.toHaveBeenCalled();
 });
 
 it("does not expose interviewer materials on the candidate entry", async () => {

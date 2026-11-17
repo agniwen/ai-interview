@@ -42,9 +42,11 @@ export function resolveCandidateAvatarUrl(
  * same name-seeded portrait the recruiting cards use.
  */
 export function CandidatePlaceholderAvatar({
+  participantIdentity,
   image,
   name,
 }: {
+  participantIdentity?: string;
   image: string | null;
   name: string;
 }) {
@@ -54,14 +56,27 @@ export function CandidatePlaceholderAvatar({
       className="pointer-events-none absolute inset-0 z-[5] grid place-items-center"
       data-slot="candidate-placeholder-avatar"
     >
-      <Avatar className="size-24 shadow-lg ring-1 ring-border" label={`${seed}的头像`} seed={seed}>
+      <Avatar
+        className="size-24 shadow-lg ring-1 ring-border"
+        data-meeting-avatar-participant={participantIdentity}
+        label={`${seed}的头像`}
+        seed={seed}
+      >
         {image ? <AvatarImage alt="" src={image} /> : null}
       </Avatar>
     </div>
   );
 }
 
-export function InterviewerPlaceholderAvatar({ image, name }: { image: string; name: string }) {
+export function InterviewerPlaceholderAvatar({
+  image,
+  name,
+  participantIdentity,
+}: {
+  image: string;
+  name: string;
+  participantIdentity?: string;
+}) {
   const [loaded, setLoaded] = useState(false);
 
   return (
@@ -84,6 +99,7 @@ export function InterviewerPlaceholderAvatar({ image, name }: { image: string; n
         <img
           src={image}
           alt={`${name}的头像`}
+          data-meeting-avatar-participant={loaded ? participantIdentity : undefined}
           className="relative size-24 rounded-full bg-muted object-cover shadow-lg"
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(false)}

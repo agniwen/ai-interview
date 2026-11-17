@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
 import { act } from "react";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import { reviewRecord } from "@/components/features/human-interview/human-meeting-review.test-fixtures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StudioHumanInterviewRecordListRecord } from "@app/shared/studio-interview-rounds";
@@ -97,6 +104,9 @@ function installApi(meetingStatus = "ended") {
           ]),
         );
       }
+      if (url.endsWith("/candidate/human-interview-rounds/review/round-two/review")) {
+        return Promise.resolve(Response.json(reviewRecord()));
+      }
       if (url.endsWith("/candidate/human-interview-rounds")) {
         return Promise.resolve(
           Response.json([
@@ -125,15 +135,35 @@ function installApi(meetingStatus = "ended") {
     }),
   );
 }
-async function renderDetail(active = true, selectedRecord = record) {
+async function renderDetail(
+  active = true,
+  selectedRecord = record,
+  canUpdate = false,
+  initialTab: "evaluation" | "review" = "evaluation",
+) {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  rendered = await renderInAct(
-    <QueryClientProvider client={client}>
-      <WorkspaceSlugProvider id="workspace-id" slug="workspace" memberRole="owner" permissions={{}}>
-        <HumanInterviewRecordDetailContent record={selectedRecord} active={active} />
-      </WorkspaceSlugProvider>
-    </QueryClientProvider>,
-  );
+  const route = createRootRoute({
+    component: () => (
+      <QueryClientProvider client={client}>
+        <WorkspaceSlugProvider
+          id="workspace-id"
+          slug="workspace"
+          memberRole="owner"
+          permissions={{}}
+        >
+          <HumanInterviewRecordDetailContent
+            record={selectedRecord}
+            active={active}
+            canUpdate={canUpdate}
+            initialTab={initialTab}
+          />
+        </WorkspaceSlugProvider>
+      </QueryClientProvider>
+    ),
+  });
+  const router = createRouter({ history: createMemoryHistory(), routeTree: route });
+  await router.load();
+  rendered = await renderInAct(<RouterProvider router={router} />);
   return rendered.container;
 }
 afterEach(async () => {
@@ -213,6 +243,35 @@ describe("human interview record details", () => {
     expect(requests.some((url) => url.includes("/round-two/meetings/this-meeting"))).toBe(true);
     expect(requests.some((url) => url.includes("/meetings/other-meeting"))).toBe(false);
   });
+  it("opens the selected round’s review from the table and retains its detail tabs", async () => {
+    installApi();
+    const container = await renderDetail(true, record, true, "review");
+    await waitForUi(() =>
+      expect(container.querySelector('[aria-label="本轮结论"][role="combobox"]')).not.toBeNull(),
+    );
+    expect(
+      requests.some((url) =>
+        url.endsWith("/candidate/human-interview-rounds/review/round-two/review"),
+      ),
+    ).toBe(true);
+    const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    expect(tabs.map((item) => item.textContent)).toEqual(["面试详情", "聊天转录", "面试评价"]);
+    expect(tabs[2]?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("keeps evaluation unavailable for scheduled meetings", async () => {
+    installApi("scheduled");
+    const container = await renderDetail(
+      true,
+      { ...record, meetingStatus: "scheduled", status: "pending" },
+      true,
+    );
+    expect(
+      [...container.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent === "面试评价"),
+    ).toBe(false);
+    expect(requests.some((url) => url.includes("/review/"))).toBe(false);
+  });
+
   it("does not fetch data while closed", async () => {
     installApi();
     await renderDetail(false);

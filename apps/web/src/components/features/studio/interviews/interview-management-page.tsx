@@ -1,7 +1,7 @@
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import { findHumanInterviewRoundMeeting } from "@app/shared/human-interview-meeting-detail";
 import { MeetingLinksDialog } from "../human-interview-stage-meetings";
-import { canOpenMeetingLinks } from "../human-interview-stage-utils";
+import { canOpenMeetingLinks, canReviewHumanInterviewRound } from "../human-interview-stage-utils";
 import { HumanInterviewRecordEditDialog } from "./human-interview-record-edit-dialog";
 import { IconRobot } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -162,6 +162,7 @@ export function InterviewManagementPage({ embedded = false }: { embedded?: boole
   });
   const [humanDetailRecord, setHumanDetailRecord] =
     useState<StudioHumanInterviewRecordListRecord | null>(null);
+  const [humanDetailTab, setHumanDetailTab] = useState<"evaluation" | "review">("evaluation");
   const [previewRecord, setPreviewRecord] = useState<StudioInterviewRecordListRecord | null>(null);
 
   // 外部链接两种形态:
@@ -208,6 +209,7 @@ export function InterviewManagementPage({ embedded = false }: { embedded?: boole
     if (row.kind === "ai") {
       setDetailRoundId(row.id);
     } else {
+      setHumanDetailTab("evaluation");
       setHumanDetailRecord(row);
     }
   }, []);
@@ -415,6 +417,19 @@ export function InterviewManagementPage({ embedded = false }: { embedded?: boole
       actionsColumn<StudioInterviewRecordListRecord>({
         inline: [
           { label: "查看", onClick: openRecordDetail },
+          {
+            label: "评价",
+            onClick: (row) => {
+              if (row.kind === "human") {
+                setHumanDetailTab("review");
+                setHumanDetailRecord(row);
+              }
+            },
+            show: (row) =>
+              canUpdateHumanInterview &&
+              row.kind === "human" &&
+              canReviewHumanInterviewRound(row.status, row.meetingStatus),
+          },
           {
             disabled: isRoundEditLocked,
             disabledReason: roundEditLockedReason,
@@ -642,6 +657,8 @@ export function InterviewManagementPage({ embedded = false }: { embedded?: boole
       />
       <HumanInterviewRecordDetailDialog
         record={humanDetailRecord}
+        canUpdate={canUpdateHumanInterview}
+        initialTab={humanDetailTab}
         onOpenChange={(open) => !open && setHumanDetailRecord(null)}
       />
 

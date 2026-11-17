@@ -1,5 +1,7 @@
 "use client";
 
+import { runMeetingAvatarTransition } from "./meeting-avatar-transition";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Provider, useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   meetingReviewOpenAtom,
@@ -11,9 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-
 /* oxlint-disable no-use-before-define -- exported stage stays above local tile and style helpers. */
-
 import {
   IconSubtitles,
   IconClipboardText,
@@ -67,7 +67,9 @@ import { HumanMeetingMediaPreview } from "./human-meeting-media-preview";
 import { HumanMeetingLiveTranscript } from "./human-meeting-live-transcript";
 import { HumanMeetingInProgressReview } from "./human-meeting-in-progress-review";
 import { HumanMeetingChat } from "./human-meeting-chat";
-import { HumanMeetingTranscriptPanel } from "./human-meeting-transcript-panel";
+import { HumanMeetingTools } from "./human-meeting-tools";
+import type { MeetingTool } from "./human-meeting-tools";
+import { createPortal } from "react-dom";
 import { MeetingInfoHoverCard } from "./meeting-info-hover-card";
 import {
   CandidatePlaceholderAvatar,
@@ -155,28 +157,23 @@ function HumanMeetingStageContent({
   const MicrophoneControls = isMobile ? "fieldset" : ButtonGroup;
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [tool, setTool] = useState<MeetingTool | null>(null);
   const [reviewOpen, setReviewOpen] = useAtom(meetingReviewOpenAtom);
   const reviewStarted = useAtomValue(meetingReviewStartedAtom);
   const toggleReview = useSetAtom(toggleMeetingReviewAtom);
   const saveReview = useSetAtom(saveMeetingReviewAtom);
   const [reviewContainer, setReviewContainer] = useState<HTMLDivElement | null>(null);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const closeTranscript = useCallback(() => setTranscriptOpen(false), []);
-  const toggleChat = () => {
-    setTranscriptOpen(false);
-    setChatOpen((value) => !value);
-  };
+  const [transcriptTarget, setTranscriptTarget] = useState<HTMLDivElement | null>(null);
+  const [questionsTarget, setQuestionsTarget] = useState<HTMLDivElement | null>(null);
+  const chatOpen = tool === "chat";
+  const transcriptOpen = tool === "transcript";
+  const closeChat = useCallback(() => setTool(null), []);
+  const toggleChat = () => setTool((current) => (current === "chat" ? null : "chat"));
   const renderTranscriptPanel = useCallback(
-    (panel: ReactNode) => (
-      <HumanMeetingTranscriptPanel open={transcriptOpen} onClose={closeTranscript}>
-        {panel}
-      </HumanMeetingTranscriptPanel>
-    ),
-    [closeTranscript, transcriptOpen],
+    (panel: ReactNode) => (transcriptTarget ? createPortal(panel, transcriptTarget) : null),
+    [transcriptTarget],
   );
   const [headerActionsContainer, setHeaderActionsContainer] = useState<HTMLDivElement | null>(null);
-  const closeChat = useCallback(() => setChatOpen(false), []);
   const [focusedTrackKey, setFocusedTrackKey] = useState<string | null>(null);
   const wasLocallySharing = useRef(false);
   const liveTranscriptRef = useRef<HumanMeetingLiveTranscriptHandle | null>(null);
@@ -222,8 +219,22 @@ function HumanMeetingStageContent({
     }
   }
 
+  const stageRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+  function switchView(mode: "meeting" | "materials") {
+    void runMeetingAvatarTransition(
+      stageRef.current,
+      () => onViewModeChange(mode),
+      isMobile || Boolean(reduceMotion),
+    );
+  }
+  const panelOffset = reduceMotion ? 0 : 20;
+  const panelTransition = { duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] as const };
+  const meetingVisible = viewMode === "meeting";
+  const materialsVisible = viewMode === "materials";
+
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+    <div ref={stageRef} className="relative flex h-full min-h-0 flex-col overflow-hidden">
       <header className="flex h-11 shrink-0 items-center gap-2 pr-1.5 pl-3 md:h-12 md:pl-4">
         <div className="flex min-w-0 flex-1 items-center">
           <h1 className="flex min-w-0 items-center">
@@ -258,10 +269,7 @@ function HumanMeetingStageContent({
               aria-expanded={transcriptOpen}
               data-slot="meeting-transcript-toggle"
               className="max-md:[&_svg]:size-5"
-              onClick={() => {
-                setChatOpen(false);
-                setTranscriptOpen((value) => !value);
-              }}
+              onClick={() => setTool((current) => (current === "transcript" ? null : "transcript"))}
               size="sm"
               variant={transcriptOpen ? "secondary" : "ghost"}
             >
@@ -314,94 +322,140 @@ function HumanMeetingStageContent({
           )}
         </div>
       </header>
-
       <div
         ref={setReviewContainer}
         data-slot="meeting-workspace"
         className="relative grid min-h-0 flex-1 overflow-hidden"
       >
-        <div
-          data-slot="meeting-main-panels"
-          className="flex min-h-0 min-w-0 flex-col overflow-hidden"
-        >
-          {viewMode === "meeting" &&
-            (focusedTrack ? (
-              <FocusLayoutContainer
-                data-slot="meeting-share-layout"
-                className={cn(
-                  "grid min-h-0 min-w-0 flex-1 gap-1.5 overflow-hidden px-1.5 pb-1.5",
-                  sideTracks.length > 0
-                    ? "grid-rows-[minmax(0,1fr)_8rem] md:grid-cols-[minmax(0,1fr)_clamp(9rem,18vw,13rem)] md:grid-rows-1"
-                    : "grid-cols-1 grid-rows-1",
-                )}
-              >
-                <div data-slot="meeting-share-main" className="min-h-0 min-w-0">
-                  <TrackLoop tracks={[focusedTrack]}>
-                    <HumanParticipantTile
-                      onResetFocus={
-                        manuallyFocusedTrack ? () => setFocusedTrackKey(null) : undefined
-                      }
-                    />
-                  </TrackLoop>
-                </div>
-                {sideTracks.length > 0 ? (
-                  <aside
-                    aria-label="其他参会画面"
-                    data-slot="meeting-share-sidebar"
-                    className="grid min-h-0 min-w-0 auto-cols-[12rem] grid-flow-col gap-1.5 overflow-x-auto md:auto-cols-auto md:auto-rows-[8rem] md:grid-flow-row md:content-start md:overflow-x-hidden md:overflow-y-auto"
-                  >
-                    <TrackLoop tracks={sideTracks}>
-                      <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
-                    </TrackLoop>
-                  </aside>
-                ) : null}
-              </FocusLayoutContainer>
-            ) : (
-              <div
-                data-slot="meeting-grid-layout"
-                className={cn(
-                  "grid min-h-0 flex-1 gap-1.5 px-1.5 pb-1.5",
-                  "auto-rows-fr overflow-hidden",
-                  tracks.length <= 1 && "grid-cols-1",
-                  tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
-                  tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
-                )}
-              >
-                <TrackLoop tracks={tracks}>
-                  <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
-                </TrackLoop>
-              </div>
-            ))}
-
+        <div data-slot="meeting-main-panels" className="relative min-h-0 min-w-0 overflow-hidden">
+          <div
+            data-meeting-view="meeting"
+            aria-hidden={!meetingVisible}
+            inert={!meetingVisible}
+            className="absolute inset-0"
+          >
+            <AnimatePresence initial={false}>
+              {meetingVisible ? (
+                <m.div
+                  animate={{ opacity: 1, x: 0 }}
+                  data-meeting-motion-panel=""
+                  className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+                  exit={{ opacity: 0, x: -panelOffset }}
+                  initial={{ opacity: 0, x: -panelOffset }}
+                  transition={panelTransition}
+                >
+                  {focusedTrack ? (
+                    <FocusLayoutContainer
+                      data-slot="meeting-share-layout"
+                      className={cn(
+                        "grid min-h-0 min-w-0 flex-1 gap-1.5 overflow-hidden px-1.5 pb-1.5",
+                        sideTracks.length > 0
+                          ? "grid-rows-[minmax(0,1fr)_8rem] md:grid-cols-[minmax(0,1fr)_clamp(9rem,18vw,13rem)] md:grid-rows-1"
+                          : "grid-cols-1 grid-rows-1",
+                      )}
+                    >
+                      <div data-slot="meeting-share-main" className="min-h-0 min-w-0">
+                        <TrackLoop tracks={[focusedTrack]}>
+                          <HumanParticipantTile
+                            onResetFocus={
+                              manuallyFocusedTrack ? () => setFocusedTrackKey(null) : undefined
+                            }
+                          />
+                        </TrackLoop>
+                      </div>
+                      {sideTracks.length > 0 ? (
+                        <aside
+                          aria-label="其他参会画面"
+                          data-slot="meeting-share-sidebar"
+                          className="grid min-h-0 min-w-0 auto-cols-[12rem] grid-flow-col gap-1.5 overflow-x-auto md:auto-cols-auto md:auto-rows-[8rem] md:grid-flow-row md:content-start md:overflow-x-hidden md:overflow-y-auto"
+                        >
+                          <TrackLoop tracks={sideTracks}>
+                            <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
+                          </TrackLoop>
+                        </aside>
+                      ) : null}
+                    </FocusLayoutContainer>
+                  ) : (
+                    <div
+                      data-slot="meeting-grid-layout"
+                      className={cn(
+                        "grid min-h-0 flex-1 gap-1.5 px-1.5 pb-1.5",
+                        "auto-rows-fr overflow-hidden",
+                        tracks.length <= 1 && "grid-cols-1",
+                        tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
+                        tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+                      )}
+                    >
+                      <TrackLoop tracks={tracks}>
+                        <HumanParticipantTile onFocusTrack={setFocusedTrackKey} />
+                      </TrackLoop>
+                    </div>
+                  )}
+                </m.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
           {inviteToken ? (
-            <div
-              className={cn(
-                "relative flex min-h-0 flex-1 flex-col overflow-hidden",
-                viewMode !== "materials" && "hidden",
-              )}
+            <m.div
+              animate={materialsVisible ? { opacity: 1, x: 0 } : { opacity: 0, x: panelOffset }}
+              data-meeting-view="materials"
+              data-meeting-motion-panel=""
+              aria-hidden={!materialsVisible}
+              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-background"
+              initial={false}
+              inert={!materialsVisible}
+              transition={panelTransition}
             >
               <div className="min-h-0 flex-1">
                 <InterviewerCandidateMaterials
                   showQuestions
-                  active={viewMode === "materials"}
+                  active={viewMode === "materials" || tool === "questions"}
                   headerActionsContainer={headerActionsContainer}
                   inviteToken={inviteToken}
-                  onStateChange={onCandidateMaterialsStateChange}
-                  state={candidateMaterialsState}
+                  onStateChange={(state) => {
+                    if (state.questionsOpen === (tool === "questions")) {
+                      onCandidateMaterialsStateChange(state);
+                    } else {
+                      setTool(state.questionsOpen ? "questions" : null);
+                    }
+                  }}
+                  questionsTarget={questionsTarget}
+                  state={{ ...candidateMaterialsState, questionsOpen: tool === "questions" }}
                 />
               </div>
               <HumanMeetingMediaPreview
                 active={viewMode === "materials"}
-                onReturnToMeeting={() => onViewModeChange("meeting")}
+                onReturnToMeeting={() => switchView("meeting")}
                 tracks={tracks}
               />
-            </div>
+            </m.div>
           ) : null}
         </div>
-        <HumanMeetingChat
-          access={{ inviteToken: chatInviteToken, mode: chatMode }}
-          open={chatOpen}
-          onClose={closeChat}
+        <HumanMeetingTools
+          chat={
+            <HumanMeetingChat
+              access={{ inviteToken: chatInviteToken, mode: chatMode }}
+              embedded
+              open={chatOpen}
+              onClose={closeChat}
+            />
+          }
+          onChange={setTool}
+          questions={
+            inviteToken ? (
+              <div className="flex min-h-0 flex-1 flex-col" ref={setQuestionsTarget} />
+            ) : undefined
+          }
+          tool={tool}
+          transcript={
+            inviteToken && canUseLiveTranscript ? (
+              <div
+                className="flex min-h-0 flex-1 flex-col"
+                data-slot="meeting-transcript-panel"
+                ref={setTranscriptTarget}
+              />
+            ) : undefined
+          }
         />
         {inviteToken && canUseLiveTranscript ? (
           <HumanMeetingLiveTranscript
@@ -413,12 +467,7 @@ function HumanMeetingStageContent({
         ) : null}
       </div>
 
-      <footer
-        className={cn(
-          "relative flex shrink-0 flex-wrap items-center justify-center gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:gap-2 md:px-4 md:pt-3 md:pb-3",
-          viewMode === "meeting" && "pt-0 md:pt-1.5",
-        )}
-      >
+      <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-1 px-2 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:gap-2 md:px-4 md:pt-1.5 md:pb-3">
         <StartAudio className={buttonVariants({ variant: "default" })} label="开启声音" />
         {canPublish ? (
           <>
@@ -481,7 +530,7 @@ function HumanMeetingStageContent({
               mobileControlClass,
               "order-5 md:order-none",
             )}
-            onClick={() => onViewModeChange(viewMode === "materials" ? "meeting" : "materials")}
+            onClick={() => switchView(viewMode === "materials" ? "meeting" : "materials")}
             type="button"
           >
             {viewMode === "materials" ? (
@@ -640,6 +689,10 @@ function HumanParticipantTile({
       ? metadata.avatar_url?.trim()
       : null;
   const viewer = useContext(MeetingViewerContext);
+  const avatarIdentity =
+    trackRef.publication && !trackRef.publication.isMuted
+      ? undefined
+      : trackRef.participant.identity;
   const showCandidateAvatar = metadata.participant_type === "candidate" && isCameraTrack;
 
   return (
@@ -666,6 +719,7 @@ function HumanParticipantTile({
       />
       {showCandidateAvatar ? (
         <CandidatePlaceholderAvatar
+          participantIdentity={avatarIdentity}
           image={resolveCandidateAvatarUrl(viewer, metadata)}
           name={trackRef.participant.name || "候选人"}
         />
@@ -674,6 +728,7 @@ function HumanParticipantTile({
         <InterviewerPlaceholderAvatar
           key={interviewerImage}
           image={interviewerImage}
+          participantIdentity={avatarIdentity}
           name={trackRef.participant.name || "面试官"}
         />
       ) : null}

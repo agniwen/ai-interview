@@ -6,17 +6,49 @@ import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { HumanMeetingFloatingPanel } from "./human-meeting-floating-panel";
 
-export function HumanMeetingTranscriptPanel({
+export function HumanMeetingToolPanel({
+  desktopClassName,
+  id,
+  title,
+  closeLabel,
+  slot,
   open,
   onClose,
   children,
 }: {
+  desktopClassName?: string;
+  id?: string;
+  title: string;
+  closeLabel: string;
+  slot: string;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
   const panelRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!isMobile || !open || !viewport) {
+      return;
+    }
+    const updateBounds = () => {
+      const drawer = drawerRef.current;
+      if (!drawer) {
+        return;
+      }
+      drawer.style.top = `${viewport.offsetTop}px`;
+      drawer.style.height = `${viewport.height}px`;
+    };
+    updateBounds();
+    viewport.addEventListener("resize", updateBounds);
+    viewport.addEventListener("scroll", updateBounds);
+    return () => {
+      viewport.removeEventListener("resize", updateBounds);
+      viewport.removeEventListener("scroll", updateBounds);
+    };
+  }, [isMobile, open]);
   useEffect(() => {
     if (!open || isMobile) {
       return;
@@ -40,13 +72,13 @@ export function HumanMeetingTranscriptPanel({
   const content = (
     <>
       <div className="flex shrink-0 items-center gap-2 px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-        <Button aria-label="关闭字幕" onClick={onClose} size="icon-sm" variant="ghost">
+        <Button aria-label={closeLabel} onClick={onClose} size="icon-sm" variant="ghost">
           <IconX />
         </Button>
         {isMobile ? (
-          <DrawerTitle className="text-sm font-medium">实时字幕</DrawerTitle>
+          <DrawerTitle className="text-sm font-medium">{title}</DrawerTitle>
         ) : (
-          <h2 className="text-sm font-medium">实时字幕</h2>
+          <h2 className="text-sm font-medium">{title}</h2>
         )}
       </div>
       <div
@@ -59,11 +91,18 @@ export function HumanMeetingTranscriptPanel({
   );
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()} direction="bottom">
+      <Drawer
+        open={open}
+        onOpenChange={(nextOpen) => !nextOpen && onClose()}
+        direction="bottom"
+        repositionInputs={false}
+      >
         <DrawerContent
           className="!inset-x-0 !bottom-auto !mt-0 h-dvh !max-h-none !w-screen !max-w-none !rounded-none !border-0 top-0"
-          data-slot="meeting-transcript-panel"
+          data-slot={slot}
+          id={id}
           hideHandle
+          ref={drawerRef}
         >
           {content}
         </DrawerContent>
@@ -72,11 +111,13 @@ export function HumanMeetingTranscriptPanel({
   }
   return (
     <HumanMeetingFloatingPanel
+      className={desktopClassName}
       open={open}
       ref={panelRef}
       tabIndex={-1}
-      aria-label="实时字幕"
-      data-slot="meeting-transcript-panel"
+      aria-label={title}
+      data-slot={slot}
+      id={id}
     >
       {content}
     </HumanMeetingFloatingPanel>

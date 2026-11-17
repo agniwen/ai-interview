@@ -1464,3 +1464,19 @@
   --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
 }
+
+/* Capture the settled meeting panels so the avatar starts and ends at its real position. */
+html[data-meeting-avatar-transition] [data-meeting-view]:not([inert])[data-meeting-motion-panel],
+html[data-meeting-avatar-transition] [data-meeting-view]:not([inert]) [data-meeting-motion-panel] {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+html[data-meeting-avatar-transition] [data-meeting-view][inert] {
+  visibility: hidden;
+}
+
+html[data-meeting-avatar-transition]::view-transition-group(*) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
