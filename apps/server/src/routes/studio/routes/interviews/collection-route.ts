@@ -13,8 +13,6 @@ import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
   HumanInterviewMeetingError,
-  isHumanInterviewMeetingAfterValidUntil,
-  isHumanInterviewMeetingBeforeScheduledStart,
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   loadHumanInterviewMeetingById,
@@ -24,6 +22,7 @@ import { cancelHumanInterviewMeeting } from "./dao/human-interview-meeting-cance
 import { updateHumanInterviewMeetingSchedule } from "./dao/human-interview-meeting-schedule";
 import {
   deleteHumanInterviewLiveKitRoom,
+  getHumanInterviewAdmissionError,
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
 } from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
@@ -449,18 +448,6 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
           if (!meeting) {
             return c.json({ error: "真人复面会议不存在。" }, 404);
           }
-          if (meeting.status === "cancelled" || meeting.status === "ended") {
-            return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
-          }
-          if (
-            meeting.status === "scheduled" &&
-            isHumanInterviewMeetingBeforeScheduledStart(meeting.scheduledAt)
-          ) {
-            return c.json({ error: "未到入会时间，面试开始前 15 分钟可进入会议。" }, 403);
-          }
-          if (isHumanInterviewMeetingAfterValidUntil(meeting.validUntil)) {
-            return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
-          }
 
           const { interviewerId } = c.req.valid("json");
           const resolvedInterviewerId = interviewerId ?? user.id;
@@ -473,6 +460,10 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
           );
           if (!meetingInterviewer) {
             return c.json({ error: "你不是该会议的面试官。" }, 403);
+          }
+          const admissionError = await getHumanInterviewAdmissionError(meeting);
+          if (admissionError) {
+            return c.json({ error: admissionError.message }, admissionError.status);
           }
           if (!meeting.liveKitRoomName) {
             return c.json({ error: "会议房间尚未初始化。" }, 409);

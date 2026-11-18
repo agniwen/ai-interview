@@ -65,13 +65,6 @@ export function describeHumanInterviewAttendance(
   if (meeting.status === "ended") {
     return { note: null, status: "ended" } satisfies HumanInterviewAttendanceDescription;
   }
-  const validUntil = timestamp(meeting.validUntil);
-  if (!meeting.establishedAt && validUntil !== null && now.getTime() >= validUntil) {
-    return {
-      note: "会议有效时间已结束，候选人与面试官未正常会合。",
-      status: "not_held",
-    } satisfies HumanInterviewAttendanceDescription;
-  }
   const candidatePresent = meeting.rounds.some(
     (round) => humanInterviewParticipantPresence(round) === "present",
   );
@@ -102,6 +95,13 @@ export function describeHumanInterviewAttendance(
     } satisfies HumanInterviewAttendanceDescription;
   }
 
+  const validUntil = timestamp(meeting.validUntil);
+  if (validUntil !== null && now.getTime() >= validUntil) {
+    return {
+      note: "会议有效时间已结束，候选人与面试官未正常会合。",
+      status: "not_held",
+    } satisfies HumanInterviewAttendanceDescription;
+  }
   const scheduledAt = timestamp(meeting.scheduledAt);
   const hasStarted = scheduledAt !== null && now.getTime() >= scheduledAt;
   return {

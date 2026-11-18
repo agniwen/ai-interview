@@ -55,7 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { InviteDialog } from "./members/invite-dialog";
 import {
-  addOneHourToDateTimeLocalInputValue,
+  getDefaultHumanInterviewEndInputValue,
   buildHumanInterviewMeetingTitle,
 } from "./human-interview-stage-utils";
 import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
@@ -191,7 +191,7 @@ export function ScheduleRoundDialogView({
   function handleScheduledAtChange(value: string) {
     setScheduledAt(value);
     if (!validUntil) {
-      setValidUntil(addOneHourToDateTimeLocalInputValue(value));
+      setValidUntil(getDefaultHumanInterviewEndInputValue(value));
     }
   }
 
@@ -298,7 +298,7 @@ export function ScheduleRoundDialogView({
       busy={mutation.isPending}
       error={mutation.error?.message}
       title={<>{recruitingDetail?.pipelineStage === "final_interview" ? "安排终试" : "安排复试"}</>}
-      description={<>有效时间默认为面试后一小时。</>}
+      description={<>有效时间默认为面试开始后两小时。</>}
       footer={
         <>
           <Button

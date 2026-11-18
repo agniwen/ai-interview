@@ -8,6 +8,7 @@ import type { FeishuProviderId } from "@app/feishu/provider";
 import type { HumanInterviewMeetingRecord } from "@app/shared/studio-pipeline-stages";
 import {
   buildInterviewCalendarTitle,
+  DEFAULT_HUMAN_INTERVIEW_DURATION_MS,
   interviewCalendarJobNames,
 } from "@app/shared/interview-calendar";
 import {
@@ -529,7 +530,8 @@ export async function syncHumanInterviewMeetingToFeishu({
     throw new Error("请先设置真人复面时间，再创建飞书日程。");
   }
   const { scheduledAt } = meeting;
-  const endAt = meeting.validUntil ?? new Date(scheduledAt.getTime() + 60 * 60 * 1000);
+  const endAt =
+    meeting.validUntil ?? new Date(scheduledAt.getTime() + DEFAULT_HUMAN_INTERVIEW_DURATION_MS);
 
   const interviewerRows = await db
     .select({

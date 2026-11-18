@@ -33,8 +33,6 @@ import {
 } from "../studio/routes/interviews/dao/interview-conversations";
 import {
   endHumanInterviewMeeting,
-  isHumanInterviewMeetingBeforeScheduledStart,
-  isHumanInterviewMeetingAfterValidUntil,
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
 } from "@app/recruiting-workflows/human-interviews/human-interview-meetings";
@@ -48,6 +46,7 @@ import {
 import { createPptxPreviewPdfResponse } from "../studio/utils/pptx-preview";
 import {
   deleteHumanInterviewLiveKitRoom,
+  getHumanInterviewAdmissionError,
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
 } from "@app/recruiting-workflows/human-interviews/human-interview-livekit";
@@ -273,17 +272,9 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       if (!scope) {
         return c.json({ error: "真人复面链接不可用。" }, 404);
       }
-      if (scope.status === "cancelled" || scope.status === "ended") {
-        return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
-      }
-      if (
-        scope.status === "scheduled" &&
-        isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt)
-      ) {
-        return c.json({ error: "未到入会时间，面试开始前 15 分钟可进入会议。" }, 403);
-      }
-      if (isHumanInterviewMeetingAfterValidUntil(scope.validUntil)) {
-        return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
+      const admissionError = await getHumanInterviewAdmissionError(scope);
+      if (admissionError) {
+        return c.json({ error: admissionError.message }, admissionError.status);
       }
       if (!scope.liveKitRoomName) {
         return c.json({ error: "会议房间尚未初始化。" }, 409);
@@ -424,20 +415,12 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       if (!scope) {
         return c.json({ error: "真人复面链接不可用。" }, 404);
       }
-      if (scope.status === "cancelled" || scope.status === "ended") {
-        return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
-      }
       if (scope.candidateInviteStatus !== "accepted") {
         return c.json({ error: "请先确认参加面试。" }, 403);
       }
-      if (
-        scope.status === "scheduled" &&
-        isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt)
-      ) {
-        return c.json({ error: "未到入会时间，面试开始前 15 分钟可进入会议。" }, 403);
-      }
-      if (isHumanInterviewMeetingAfterValidUntil(scope.validUntil)) {
-        return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
+      const admissionError = await getHumanInterviewAdmissionError(scope);
+      if (admissionError) {
+        return c.json({ error: admissionError.message }, admissionError.status);
       }
       if (!scope.liveKitRoomName) {
         return c.json({ error: "会议房间尚未初始化。" }, 409);

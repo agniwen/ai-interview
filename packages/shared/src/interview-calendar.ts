@@ -1,3 +1,5 @@
+export const DEFAULT_HUMAN_INTERVIEW_DURATION_MS = 2 * 60 * 60 * 1000;
+
 interface InterviewCalendarJob {
   jobDescriptionName?: string | null;
 }

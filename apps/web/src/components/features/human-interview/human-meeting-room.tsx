@@ -4,7 +4,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@app/shared/utils";
 import { InterviewEntryShell } from "./interview-entry-shell";
 
-import { IconArrowLeft, IconFileDescription, IconLoader2, IconLogin } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconClipboardText,
+  IconFileDescription,
+  IconLoader2,
+  IconLogin,
+} from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
@@ -29,6 +35,7 @@ import { meetingCameraCaptureOptions } from "./human-meeting-video-quality";
 import { resolveInitialHumanMeetingViewMode } from "./human-meeting-materials-model";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
+import { HumanMeetingPrejoinReview } from "./human-meeting-prejoin-review";
 import { HumanMeetingPostReview } from "./human-meeting-post-review";
 import {
   defaultHumanMeetingPrejoinMediaSettings,
@@ -310,6 +317,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   useSystemThemeOverride(isMobile);
   const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
+  const [prejoinReviewOpen, setPrejoinReviewOpen] = useState(false);
   const [mediaSettings, setMediaSettings] = useState(defaultHumanMeetingPrejoinMediaSettings);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [candidateInviteStatus, setCandidateInviteStatus] = useState(() =>
@@ -563,7 +571,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     }
 
     const interviewerActions = (
-      <div className="flex w-full items-center gap-2 md:w-auto md:gap-3">
+      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:gap-3">
         {joinButton}
         <Button
           className="h-11 min-w-0 flex-1 border-border bg-secondary hover:bg-secondary/80 md:h-10 md:flex-none md:border-transparent md:bg-transparent md:hover:bg-accent"
@@ -575,6 +583,20 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           <IconFileDescription data-icon="inline-start" />
           查看候选人资料
         </Button>
+        {props.preview.role !== "observer" &&
+        (props.preview.status === "scheduled" || props.preview.status === "in_progress") ? (
+          <Button
+            aria-haspopup="dialog"
+            aria-expanded={prejoinReviewOpen}
+            variant="outline"
+            size="lg"
+            disabled={isJoining}
+            onClick={() => setPrejoinReviewOpen(true)}
+          >
+            <IconClipboardText data-icon="inline-start" />
+            评价
+          </Button>
+        ) : null}
       </div>
     );
 
@@ -610,6 +632,12 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
           />
           <div className="hidden md:block">{interviewerActions}</div>
         </CandidateInterviewOverview>
+        {prejoinReviewOpen ? (
+          <HumanMeetingPrejoinReview
+            inviteToken={props.inviteToken}
+            onClose={() => setPrejoinReviewOpen(false)}
+          />
+        ) : null}
       </InterviewEntryShell>
     );
   }

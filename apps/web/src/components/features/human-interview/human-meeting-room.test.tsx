@@ -37,7 +37,7 @@ vi.mock("./human-meeting-review", () => ({
     renderShell,
   }: {
     onClose: () => void;
-    renderShell: (content: ReactNode) => ReactNode;
+    renderShell: (content: ReactNode, requestClose: () => void) => ReactNode;
   }) =>
     renderShell(
       <>
@@ -46,6 +46,7 @@ vi.mock("./human-meeting-review", () => ({
           关闭
         </button>
       </>,
+      onClose,
     ),
 }));
 vi.mock("./human-meeting-stage", () => ({
@@ -208,6 +209,24 @@ it("opens materials before join time without connecting, and preserves selection
   expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
 });
 
+it("opens and closes an evaluation dialog before join time without connecting to the room", async () => {
+  await act(() =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <HumanMeetingRoom inviteToken="invite-1" mode="interviewer" preview={preview} />
+      </QueryClientProvider>,
+    ),
+  );
+  await act(() => button("评价").click());
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog?.querySelector('[aria-label="评价内容"]')).toBeTruthy();
+  const close = dialog?.querySelector<HTMLButtonElement>("button");
+  await act(() => close?.click());
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(button("未到入会时间").disabled).toBe(true);
+  expect(media.connect).not.toHaveBeenCalled();
+});
+
 it("keeps candidate materials and the evaluation draft mounted when collapsing the review", async () => {
   await act(() =>
     root.render(
@@ -249,6 +268,9 @@ it("does not expose interviewer materials on the candidate entry", async () => {
     ),
   );
   expect(container.textContent).not.toContain("查看候选人资料");
+  expect(
+    [...container.querySelectorAll("button")].some((item) => item.textContent === "评价"),
+  ).toBe(false);
   expect(button("未到入会时间").disabled).toBe(true);
 });
 

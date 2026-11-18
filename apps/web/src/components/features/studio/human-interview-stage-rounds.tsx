@@ -43,8 +43,8 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/fram
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from "@/components/ui/label";
 import {
-  addOneHourToDateTimeLocalInputValue,
-  addOneHourToIsoString,
+  getDefaultHumanInterviewEndInputValue,
+  getDefaultHumanInterviewEndIso,
   canCancelHumanInterviewRound,
   canCompleteHumanInterviewRound,
   canReviewHumanInterviewRound,
@@ -523,7 +523,9 @@ export function RoundScheduledAtControl({
     toDateTimeLocalInputValue(round.scheduledAt),
   );
   const [validUntil, setValidUntil] = useState(() =>
-    toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+    toDateTimeLocalInputValue(
+      meeting?.validUntil ?? getDefaultHumanInterviewEndIso(round.scheduledAt),
+    ),
   );
   const [interviewerIds, setInterviewerIds] = useState(() =>
     (meeting?.interviewers.length ? meeting.interviewers : round.interviewers).map(
@@ -606,7 +608,9 @@ export function RoundScheduledAtControl({
     }
     setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
     setValidUntil(
-      toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+      toDateTimeLocalInputValue(
+        meeting?.validUntil ?? getDefaultHumanInterviewEndIso(round.scheduledAt),
+      ),
     );
     setInterviewerIds(
       (meeting?.interviewers.length ? meeting.interviewers : round.interviewers).map(
@@ -619,7 +623,9 @@ export function RoundScheduledAtControl({
   function cancelEditing() {
     setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
     setValidUntil(
-      toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+      toDateTimeLocalInputValue(
+        meeting?.validUntil ?? getDefaultHumanInterviewEndIso(round.scheduledAt),
+      ),
     );
     setInterviewerIds(
       (meeting?.interviewers.length ? meeting.interviewers : round.interviewers).map(
@@ -633,7 +639,7 @@ export function RoundScheduledAtControl({
   function handleScheduledAtChange(value: string) {
     setScheduledAt(value);
     if (!validUntil) {
-      setValidUntil(addOneHourToDateTimeLocalInputValue(value));
+      setValidUntil(getDefaultHumanInterviewEndInputValue(value));
     }
   }
 

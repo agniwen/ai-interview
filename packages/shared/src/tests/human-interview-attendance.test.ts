@@ -76,6 +76,18 @@ describe("human interview attendance", () => {
     ).toBe("waiting_interviewer");
   });
 
+  it("keeps waiting for the interviewer when the candidate is present after expiry", () => {
+    expect(
+      describeHumanInterviewAttendance(
+        {
+          ...baseMeeting,
+          rounds: [{ joinedAt: baseMeeting.scheduledAt, leftAt: null }],
+        },
+        new Date("2026-09-10T09:01:00Z"),
+      ).status,
+    ).toBe("waiting_interviewer");
+  });
+
   it("shows an expired unestablished meeting as not held before reconciliation completes", () => {
     expect(
       describeHumanInterviewAttendance(baseMeeting, new Date("2026-09-10T09:01:00.000Z")).status,

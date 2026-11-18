@@ -1,11 +1,11 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { DEFAULT_HUMAN_INTERVIEW_DURATION_MS } from "@app/shared/interview-calendar";
 import { z } from "zod";
 
 import { getRequiredEnv } from "../runtime/env";
 
 const INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const EARLY_JOIN_WINDOW_MS = 15 * 60 * 1000;
-const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
 
 const candidateInvitePayloadSchema = z.object({
   exp: z.number().int().positive(),
@@ -57,11 +57,12 @@ export function resolveValidUntilInput({
 
   let resolved: Date;
   if (validUntil === undefined) {
-    resolved = existingValidUntil ?? new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+    resolved =
+      existingValidUntil ?? new Date(scheduledAt.getTime() + DEFAULT_HUMAN_INTERVIEW_DURATION_MS);
   } else if (validUntil) {
     resolved = new Date(validUntil);
   } else {
-    resolved = new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+    resolved = new Date(scheduledAt.getTime() + DEFAULT_HUMAN_INTERVIEW_DURATION_MS);
   }
 
   if (Number.isNaN(resolved.getTime())) {
@@ -176,7 +177,7 @@ export function isHumanInterviewMeetingAfterValidUntil(
 
 /**
  * In-meeting features (chat, live transcript) stay available while the meeting is in progress,
- * even past `validUntil`: the admission deadline only stops new joins. The meeting leaves
+ * even past `validUntil`: new joins after the deadline require an occupied room. The meeting leaves
  * `in_progress` once its LiveKit room closes after that deadline, which ends these features too.
  */
 export function isHumanInterviewMeetingInMeetingWindowClosed(

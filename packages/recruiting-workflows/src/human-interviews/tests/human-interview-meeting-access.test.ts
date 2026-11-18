@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   isHumanInterviewMeetingBeforeScheduledStart,
   isHumanInterviewMeetingInMeetingWindowClosed,
+  resolveValidUntilInput,
 } from "../human-interview-meeting-access";
+
+describe("真人会议默认有效时间", () => {
+  it.each([undefined, null])("未指定结束时间（%s）时，默认从开始起两小时", (validUntil) => {
+    const end = resolveValidUntilInput({
+      scheduledAt: new Date("2026-11-18T14:30:00+08:00"),
+      validUntil,
+    });
+    expect(end).toEqual(new Date("2026-11-18T16:30:00+08:00"));
+  });
+});
 
 describe("真人会议提前入会窗口", () => {
   it.each([

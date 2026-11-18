@@ -1,3 +1,4 @@
+import { getHumanInterviewRoomPresence } from "../human-interviews/human-interview-livekit";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import {
   humanInterviewMeeting,
@@ -195,7 +196,7 @@ export async function reconcileDueHumanInterviewAttendance({
   now?: Date;
 } = {}): Promise<{ alerted: number; notHeld: number }> {
   const expired = await db
-    .select({ id: humanInterviewMeeting.id })
+    .select({ id: humanInterviewMeeting.id, roomName: humanInterviewMeeting.liveKitRoomName })
     .from(humanInterviewMeeting)
     .where(
       and(
@@ -208,12 +209,16 @@ export async function reconcileDueHumanInterviewAttendance({
     .limit(limit);
   let notHeld = 0;
   for (const meeting of expired) {
+    // A lone attendee can still be waiting for the other side to reconnect.
+    if ((await getHumanInterviewRoomPresence(meeting.roomName)) !== "empty") {
+      continue;
+    }
     if (await reconcileExpiredMeeting(meeting.id, now)) {
       notHeld += 1;
     }
   }
 
-  const remaining = Math.max(0, limit - expired.length);
+  const remaining = Math.max(0, limit - notHeld);
   if (remaining === 0) {
     return { alerted: 0, notHeld };
   }

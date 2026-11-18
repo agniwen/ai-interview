@@ -75,6 +75,7 @@ const mocks = vi.hoisted(() => {
     cancelReminders: vi.fn(),
     db: { ...store, transaction: <T>(fn: (tx: typeof store) => Promise<T>) => fn(store) },
     meeting,
+    participants: vi.fn(),
     rooms: vi.fn(),
     sign: vi.fn(),
     stopRecording: vi.fn(),
@@ -93,6 +94,9 @@ vi.mock("@app/recruiting-workflows/notifications/events", async (importOriginal)
 }));
 vi.mock("livekit-server-sdk", async (importOriginal) => ({
   ...(await importOriginal<typeof livekitSdk>()),
+  RoomServiceClient: vi.fn(function RoomServiceClient() {
+    return { listParticipants: mocks.participants };
+  }),
   WebhookReceiver: class {
     receive = vi.fn((body: string) => Promise.resolve(JSON.parse(body)));
   },
@@ -159,6 +163,8 @@ beforeEach(() => {
     validUntil: new Date("2026-09-23T11:10:00Z"),
   });
   mocks.sign.mockResolvedValue({ participantToken: "test-only-token" });
+  vi.stubEnv("LIVEKIT_URL", "ws://localhost:7880");
+  mocks.participants.mockResolvedValue([]);
   mocks.rooms.mockResolvedValue([]);
 });
 
@@ -272,6 +278,21 @@ describe("真人面试视频房间关闭后重进", () => {
     expect(response.status).toBe(403);
     expect(mocks.sign).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { path: interviewerPath, remaining: "candidate_1" },
+    { path: candidatePath, remaining: "interviewer_2" },
+  ])(
+    "admits a returning attendee after expiry while $remaining is still connected",
+    async ({ path, remaining }) => {
+      await webhook("room_started");
+      vi.setSystemTime(new Date("2026-09-23T11:10:01Z"));
+      mocks.participants.mockResolvedValue([{ identity: remaining }]);
+      const response = await app.request(path, { method: "POST" });
+      expect(response.status).toBe(200);
+      expect(mocks.sign).toHaveBeenCalledOnce();
+    },
+  );
 
   it.each(["2026-09-23T11:10:00Z", "2026-09-23T11:10:01Z"])(
     "rejects reentry at %s even when the room-close callback has not arrived",

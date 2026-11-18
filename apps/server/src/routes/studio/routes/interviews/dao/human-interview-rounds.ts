@@ -27,6 +27,7 @@ import type {
   HumanInterviewRoundInput,
   HumanInterviewRoundOutcome,
 } from "@app/db-schema/studio-interviews";
+import { DEFAULT_HUMAN_INTERVIEW_DURATION_MS } from "@app/shared/interview-calendar";
 import type { HumanInterviewRoundRecord } from "@app/shared/studio-pipeline-stages";
 import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-completion";
 import {
@@ -42,7 +43,6 @@ export type { HumanInterviewRoundReadiness } from "../utils/human-interview-read
 
 // drizzle 事务 callback 参数类型；和 db 实例签名差一个 $client 字段，需要单独抽出来。
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
 
 type HumanInterviewRoundEditInput = Partial<HumanInterviewRoundInput> & {
   validUntil?: string | null;
@@ -400,11 +400,11 @@ function resolveValidUntilInput({
     resolved =
       existingValidUntil && existingValidUntil.getTime() > scheduledAt.getTime()
         ? existingValidUntil
-        : new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+        : new Date(scheduledAt.getTime() + DEFAULT_HUMAN_INTERVIEW_DURATION_MS);
   } else if (validUntil) {
     resolved = new Date(validUntil);
   } else {
-    resolved = new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+    resolved = new Date(scheduledAt.getTime() + DEFAULT_HUMAN_INTERVIEW_DURATION_MS);
   }
 
   if (Number.isNaN(resolved.getTime())) {

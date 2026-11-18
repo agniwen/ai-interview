@@ -636,7 +636,7 @@ describe("human interview rounds DAO", () => {
       organizationId: ORG,
     });
     expect(meeting?.scheduledAt).toBe(nextTime);
-    expect(meeting?.validUntil).toBe("2026-05-31T10:30:00.000Z");
+    expect(meeting?.validUntil).toBe("2026-05-31T11:30:00.000Z");
 
     await endHumanInterviewMeetingsByRound({ organizationId: ORG, roundId: round.id });
     await expect(
@@ -679,7 +679,7 @@ describe("human interview meetings DAO", () => {
       [INTERVIEWER_A, INTERVIEWER_B].toSorted(),
     );
     expect(meeting.interviewers.find((i) => i.id === INTERVIEWER_A)?.role).toBe("host");
-    expect(meeting.validUntil).toBe("2026-05-30T11:00:00.000Z");
+    expect(meeting.validUntil).toBe("2026-05-30T12:00:00.000Z");
 
     await expect(
       createHumanInterviewMeeting({

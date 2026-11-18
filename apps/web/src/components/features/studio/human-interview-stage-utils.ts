@@ -1,3 +1,4 @@
+import { DEFAULT_HUMAN_INTERVIEW_DURATION_MS } from "@app/shared/interview-calendar";
 import { humanInterviewRoundOutcomeMeta } from "@app/db-schema/studio-interviews";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";
 /* oxlint-disable no-use-before-define -- status helpers compose one another */
@@ -178,7 +179,7 @@ export function toDateTimeLocalInputValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-export function addOneHourToIsoString(iso: string | null): string | null {
+export function getDefaultHumanInterviewEndIso(iso: string | null): string | null {
   if (!iso) {
     return null;
   }
@@ -186,15 +187,11 @@ export function addOneHourToIsoString(iso: string | null): string | null {
   if (Number.isNaN(date.getTime())) {
     return null;
   }
-  return new Date(date.getTime() + 60 * 60 * 1000).toISOString();
+  return new Date(date.getTime() + DEFAULT_HUMAN_INTERVIEW_DURATION_MS).toISOString();
 }
 
-export function addOneHourToDateTimeLocalInputValue(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return toDateTimeLocalInputValue(new Date(date.getTime() + 60 * 60 * 1000).toISOString());
+export function getDefaultHumanInterviewEndInputValue(value: string): string {
+  return toDateTimeLocalInputValue(getDefaultHumanInterviewEndIso(value));
 }
 
 export function buildHumanInterviewMeetingTitle(candidateName: string, roundLabel: string): string {

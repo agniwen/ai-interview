@@ -1,9 +1,20 @@
 import {
+  isHumanInterviewMeetingAfterValidUntil,
+  isHumanInterviewMeetingBeforeScheduledStart,
+} from "./human-interview-meeting-access";
+import type { HumanInterviewMeetingStatus } from "@app/db-schema/studio-interviews";
+import {
   prepareHumanTranscription,
   waitHumanTranscriptionReady,
   requestHumanTranscriptionStop,
 } from "./human-transcription";
-import { AccessToken, RoomConfiguration, RoomServiceClient } from "livekit-server-sdk";
+import {
+  AccessToken,
+  RoomConfiguration,
+  RoomServiceClient,
+  TwirpError,
+  ParticipantInfo_State,
+} from "livekit-server-sdk";
 import type {
   HumanInterviewMeetingParticipantRole,
   HumanInterviewMeetingTokenResponse,
@@ -134,4 +145,59 @@ export async function listHumanInterviewLiveKitRooms(names: string[]) {
   return await new RoomServiceClient(toHttpLiveKitUrl(serverUrl), apiKey, apiSecret).listRooms(
     names,
   );
+}
+
+export async function getHumanInterviewRoomPresence(roomName: string | null) {
+  if (!roomName) {
+    return "empty";
+  }
+  try {
+    const participants = await listHumanInterviewLiveKitParticipants(roomName);
+    return participants.some(
+      ({ identity, state }) =>
+        state !== ParticipantInfo_State.DISCONNECTED &&
+        (identity.startsWith("candidate_") || identity.startsWith("interviewer_")),
+    )
+      ? "occupied"
+      : "empty";
+  } catch (error) {
+    if (error instanceof TwirpError && error.code === "not_found") {
+      return "empty";
+    }
+    console.warn("Failed to check human interview room presence", { error, roomName });
+    return "unavailable";
+  }
+}
+
+export async function getHumanInterviewAdmissionError(meeting: {
+  liveKitRoomName: string | null;
+  scheduledAt: string | null;
+  status: HumanInterviewMeetingStatus;
+  validUntil: string | null;
+}): Promise<{ message: string; status: 403 | 503 } | null> {
+  if (meeting.status !== "scheduled" && meeting.status !== "in_progress") {
+    return {
+      message:
+        meeting.status === "not_held"
+          ? "该真人复面会议已标记为未召开。"
+          : "该真人复面会议已结束或取消。",
+      status: 403,
+    };
+  }
+  if (
+    meeting.status === "scheduled" &&
+    isHumanInterviewMeetingBeforeScheduledStart(meeting.scheduledAt)
+  ) {
+    return { message: "未到入会时间，面试开始前 15 分钟可进入会议。", status: 403 };
+  }
+  if (!isHumanInterviewMeetingAfterValidUntil(meeting.validUntil)) {
+    return null;
+  }
+  const presence = await getHumanInterviewRoomPresence(meeting.liveKitRoomName);
+  if (presence === "unavailable") {
+    return { message: "暂时无法确认会议室内是否有人，请稍后重试。", status: 503 };
+  }
+  return presence === "occupied"
+    ? null
+    : { message: "该真人复面会议已超过有效时间。", status: 403 };
 }
