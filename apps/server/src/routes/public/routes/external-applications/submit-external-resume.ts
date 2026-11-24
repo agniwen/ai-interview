@@ -11,6 +11,7 @@ import {
   loadBatchDetail,
 } from "../../../studio/routes/resume-upload-batches/dao/batches";
 import { resolveExternalApplicationActor, resolveExternalApplicationLink } from "./dao";
+import { scheduleExternalApplicationFeishuSync } from "./feishu-sync";
 
 export interface SubmitExternalResumeApplicationInput {
   applicationDetails: ExternalApplicationDetails;
@@ -132,12 +133,16 @@ export async function submitExternalResume({
   if (!detail || detail.batch.status === "cancelled") {
     return { body: { error: "该投递已取消，请重新选择文件。" }, status: 422 as const };
   }
+  const poolItemId = detail.items[0]?.poolItemId ?? null;
   await ensurePortfolioLinkMaterial({
     actorId: userId,
     organizationId,
-    poolItemId: detail.items[0]?.poolItemId ?? null,
+    poolItemId,
     portfolioUrl: externalApplication.portfolioUrl,
   });
+  if (poolItemId) {
+    scheduleExternalApplicationFeishuSync(poolItemId);
+  }
   try {
     await enqueueResumeParseJobs(
       detail.items

@@ -332,6 +332,7 @@ export const organization = pgTable("organization", {
 
 export const externalApplicationLink = pgTable("external_application_link", {
   enabled: boolean("enabled").notNull(),
+  feishuBitableUrl: text("feishu_bitable_url"),
   organizationId: text("organization_id")
     .primaryKey()
     .references(() => organization.id, { onDelete: "cascade" }),
@@ -2708,6 +2709,7 @@ export const resumePoolItem = pgTable(
     candidatePhone: text("candidate_phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    feishuBitableRecordId: text("feishu_bitable_record_id"),
     id: text("id").primaryKey(),
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",

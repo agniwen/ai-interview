@@ -87,6 +87,7 @@ export type CandidateMaterialsScopeContext = Parameters<typeof getWorkspaceReque
 };
 
 export interface CreateScopedCandidateMaterialsRouterOptions {
+  onMaterialCreated?: (scope: CandidateMaterialOwnerScope) => void;
   readMiddleware?: MiddlewareHandler<Env>;
   resolveScope: (c: CandidateMaterialsScopeContext) => Promise<{
     actorId: string;
@@ -102,7 +103,7 @@ const passthroughMiddleware: MiddlewareHandler<Env> = async (_c, next) => {
 export function createScopedCandidateMaterialsRouter(
   options: CreateScopedCandidateMaterialsRouterOptions,
 ) {
-  const { resolveScope } = options;
+  const { onMaterialCreated, resolveScope } = options;
   const readGuard = options.readMiddleware ?? passthroughMiddleware;
   const writeGuard = options.writeMiddleware ?? passthroughMiddleware;
 
@@ -136,6 +137,7 @@ export function createScopedCandidateMaterialsRouter(
         async (c) => {
           const { actorId, scope } = await resolveScope(c);
           const item = await createCandidateMaterialLink(scope, c.req.valid("json"), actorId, db);
+          onMaterialCreated?.(scope);
           return c.json(item, 201);
         },
       )
@@ -203,6 +205,7 @@ export function createScopedCandidateMaterialsRouter(
                 actorId,
               ),
             );
+            onMaterialCreated?.(scope);
             return c.json(item, 201);
           } catch (error) {
             if (uploaded) {

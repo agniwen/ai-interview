@@ -2,10 +2,12 @@ import { CandidateMaterialError } from "@app/recruiting/candidate-materials";
 import { z } from "zod";
 import { createScopedCandidateMaterialsRouter } from "../../../studio/utils/candidate-materials-router";
 import { resolveExternalApplicationSubmission } from "./dao";
+import { scheduleExternalApplicationFeishuSync } from "./feishu-sync";
 
 const requestIdSchema = z.uuid();
 
 export const externalApplicationMaterialsRouter = createScopedCandidateMaterialsRouter({
+  onMaterialCreated: (scope) => scheduleExternalApplicationFeishuSync(scope.ownerId),
   resolveScope: async (c) => {
     const token = c.req.param("token");
     const parsedRequestId = requestIdSchema.safeParse(c.req.param("requestId"));

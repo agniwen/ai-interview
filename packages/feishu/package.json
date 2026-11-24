@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./access-token": "./src/access-token.ts",
+    "./bitable": "./src/bitable.ts",
     "./docx": "./src/docx.ts",
     "./human-interview-evaluation-doc": "./src/human-interview-evaluation-doc.ts",
     "./interview-evaluation-doc": "./src/interview-evaluation-doc.ts",
