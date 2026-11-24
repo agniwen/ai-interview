@@ -27,6 +27,7 @@ import type {
   CreateCandidateMaterialLinkInput,
   UpdateCandidateMaterialInput,
 } from "@app/shared/candidate-materials";
+import type { CandidateMaterialsClient } from "@/lib/client/candidate-materials";
 import {
   candidateMaterialFileUrl,
   createCandidateMaterialLink,
@@ -59,14 +60,7 @@ import {
 } from "./candidate-material-dialogs";
 import { CandidateMaterialPreview } from "./candidate-material-preview";
 
-export interface CandidateMaterialsClient {
-  candidateMaterialFileUrl: typeof candidateMaterialFileUrl;
-  createCandidateMaterialLink: typeof createCandidateMaterialLink;
-  deleteCandidateMaterial: typeof deleteCandidateMaterial;
-  listCandidateMaterials: typeof listCandidateMaterials;
-  updateCandidateMaterial: typeof updateCandidateMaterial;
-  uploadCandidateMaterialFile: typeof uploadCandidateMaterialFile;
-}
+export type { CandidateMaterialsClient } from "@/lib/client/candidate-materials";
 
 const defaultClient: CandidateMaterialsClient = {
   candidateMaterialFileUrl,
@@ -373,12 +367,14 @@ function useCandidateMaterialsMutations({
 export function CandidateMaterialsPanel({
   canEdit,
   client = defaultClient,
+  emptyDescription = "可补充作品集压缩包或链接、视频、图片等材料；从人才库进入招聘台时会自动携带关联。",
   ownerId,
   ownerType,
   slug,
 }: {
   canEdit: boolean;
   client?: CandidateMaterialsClient;
+  emptyDescription?: string;
   ownerId: string;
   ownerType: CandidateMaterialOwnerType;
   slug: string;
@@ -455,9 +451,7 @@ export function CandidateMaterialsPanel({
             <Empty className="py-4">
               <EmptyHeader>
                 <EmptyTitle>暂无补充资料</EmptyTitle>
-                <EmptyDescription>
-                  可补充作品集压缩包或链接、视频、图片等材料；从人才库进入招聘台时会自动携带关联。
-                </EmptyDescription>
+                <EmptyDescription>{emptyDescription}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : null}

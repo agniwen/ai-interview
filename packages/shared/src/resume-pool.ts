@@ -5,6 +5,7 @@ import type { PipelineStage } from "@app/db-schema/recruiting-contracts";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
+import type { ExternalApplicationDetails } from "@app/db-schema/external-application-details";
 import type {
   ResumePoolScope,
   ResumePoolStatus,
@@ -94,6 +95,7 @@ export interface ResumePoolListRecord {
   sourceOrganizationId: string | null;
   sourceUserId: string | null;
   sourceChannel: ResumePoolSourceChannel | null;
+  applicationDetails: ExternalApplicationDetails | null;
   publishedAt: string | null;
   publishedBy: string | null;
   candidateName: string;

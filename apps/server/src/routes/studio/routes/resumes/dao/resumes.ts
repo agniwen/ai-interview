@@ -1066,6 +1066,7 @@ export async function loadResumeDetail(
   const [row] = await db
     .select({
       ...SELECTED_COLUMNS,
+      applicationDetails: recruitingRecordReadModel.applicationDetails,
       interviewQuestions: recruitingRecordReadModel.interviewQuestions,
       resumeProfile: recruitingRecordReadModel.resumeProfile,
       resumeReview: recruitingRecordReadModel.resumeReview,
@@ -1093,7 +1094,7 @@ export async function loadResumeDetail(
     return null;
   }
 
-  const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
+  const { applicationDetails, interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
   const resumeScreeningResult = parseStoredJson(
     rest.resumeScreeningResult,
     resumeScreeningResultSchema,
@@ -1126,6 +1127,7 @@ export async function loadResumeDetail(
       derivedFields.get(rest.id),
       toDuplicateMatchSummary(duplicateMatches.get(rest.id)),
     ),
+    applicationDetails: applicationDetails ?? null,
     candidateExpectationsMeta: rest.candidateExpectationsMeta,
     closeReason: rest.closeReason,
     closedAt: serializeDate(rest.closedAt),

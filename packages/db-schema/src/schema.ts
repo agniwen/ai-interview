@@ -1,4 +1,5 @@
 import type { HumanInterviewEvaluationReviewFinding } from "./human-interview-evaluation-review";
+import type { ExternalApplicationDetails } from "./external-application-details";
 import type { HumanTranscriptionEventRecord } from "./human-transcription-types";
 import type {
   CandidateMaterialCategory,
@@ -2701,6 +2702,7 @@ export const resumePoolItem = pgTable(
   "resume_pool_item",
   // oxlint-disable-next-line sort-keys -- columns stay grouped by the resume-pool domain lifecycle.
   {
+    applicationDetails: jsonb("application_details").$type<ExternalApplicationDetails | null>(),
     candidateEmail: text("candidate_email"),
     candidateName: text("candidate_name").notNull(),
     candidatePhone: text("candidate_phone"),
@@ -4405,6 +4407,7 @@ export const recruitingRecord = pgTable(
   "recruiting_record",
   {
     activeEvaluationId: text("active_evaluation_id"),
+    applicationDetails: jsonb("application_details").$type<ExternalApplicationDetails | null>(),
     candidateId: text("candidate_id").notNull(),
     // 仅保存结束备注等非筛选详情，结束节点和原因以独立列为准。
     closeDetails: jsonb("close_details").$type<JsonObject>(),

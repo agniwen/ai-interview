@@ -1,54 +1,69 @@
 import { MAX_RESUME_FILE_SIZE_BYTES } from "@app/shared/bulk-resume-upload";
+import { validateCandidateMaterialFiles } from "@app/shared/candidate-materials";
+import { externalApplicationFormSchema } from "@app/shared/external-applications";
 import {
-  isExternalApplicationResume,
-  externalApplicationResumeAccept,
   externalApplicationResumeLabel,
+  isExternalApplicationResume,
 } from "@app/shared/resume-documents";
-import { IconUpload } from "@tabler/icons-react";
+import { IconPaperclip } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
-import { MarkdownView } from "@/components/features/display/markdown-view";
 import { InterviewEntryShell } from "@/components/features/human-interview/interview-entry-shell";
-import { formatJobDescriptionForDisplay } from "@/components/features/human-interview/job-description-display";
+import { CandidateMaterialsPanel } from "@/components/features/studio/candidate-materials/candidate-materials-panel";
 import { Button } from "@/components/ui/button";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
-import { FileUpload } from "@/components/ui/file-upload";
+import { Modal } from "@/components/ui/modal";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/client/api/client";
 import { ApiError } from "@/lib/client/api/errors";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
+import { createExternalApplicationMaterialsClient } from "@/lib/client/candidate-materials";
+import type { CandidateMaterialsClient } from "@/lib/client/candidate-materials";
 import { rpc } from "@/lib/client/rpc";
-
-const automatic = { id: "", jd: "", name: "智能匹配" };
-
-interface ApplicationFile {
-  id: string;
-  file: File;
-  error?: string;
-}
+import { ExternalApplicationForm } from "./application-form";
+import { JobDescriptionContent } from "./application-form-fields";
+import type {
+  ExternalApplicationDraft,
+  ExternalApplicationErrorKey,
+  ExternalApplicationFormErrors,
+  PendingPortfolioFile,
+} from "./application-form-fields";
 
 const receiptSchema = z.array(z.object({ id: z.string(), name: z.string() }));
 type Receipt = z.infer<typeof receiptSchema>[number];
+
+const FORM_ERROR_KEY_MAP = new Map<string, ExternalApplicationErrorKey>([
+  ["alternateJobDescriptionId", "alternateJobDescriptionId"],
+  ["batch", "batch"],
+  ["candidateName", "candidateName"],
+  ["className", "className"],
+  ["contact", "contact"],
+  ["jobDescriptionId", "jobDescriptionId"],
+  ["portfolioContribution", "portfolioContribution"],
+  ["portfolioFiles", "portfolioFiles"],
+  ["portfolioUrl", "portfolioUrl"],
+  ["resume", "resume"],
+  ["trainingInstitution", "trainingInstitution"],
+  ["workMode", "workMode"],
+]);
+
+function createEmptyDraft(): ExternalApplicationDraft {
+  return {
+    alternateJobDescriptionId: "",
+    batch: "",
+    candidateName: "",
+    className: "",
+    contact: "",
+    jobDescriptionId: "",
+    portfolioContribution: "",
+    portfolioUrl: "",
+    trainingInstitution: "",
+    workMode: "onsite",
+  };
+}
 
 function readReceipts(key: string): Receipt[] {
   try {
@@ -58,45 +73,230 @@ function readReceipts(key: string): Receipt[] {
   }
 }
 
-async function submitResume(token: string, jobId: string, item: ApplicationFile) {
-  const { file, id } = item;
+function appendAndPersistReceipt(
+  historyKey: string,
+  receipt: Receipt,
+  setReceipts: React.Dispatch<React.SetStateAction<Receipt[]>>,
+) {
+  const merge = (previous: Receipt[]) => [
+    ...new Map<string, Receipt>([
+      [receipt.id, receipt],
+      ...previous.map((item): [string, Receipt] => [item.id, item]),
+    ]).values(),
+  ];
+  try {
+    localStorage.setItem(historyKey, JSON.stringify(merge(readReceipts(historyKey))));
+  } catch {
+    toast.warning("浏览器无法保存投递历史。");
+  }
+  setReceipts(merge);
+}
+
+function omitFormError(
+  errors: ExternalApplicationFormErrors,
+  key: ExternalApplicationErrorKey,
+): ExternalApplicationFormErrors {
+  if (!errors[key]) {
+    return errors;
+  }
+  return Object.fromEntries(Object.entries(errors).filter(([entryKey]) => entryKey !== key));
+}
+
+function validateResumeSelection(file: File | null): string | null {
+  if (!file) {
+    return "请上传简历文件";
+  }
+  if (file.size <= 0) {
+    return "简历文件不能为空";
+  }
   if (file.size > MAX_RESUME_FILE_SIZE_BYTES) {
-    return { ...item, error: "简历文件不能超过 20 MB。" };
+    return "简历文件不能超过 20 MB";
   }
   if (!isExternalApplicationResume({ fileName: file.name, mediaType: file.type })) {
-    return { ...item, error: `仅支持 ${externalApplicationResumeLabel}。` };
+    return `仅支持 ${externalApplicationResumeLabel}`;
   }
+  return null;
+}
+
+function validateApplicationForm(
+  draft: ExternalApplicationDraft,
+  resumeFile: File | null,
+  portfolioFiles: PendingPortfolioFile[],
+): ExternalApplicationFormErrors {
+  const nextErrors: ExternalApplicationFormErrors = {};
+  const parsed = externalApplicationFormSchema.safeParse({
+    ...draft,
+    alternateJobDescriptionId: draft.alternateJobDescriptionId || null,
+  });
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const mappedKey = FORM_ERROR_KEY_MAP.get(String(issue.path[0] ?? ""));
+      if (mappedKey && !nextErrors[mappedKey]) {
+        nextErrors[mappedKey] = issue.message;
+      }
+    }
+  }
+  const resumeError = validateResumeSelection(resumeFile);
+  if (resumeError) {
+    nextErrors.resume = resumeError;
+  }
+  if (portfolioFiles.length > 0) {
+    const existingCount = draft.portfolioUrl.trim() ? 1 : 0;
+    const filesError = validateCandidateMaterialFiles(
+      portfolioFiles.map((entry) => entry.file),
+      existingCount,
+    );
+    if (filesError) {
+      nextErrors.portfolioFiles = filesError;
+    }
+  }
+  return nextErrors;
+}
+
+function buildSubmissionFormData(
+  draft: ExternalApplicationDraft,
+  resumeFile: File,
+  requestId: string,
+): FormData {
   const body = new FormData();
-  body.set("resume", file);
-  body.set("jobDescriptionId", jobId);
-  body.set("requestId", id);
-  try {
-    await apiFetch(`/api/public/external-applications/${encodeURIComponent(token)}/resumes`, {
-      body,
-      method: "POST",
-    });
-    return { ...item, accepted: true, error: undefined };
-  } catch (error) {
-    return {
-      ...item,
-      error: error instanceof Error ? error.message : "提交失败，请重试。",
-      refreshJobs: error instanceof ApiError && error.status === 409,
-    };
+  body.set("resume", resumeFile);
+  body.set("requestId", requestId);
+  body.set("candidateName", draft.candidateName.trim());
+  body.set("jobDescriptionId", draft.jobDescriptionId);
+  body.set("workMode", draft.workMode);
+  body.set("trainingInstitution", draft.trainingInstitution.trim());
+  body.set("className", draft.className.trim());
+  body.set("batch", draft.batch.trim());
+  if (
+    draft.alternateJobDescriptionId &&
+    draft.alternateJobDescriptionId !== draft.jobDescriptionId
+  ) {
+    body.set("alternateJobDescriptionId", draft.alternateJobDescriptionId);
   }
+  body.set("contact", draft.contact.trim());
+  body.set("portfolioUrl", draft.portfolioUrl.trim());
+  body.set("portfolioContribution", draft.portfolioContribution.trim());
+  return body;
+}
+
+async function submitFullApplication({
+  draft,
+  materialsClient,
+  portfolioFiles,
+  requestId,
+  resumeFile,
+  token,
+}: {
+  draft: ExternalApplicationDraft;
+  materialsClient: CandidateMaterialsClient;
+  portfolioFiles: PendingPortfolioFile[];
+  requestId: string;
+  resumeFile: File;
+  token: string;
+}) {
+  const body = buildSubmissionFormData(draft, resumeFile, requestId);
+  await apiFetch(`/api/public/external-applications/${encodeURIComponent(token)}/resumes`, {
+    body,
+    method: "POST",
+  });
+
+  let failedAttachmentCount = 0;
+  for (const entry of portfolioFiles) {
+    try {
+      await materialsClient.uploadCandidateMaterialFile(
+        "resume_pool_item",
+        token,
+        requestId,
+        entry.file,
+        { notes: "" },
+      );
+    } catch {
+      failedAttachmentCount += 1;
+    }
+  }
+
+  return {
+    failedAttachmentCount,
+    receipt: {
+      id: requestId,
+      name: `${draft.candidateName.trim()} · ${resumeFile.name}`,
+    },
+    uploadedAttachmentCount: portfolioFiles.length - failedAttachmentCount,
+  };
+}
+
+function notifySubmissionResult(failedAttachmentCount: number, uploadedAttachmentCount: number) {
+  if (failedAttachmentCount > 0) {
+    toast.warning(
+      `简历已提交，但有 ${failedAttachmentCount} 份作品附件上传失败，可在「已投递」中点击「关联附件」重新上传。`,
+    );
+    return;
+  }
+  if (uploadedAttachmentCount > 0) {
+    toast.success(`投递成功，已同步上传 ${uploadedAttachmentCount} 份作品附件。`);
+    return;
+  }
+  toast.success("投递成功，感谢你的申请。");
+}
+
+function SentApplicationsPanel({
+  onManageMaterials,
+  receipts,
+}: {
+  onManageMaterials: (receipt: Receipt) => void;
+  receipts: Receipt[];
+}) {
+  return (
+    <ScrollArea className="h-64" scrollFade>
+      <ul className="space-y-1 text-sm">
+        {receipts.map((receipt) => (
+          <li key={receipt.id} className="flex min-h-10 items-center justify-between gap-2 py-1">
+            <span className="min-w-0 flex-1 truncate" title={receipt.name}>
+              {receipt.name}
+            </span>
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => onManageMaterials(receipt)}
+            >
+              <IconPaperclip data-icon="inline-start" />
+              关联附件
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {receipts.length ? null : (
+        <p className="py-2 text-sm text-muted-foreground">暂无已投递申请</p>
+      )}
+    </ScrollArea>
+  );
 }
 
 export function ExternalApplicationPage({ token }: { token: string }) {
   // Each workspace has one stable external application token.
   const historyKey = `external-application-history:${token}`;
   const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [tab, setTab] = useState("outbox");
+  const [tab, setTab] = useState("form");
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- Read browser storage after hydration.
     setReceipts(readReceipts(historyKey));
   }, [historyKey]);
-  const [jobId, setJobId] = useState("");
-  const [files, setFiles] = useState<ApplicationFile[]>([]);
-  const [resetKey, setResetKey] = useState(0);
+
+  const [draft, setDraft] = useState<ExternalApplicationDraft>(createEmptyDraft);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [portfolioFiles, setPortfolioFiles] = useState<PendingPortfolioFile[]>([]);
+  const [resumeResetKey, setResumeResetKey] = useState(0);
+  const [portfolioResetKey, setPortfolioResetKey] = useState(0);
+  const [draftRequestId, setDraftRequestId] = useState(() => crypto.randomUUID());
+  const [errors, setErrors] = useState<ExternalApplicationFormErrors>({});
+  const [materialsReceipt, setMaterialsReceipt] = useState<Receipt | null>(null);
+
+  const externalMaterialsClient = useMemo(
+    () => createExternalApplicationMaterialsClient(token),
+    [token],
+  );
+
   const preview = useQuery({
     queryFn: () =>
       rpcFetch(
@@ -106,43 +306,102 @@ export function ExternalApplicationPage({ token }: { token: string }) {
     queryKey: ["external-application", token],
     retry: false,
   });
-  const upload = useMutation({
-    mutationFn: async (items: ApplicationFile[]) => {
-      const accepted: Receipt[] = [];
-      for (const item of items) {
-        const result = await submitResume(token, jobId, item);
-        if ("accepted" in result && result.accepted) {
-          accepted.push({ id: item.id, name: item.file.name });
-          setFiles((current) => current.filter((entry) => entry.id !== item.id));
-        } else {
-          setFiles((current) => current.map((entry) => (entry.id === item.id ? result : entry)));
-        }
-        if ("refreshJobs" in result && result.refreshJobs) {
-          await preview.refetch();
-          break;
-        }
+
+  function updateDraftField<K extends keyof ExternalApplicationDraft>(
+    key: K,
+    value: ExternalApplicationDraft[K],
+  ) {
+    setDraft((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "jobDescriptionId" && value === current.alternateJobDescriptionId) {
+        return { ...next, alternateJobDescriptionId: "" };
       }
-      return accepted;
+      return next;
+    });
+    if (key === "jobDescriptionId") {
+      setDraftRequestId(crypto.randomUUID());
+    }
+    setErrors((current) => omitFormError(current, key));
+  }
+
+  function resetApplicationForm() {
+    setDraft(createEmptyDraft());
+    setResumeFile(null);
+    setPortfolioFiles([]);
+    setResumeResetKey((key) => key + 1);
+    setPortfolioResetKey((key) => key + 1);
+    setDraftRequestId(crypto.randomUUID());
+    setErrors({});
+  }
+
+  const submitMutation = useMutation({
+    mutationFn: (validatedResume: File) =>
+      submitFullApplication({
+        draft,
+        materialsClient: externalMaterialsClient,
+        portfolioFiles,
+        requestId: draftRequestId,
+        resumeFile: validatedResume,
+        token,
+      }),
+    onError: async (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        await preview.refetch();
+      }
+      toast.error(error instanceof Error ? error.message : "提交失败，请稍后重试。");
     },
-    onSuccess: (accepted, items) => {
-      if (!accepted.length) {
-        return;
-      }
-      const append = (previous: Receipt[]) => [
-        ...new Map([...accepted, ...previous].map((receipt) => [receipt.id, receipt])).values(),
-      ];
-      try {
-        localStorage.setItem(historyKey, JSON.stringify(append(readReceipts(historyKey))));
-      } catch {
-        toast.warning("浏览器无法保存投递历史。");
-      }
-      setReceipts(append);
-      toast.success(`已投递 ${accepted.length} 份简历`);
-      if (accepted.length === items.length && items.length === files.length) {
-        setTab("sent");
-      }
+    onSuccess: ({ failedAttachmentCount, receipt, uploadedAttachmentCount }) => {
+      appendAndPersistReceipt(historyKey, receipt, setReceipts);
+      notifySubmissionResult(failedAttachmentCount, uploadedAttachmentCount);
+      resetApplicationForm();
+      setTab("sent");
     },
   });
+
+  function handleFormSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const validationErrors = validateApplicationForm(draft, resumeFile, portfolioFiles);
+    if (Object.keys(validationErrors).length > 0 || !resumeFile) {
+      setErrors(validationErrors);
+      toast.error("请先完善必填项并检查格式后提交。");
+      return;
+    }
+    setErrors({});
+    submitMutation.mutate(resumeFile);
+  }
+
+  function handleSelectResume(incoming: File[]) {
+    const [nextFile] = incoming;
+    setResumeResetKey((key) => key + 1);
+    if (!nextFile) {
+      return;
+    }
+    const resumeError = validateResumeSelection(nextFile);
+    if (resumeError) {
+      setErrors((current) => ({ ...current, resume: resumeError }));
+      return;
+    }
+    setResumeFile(nextFile);
+    setDraftRequestId(crypto.randomUUID());
+    setErrors((current) => omitFormError(current, "resume"));
+  }
+
+  function handleSelectPortfolioFiles(incoming: File[]) {
+    setPortfolioResetKey((key) => key + 1);
+    if (incoming.length === 0) {
+      return;
+    }
+    const existingCount = portfolioFiles.length + (draft.portfolioUrl.trim() ? 1 : 0);
+    const validationError = validateCandidateMaterialFiles(incoming, existingCount);
+    if (validationError) {
+      setErrors((current) => ({ ...current, portfolioFiles: validationError }));
+      return;
+    }
+    const added = incoming.map((file) => ({ file, id: crypto.randomUUID() }));
+    setPortfolioFiles((current) => [...current, ...added]);
+    setErrors((current) => omitFormError(current, "portfolioFiles"));
+  }
+
   if (preview.isPending) {
     return (
       <InterviewEntryShell hideMobileTheme>
@@ -157,193 +416,104 @@ export function ExternalApplicationPage({ token }: { token: string }) {
       </InterviewEntryShell>
     );
   }
-  const jobs = [automatic, ...preview.data.jobs];
-  const selected = jobs.find((job) => job.id === jobId);
-  const jobDescription = selected?.jd.trim() ? (
-    <MarkdownView
-      className="text-sm leading-7 [&_p]:whitespace-pre-line"
-      content={formatJobDescriptionForDisplay(selected.jd)}
-    />
-  ) : (
-    <p className="text-sm text-muted-foreground">暂未提供岗位 JD。</p>
-  );
+
+  const { jobs, workspaceName } = preview.data;
+  const selectedPrimaryJob = jobs.find((job) => job.id === draft.jobDescriptionId) ?? null;
+  const alternateJobs = jobs.filter((job) => job.id !== draft.jobDescriptionId);
+  const selectedAlternateJob =
+    alternateJobs.find((job) => job.id === draft.alternateJobDescriptionId) ?? null;
+  const showSideJd = tab === "form" && selectedPrimaryJob !== null;
+
   return (
     <InterviewEntryShell hideMobileTheme>
-      <div className="grid w-full max-w-lg items-start gap-6 md:max-w-5xl md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-10 lg:gap-20">
-        <section className="flex min-w-0 flex-col gap-5 md:sticky md:top-[clamp(3rem,10dvh,6rem)]">
+      <div
+        className={
+          showSideJd
+            ? "grid w-full max-w-2xl items-start gap-8 md:max-w-5xl md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] md:gap-10"
+            : "mx-auto flex w-full max-w-2xl flex-col gap-6"
+        }
+      >
+        <section className="flex min-w-0 flex-col gap-6">
           <header className="space-y-2">
-            <p className="text-sm leading-5 text-muted-foreground">{preview.data.workspaceName}</p>
-            <h1 className="text-3xl font-semibold sm:text-4xl">投递简历</h1>
+            <p className="text-sm leading-5 text-muted-foreground">{workspaceName}</p>
+            <h1 className="text-3xl font-semibold sm:text-4xl">岗位投递</h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              请选择首选岗位，填写真实信息并上传简历。作品集链接、作品附件及个人分工均为选填，提交后也可在「已投递」中随时补充或修改附件。
+            </p>
           </header>
-          <div className="space-y-2">
-            <label htmlFor="application-position" className="text-sm font-medium">
-              投递岗位
-            </label>
-            <Combobox
-              disabled={upload.isPending}
-              items={jobs}
-              itemToStringLabel={(job) => job.name}
-              isItemEqualToValue={(job, value) => job.id === value.id}
-              value={selected ?? null}
-              onValueChange={(job) => setJobId(job?.id ?? "")}
-            >
-              <ComboboxInput
-                aria-describedby="application-position-hint"
-                id="application-position"
-                placeholder="搜索岗位"
-              />
-              <ComboboxContent>
-                <ComboboxEmpty>没有匹配的岗位</ComboboxEmpty>
-                <ComboboxList>
-                  {(job: (typeof jobs)[number]) => (
-                    <ComboboxItem key={job.id} value={job}>
-                      {job.name}
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-            <div className="flex min-h-8 items-center">
-              {selected?.id ? (
-                <>
-                  <Drawer direction="bottom" key={selected.id}>
-                    <DrawerTrigger asChild>
-                      <Button
-                        className="w-full md:hidden"
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        查看 JD
-                      </Button>
-                    </DrawerTrigger>
-                    <DrawerContent className="max-h-[85dvh]">
-                      <DrawerHeader className="mx-auto w-full max-w-3xl flex-row items-start justify-between gap-4 text-left">
-                        <div className="min-w-0">
-                          <DrawerTitle>岗位 JD</DrawerTitle>
-                          <DrawerDescription>{selected.name}</DrawerDescription>
-                        </div>
-                        <DrawerClose asChild>
-                          <Button size="sm" type="button" variant="ghost">
-                            关闭
-                          </Button>
-                        </DrawerClose>
-                      </DrawerHeader>
-                      <ScrollArea className="mx-auto min-h-0 w-full max-w-3xl flex-1" scrollFade>
-                        <div className="px-4 pt-2 pb-8">{jobDescription}</div>
-                      </ScrollArea>
-                    </DrawerContent>
-                  </Drawer>
-                  <p
-                    className="hidden text-sm leading-5 text-muted-foreground md:block"
-                    id="application-position-hint"
-                  >
-                    简历将投递到所选岗位。
-                  </p>
-                </>
-              ) : (
-                <p
-                  className="text-sm leading-5 text-muted-foreground"
-                  id="application-position-hint"
-                >
-                  系统会为每份简历匹配在招岗位。
-                </p>
-              )}
-            </div>
-          </div>
-          <FileUpload
-            accept={externalApplicationResumeAccept}
-            acceptedFileTypes={[{ icon: IconUpload, label: externalApplicationResumeLabel }]}
-            ariaLabel="选择或拖放简历"
-            browseLabel="选择简历"
-            description={`支持 ${externalApplicationResumeLabel}，单个文件不超过 20 MB。`}
-            disabled={upload.isPending}
-            onFilesSelected={(incoming) => {
-              const entries = incoming.map((file) => ({ file, id: crypto.randomUUID() }));
-              setFiles((previous) => [...previous, ...entries]);
-              setTab("outbox");
-              setResetKey((key) => key + 1);
-              return false;
-            }}
-            resetKey={resetKey}
-            showFileList={false}
-            title="上传简历"
-          />
+
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList variant="line">
-              <TabsTab value="outbox">投递箱（{files.length}）</TabsTab>
+              <TabsTab value="form">填写投递</TabsTab>
               <TabsTab value="sent">已投递（{receipts.length}）</TabsTab>
             </TabsList>
-            <TabsPanel value="outbox">
-              <ScrollArea className="h-48" scrollFade>
-                <ul className="space-y-1 text-sm" aria-live="polite">
-                  {files.map((item) => (
-                    <li key={item.id} className="flex min-h-9 items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate" title={item.file.name}>
-                          {item.file.name}
-                        </p>
-                        {item.error ? <p className="text-destructive">{item.error}</p> : null}
-                      </div>
-                      {item.error && selected ? (
-                        <Button
-                          disabled={upload.isPending}
-                          size="sm"
-                          variant="outline"
-                          onClick={() => upload.mutate([item])}
-                        >
-                          重试
-                        </Button>
-                      ) : null}
-                      {
-                        <Button
-                          disabled={upload.isPending}
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            setFiles((current) => current.filter((entry) => entry.id !== item.id))
-                          }
-                        >
-                          移除
-                        </Button>
-                      }
-                    </li>
-                  ))}
-                </ul>
-                {files.length ? null : (
-                  <p className="py-2 text-sm text-muted-foreground">暂无待投递简历</p>
-                )}
-              </ScrollArea>
+
+            <TabsPanel value="form" className="pt-4">
+              <ExternalApplicationForm
+                alternateJobs={alternateJobs}
+                draft={draft}
+                errors={errors}
+                jobs={jobs}
+                onDraftChange={updateDraftField}
+                onRemovePortfolioFile={(id) =>
+                  setPortfolioFiles((current) => current.filter((entry) => entry.id !== id))
+                }
+                onRemoveResume={() => {
+                  setResumeFile(null);
+                  setDraftRequestId(crypto.randomUUID());
+                }}
+                onSelectPortfolioFiles={handleSelectPortfolioFiles}
+                onSelectResume={handleSelectResume}
+                onSubmit={handleFormSubmit}
+                portfolioFiles={portfolioFiles}
+                portfolioResetKey={portfolioResetKey}
+                resumeFile={resumeFile}
+                resumeResetKey={resumeResetKey}
+                selectedAlternateJob={selectedAlternateJob}
+                selectedPrimaryJob={selectedPrimaryJob}
+                submitting={submitMutation.isPending}
+              />
             </TabsPanel>
-            <TabsPanel value="sent">
-              <ScrollArea className="h-48" scrollFade>
-                <ul className="space-y-1 text-sm">
-                  {receipts.map((receipt) => (
-                    <li key={receipt.id} className="h-9 truncate py-2" title={receipt.name}>
-                      {receipt.name}
-                    </li>
-                  ))}
-                </ul>
-                {receipts.length ? null : (
-                  <p className="py-2 text-sm text-muted-foreground">暂无已投递简历</p>
-                )}
-              </ScrollArea>
+
+            <TabsPanel value="sent" className="pt-4">
+              <SentApplicationsPanel onManageMaterials={setMaterialsReceipt} receipts={receipts} />
             </TabsPanel>
           </Tabs>
-          <Button
-            disabled={!selected || !files.length || upload.isPending}
-            onClick={() => upload.mutate(files)}
-          >
-            {upload.isPending ? "正在投递…" : "提交简历"}
-          </Button>
         </section>
-        {selected?.id ? (
-          <section className="hidden min-w-0 flex-col gap-6 pb-4 md:flex">
-            <h2 className="text-sm font-semibold leading-5">岗位 JD</h2>
-            {jobDescription}
+
+        {showSideJd ? (
+          <section className="hidden min-w-0 flex-col gap-4 md:sticky md:top-[clamp(3rem,10dvh,6rem)] md:flex">
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold leading-5">首选岗位 JD</h2>
+              <p className="text-xs text-muted-foreground">{selectedPrimaryJob.name}</p>
+            </div>
+            <JobDescriptionContent jd={selectedPrimaryJob.jd} />
           </section>
         ) : null}
       </div>
+
+      <Modal
+        open={materialsReceipt !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMaterialsReceipt(null);
+          }
+        }}
+        size="2xl"
+        title={materialsReceipt ? `关联附件 · ${materialsReceipt.name}` : "关联附件"}
+        description="可为该份申请补充作品集压缩包、PDF、视频、图片或外部链接。"
+      >
+        {materialsReceipt ? (
+          <CandidateMaterialsPanel
+            canEdit
+            client={externalMaterialsClient}
+            emptyDescription="可补充作品集压缩包、PDF、视频、图片或外部链接。"
+            ownerId={materialsReceipt.id}
+            ownerType="resume_pool_item"
+            slug={token}
+          />
+        ) : null}
+      </Modal>
     </InterviewEntryShell>
   );
 }

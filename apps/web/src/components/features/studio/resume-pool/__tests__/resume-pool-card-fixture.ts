@@ -2,6 +2,7 @@ import type { ResumePoolListRecord } from "@app/shared/resume-pool";
 
 /** 人才库卡片测试共用的列表记录。Shared list record for resume-pool card tests. */
 export const resumePoolCardRecord = {
+  applicationDetails: null,
   candidateAvatarVersion: null,
   candidateEmail: "candidate@example.com",
   candidateName: "测试候选人",

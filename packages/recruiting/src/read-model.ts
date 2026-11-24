@@ -98,6 +98,7 @@ export function createRecruitingReadModel(aliasName = "recruiting_record_read") 
   return query
     .select({
       activeEvaluationId: record.activeEvaluationId,
+      applicationDetails: record.applicationDetails,
       candidateEmail: value("candidateEmail", sql`${person.email}`),
       candidateExpectationsMeta: value(
         "candidateExpectationsMeta",

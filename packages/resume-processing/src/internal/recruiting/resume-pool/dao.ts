@@ -359,6 +359,56 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
   return id;
 }
 
+function resolveParsedIdentity(
+  row: typeof resumePoolItem.$inferSelect,
+  profile: ResumeProfile | null,
+) {
+  return {
+    candidateEmail: row.candidateEmail ?? profile?.email ?? null,
+    candidateName: row.applicationDetails ? row.candidateName : profile?.name || row.candidateName,
+    candidatePhone: row.candidatePhone ?? profile?.phone ?? null,
+  };
+}
+
+function resolveParsedTargetRole(
+  row: typeof resumePoolItem.$inferSelect,
+  profile: ResumeProfile | null,
+) {
+  const parsedTargetRole = profile?.targetRoles?.[0] || null;
+  if (row.sourceChannel === "referral" || row.sourceChannel === "external_application") {
+    return row.targetRole || parsedTargetRole;
+  }
+  return parsedTargetRole || row.targetRole;
+}
+
+function buildParsedResumePoolPatch(
+  row: typeof resumePoolItem.$inferSelect,
+  input: MarkResumePoolItemParsedInput,
+  now: Date,
+) {
+  const resumeParseStatus = input.resumeParseStatus ?? "ready";
+  return {
+    ...resolveParsedIdentity(row, input.resumeProfile),
+    jobDescriptionId: input.jobDescriptionId ?? row.jobDescriptionId,
+    notes: input.notes ?? row.notes,
+    qualitativeJobDescriptionVersionId: null,
+    qualitativeRecommendationLevel: null,
+    qualitativeResumeEvaluation: null,
+    qualitativeResumeSummary: null,
+    resumeEvaluationContractVersion: null,
+    resumeEvaluationGeneratedAt: null,
+    resumeEvaluationInputHash: null,
+    resumeParseError: null,
+    resumeParseStatus,
+    resumeParsedAt: resumeParseStatus === "ready" ? now : null,
+    resumeProfile: input.resumeProfile,
+    resumeText: input.resumeText,
+    skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
+    targetRole: resolveParsedTargetRole(row, input.resumeProfile),
+    updatedAt: now,
+  };
+}
+
 export async function markResumePoolItemParsed(
   input: MarkResumePoolItemParsedInput,
 ): Promise<void> {
@@ -371,36 +421,9 @@ export async function markResumePoolItemParsed(
     return;
   }
   const now = new Date();
-  const resumeParseStatus = input.resumeParseStatus ?? "ready";
+  const patch = buildParsedResumePoolPatch(row, input, now);
   await db.transaction(async (tx) => {
-    await tx
-      .update(resumePoolItem)
-      .set({
-        candidateEmail: input.resumeProfile?.email ?? row.candidateEmail,
-        candidateName: input.resumeProfile?.name || row.candidateName,
-        candidatePhone: input.resumeProfile?.phone ?? row.candidatePhone,
-        jobDescriptionId: input.jobDescriptionId ?? row.jobDescriptionId,
-        notes: input.notes ?? row.notes,
-        qualitativeJobDescriptionVersionId: null,
-        qualitativeRecommendationLevel: null,
-        qualitativeResumeEvaluation: null,
-        qualitativeResumeSummary: null,
-        resumeEvaluationContractVersion: null,
-        resumeEvaluationGeneratedAt: null,
-        resumeEvaluationInputHash: null,
-        resumeParseError: null,
-        resumeParseStatus,
-        resumeParsedAt: resumeParseStatus === "ready" ? now : null,
-        resumeProfile: input.resumeProfile,
-        resumeText: input.resumeText,
-        skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
-        targetRole:
-          row.sourceChannel === "referral"
-            ? row.targetRole
-            : input.resumeProfile?.targetRoles?.[0] || row.targetRole,
-        updatedAt: now,
-      })
-      .where(eq(resumePoolItem.id, input.poolItemId));
+    await tx.update(resumePoolItem).set(patch).where(eq(resumePoolItem.id, input.poolItemId));
     await writeResumePoolEvent(tx, {
       actorId: input.actorId,
       organizationId: input.organizationId,
@@ -883,6 +906,7 @@ export async function publishPrivatePoolItem(
   const publicId = crypto.randomUUID();
   await db.transaction(async (tx) => {
     await tx.insert(resumePoolItem).values({
+      applicationDetails: privateItem.applicationDetails ?? null,
       candidateEmail: privateItem.candidateEmail,
       candidateName: privateItem.candidateName,
       candidatePhone: privateItem.candidatePhone,
@@ -1017,6 +1041,7 @@ export async function importPoolItemToResumeLibrary(
         );
         resumeRecordId = await createResumeRecordFromStorage(
           {
+            applicationDetails: source.applicationDetails ?? null,
             candidateEmail: source.candidateEmail,
             candidateName: source.candidateName,
             candidatePhone: source.candidatePhone,

@@ -163,6 +163,7 @@ export function toResumePoolListRecord(
 ): ResumePoolListRecord {
   const latestImport = importRows[0] ?? null;
   return {
+    applicationDetails: row.applicationDetails ?? null,
     candidateAvatarVersion: row.candidateAvatarVersion ?? null,
     candidateEmail: row.candidateEmail,
     candidateName: row.candidateName,

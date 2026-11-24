@@ -10,6 +10,7 @@ import { scrollToWorkExperienceCompany } from "@/components/features/resume/work
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
 import { CandidateMaterialsPanel } from "@/components/features/studio/candidate-materials/candidate-materials-panel";
+import { ExternalApplicationDetailsPanel } from "@/components/features/studio/external-application-details-panel";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -344,6 +345,7 @@ export function ResumePoolDetailPage({
               showCandidateSummary={false}
               slug={slug}
             />
+            <ExternalApplicationDetailsPanel details={detail.applicationDetails} />
             <CandidateMaterialsPanel
               canEdit={canCreateResumePool}
               ownerId={detail.id}

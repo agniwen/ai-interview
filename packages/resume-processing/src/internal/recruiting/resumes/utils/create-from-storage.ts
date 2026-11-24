@@ -1,6 +1,7 @@
 import { createRecruitingRecords } from "@app/recruiting/records";
 import { db } from "../../../runtime/db";
 
+import type { ExternalApplicationDetails } from "@app/db-schema/external-application-details";
 import type { StudioInterviewResumeSourceType } from "@app/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@app/db-schema/interview/types";
 import type { ResumeReview } from "@app/db-schema/resume-review";
@@ -17,6 +18,7 @@ import { syncResumeSkills } from "../dao/skills";
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface CreateResumeRecordFromStorageInput {
+  applicationDetails?: ExternalApplicationDetails | null;
   candidateEmail: string | null;
   candidateName: string | null;
   candidatePhone: string | null;
@@ -87,6 +89,7 @@ export async function createResumeRecordFromStorage(
     await dependencies.createRecords(
       executor,
       {
+        applicationDetails: input.applicationDetails ?? null,
         candidateEmail,
         candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
         candidatePhone,

@@ -1,3 +1,4 @@
+import type { ExternalApplicationDetails } from "@app/db-schema/external-application-details";
 import type { QualitativeResumeFocus } from "./qualitative-resume-focus";
 import type {
   RecruitingNode,
@@ -269,6 +270,7 @@ export interface RecruitingNodeStateRecord {
 }
 
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
+  applicationDetails: ExternalApplicationDetails | null;
   nodeStates: RecruitingNodeStateRecord[];
   candidateExpectationsMeta: CandidateExpectationsMeta | null;
   closedAt: string | null;

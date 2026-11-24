@@ -208,6 +208,7 @@ async function persistResume(
 
 function mainRecordPatch(record: RecordRow, patch: RecruitingRecordValues, now: Date) {
   const values: Partial<typeof recruitingRecord.$inferInsert> = {
+    applicationDetails: patch.applicationDetails,
     createdAt: patch.createdAt,
     createdBy: patch.createdBy,
     hrResumeAssessment: patch.hrResumeAssessment,
@@ -595,6 +596,7 @@ export function createRecruitingRecords(
       const [record] = await tx
         .insert(recruitingRecord)
         .values({
+          applicationDetails: values.applicationDetails ?? null,
           candidateId,
           ...initialCloseState(stage, values, now),
           createdAt: now,

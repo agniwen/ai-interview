@@ -83,6 +83,7 @@ const resumeProfile: ResumeProfile = {
 function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
   // oxlint-disable-next-line sort-keys -- fixture fields follow the DTO's product-facing groups.
   return {
+    applicationDetails: null,
     candidateAvatarVersion: null,
     candidateEmail: null,
     candidateName: "候选人",
@@ -775,10 +776,7 @@ describe("resume pool review routes (permission-free dedup comparison reads)", (
 
   it("serves the converted preview PDF for PPTX sources", async () => {
     mocks.loadResumePoolItem.mockResolvedValue(
-      makePoolItem({
-        resumeFileName: "deck.pptx",
-        resumeStorageKey: "keys/deck.pptx",
-      }),
+      makePoolItem({ resumeFileName: "deck.pptx", resumeStorageKey: "keys/deck.pptx" }),
     );
     mocks.getObjectBytes.mockResolvedValue({
       bytes: new Uint8Array([1, 2, 3]),

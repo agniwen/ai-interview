@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { ExternalApplicationDetailsPanel } from "@/components/features/studio/external-application-details-panel";
 import {
   QualitativeEvaluationDetails,
   QualitativeRecommendationBadge,
@@ -570,6 +571,7 @@ export function ResumePoolDetailDialogContent({
             resumeProfile={resumeProfile}
             slug={slug}
           />
+          <ExternalApplicationDetailsPanel details={detail.applicationDetails} />
           <ResumePoolStructuredInfoPanel
             detail={detail}
             isLoading={detailQuery.isLoading}

@@ -12,6 +12,7 @@ import {
 import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import { QualitativeResumeEvaluationPanel } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { CandidateMaterialsPanel } from "@/components/features/studio/candidate-materials/candidate-materials-panel";
+import { ExternalApplicationDetailsPanel } from "@/components/features/studio/external-application-details-panel";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -114,6 +115,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                   onViewAiScore={() => setActiveTab("ai-analysis")}
                   slug={model.slug}
                 />
+                <ExternalApplicationDetailsPanel details={resumeRecord.applicationDetails} />
                 {!model.isPublic && !model.isReview ? (
                   <CandidateMaterialsPanel
                     canEdit={Boolean(model.canUpdateResumeLibrary)}

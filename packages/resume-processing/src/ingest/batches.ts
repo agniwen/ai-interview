@@ -1,4 +1,6 @@
 import { resumeUploadRequestId } from "./upload-request";
+import { candidateNameFromFileName, insertPoolItemsForBatch } from "./insert-pool-items";
+import type { ExternalApplicationBatchPayload } from "./insert-pool-items";
 import { replayUploadBatch } from "./batch-request";
 import {
   createRecruitingRecords,
@@ -10,7 +12,6 @@ import { recruitingRecordReadModel } from "@app/recruiting/read-model";
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../database";
 import {
-  resumePoolEvent,
   resumePoolItem,
   recruitingUploadBatch,
   recruitingUploadBatchItem,
@@ -73,6 +74,8 @@ export function toItemDto(row: ItemRow): BulkResumeBatchItemDto {
   };
 }
 
+export type { ExternalApplicationBatchPayload } from "./insert-pool-items";
+
 export interface CreateBatchInput {
   requestId?: string;
   organizationId: string;
@@ -81,17 +84,12 @@ export interface CreateBatchInput {
   jobMatchRequestedAt?: Date | null;
   jobDescriptionId: string | null;
   dedupPolicy: "skip" | "create";
+  externalApplication?: ExternalApplicationBatchPayload;
   referralTargetRole?: string | null;
   resumePoolScope?: ResumePoolScope | null;
   sourceChannel?: ResumePoolSourceChannel | null;
   target?: ResumeUploadBatchTarget;
   files: { storageKey: string; originalFileName: string; fileSize: number; contentHash: string }[];
-}
-
-function candidateNameFromFileName(fileName: string): string {
-  const trimmed = fileName.trim();
-  const withoutExt = trimmed.replace(/\.pdf$/i, "").trim();
-  return withoutExt || "未解析简历";
 }
 
 // 创建 batch + 关联 items 一并写入。活跃批次冲突会在 partial unique index 处抛错。
@@ -169,71 +167,18 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
     const poolRows = rows.filter(
       (row): row is typeof row & { poolItemId: string } => row.poolItemId !== null,
     );
-    if (poolRows.length > 0) {
-      await tx.insert(resumePoolItem).values(
-        poolRows.map(({ file, poolItemId }) => ({
-          candidateEmail: null,
-          candidateName: candidateNameFromFileName(file.originalFileName),
-          candidatePhone: null,
-          createdAt: now,
-          createdBy: input.userId,
-          id: poolItemId,
-          jobDescriptionId: input.jdMode === "bind" ? input.jobDescriptionId : null,
-          notes: null,
-          organizationId: input.organizationId,
-          publishedAt: scope === "public" ? now : null,
-          publishedBy: scope === "public" ? input.userId : null,
-          resumeContentHash: file.contentHash,
-          resumeFileName: file.originalFileName,
-          resumeParseError: null,
-          resumeParseStatus: "queued" as const,
-          resumeParsedAt: null,
-          resumeProfile: null,
-          resumeStorageKey: file.storageKey,
-          scope,
-          skillsNormalized: [],
-          sourceChannel: input.sourceChannel ?? null,
-          sourceOrganizationId: scope === "public" ? input.organizationId : null,
-          sourcePoolItemId: null,
-          sourceUserId: scope === "public" ? input.userId : null,
-          status: "active" as const,
-          targetRole: input.referralTargetRole?.trim() || null,
-          updatedAt: now,
-        })),
-      );
-      await tx.insert(resumePoolEvent).values(
-        poolRows.map(({ poolItemId }) => ({
-          actorId: input.userId,
-          createdAt: now,
-          id: crypto.randomUUID(),
-          organizationId: input.organizationId,
-          poolItemId,
-          type: "created" as const,
-        })),
-      );
-      if (input.jdMode === "bind" && input.jobDescriptionId) {
-        const bindingMode =
-          input.sourceChannel === "referral" || input.sourceChannel === "mail_ingest"
-            ? "automatic"
-            : "manual";
-        await tx.insert(resumePoolEvent).values(
-          poolRows.map(({ poolItemId }) => ({
-            actorId: input.userId,
-            createdAt: now,
-            id: crypto.randomUUID(),
-            organizationId: input.organizationId,
-            payload: {
-              bindingMode,
-              fromJobDescriptionId: null,
-              source: input.sourceChannel === "referral" ? "referral" : "batch_fixed_job",
-              toJobDescriptionId: input.jobDescriptionId,
-            },
-            poolItemId,
-            type: "bound" as const,
-          })),
-        );
-      }
-    }
+    await insertPoolItemsForBatch(tx, {
+      externalApplication: input.externalApplication,
+      jdMode: input.jdMode,
+      jobDescriptionId: input.jobDescriptionId,
+      now,
+      organizationId: input.organizationId,
+      poolRows,
+      referralTargetRole: input.referralTargetRole,
+      scope,
+      sourceChannel: input.sourceChannel,
+      userId: input.userId,
+    });
     await tx.insert(recruitingUploadBatchItem).values(
       rows.map(
         ({ file, itemId, orderIndex, poolItemId, recordId }) =>

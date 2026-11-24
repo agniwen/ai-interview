@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
+import type { MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import type { Env } from "../../../http-context";
 import {
   buildCandidateMaterialKeyByHash,
   deleteCandidateMaterialObject,
@@ -80,37 +82,29 @@ function buildOwnerScope(
   return { organizationId, ownerId, ownerType: "recruiting_record" };
 }
 
-export function createCandidateMaterialsRouter<
-  RRead extends WorkspaceResource,
-  RWrite extends WorkspaceResource,
->(options: CreateCandidateMaterialsRouterOptions<RRead, RWrite>) {
-  async function resolveOwnerScope(
-    c: Parameters<typeof getWorkspaceRequestContext>[0] & {
-      req: { param(name: string): string | undefined };
-    },
-  ) {
-    const { member, organization, user } = getWorkspaceRequestContext(c);
-    const ownerId = c.req.param("id");
-    if (!ownerId) {
-      throw new CandidateMaterialError("记录不存在或无权访问", 404);
-    }
-    const allowed = await options.resolveOwnerAccess({
-      memberRole: member.role,
-      organizationId: organization.id,
-      ownerId,
-      userId: user.id,
-    });
-    if (!allowed) {
-      throw new CandidateMaterialError("记录不存在或无权访问", 404);
-    }
-    return {
-      actorId: user.id,
-      scope: buildOwnerScope(options.ownerType, organization.id, ownerId),
-    };
-  }
+export type CandidateMaterialsScopeContext = Parameters<typeof getWorkspaceRequestContext>[0] & {
+  req: { param(name: string): string | undefined };
+};
 
-  const readGuard = requirePermission(options.readPermission[0], options.readPermission[1]);
-  const writeGuard = requirePermission(options.writePermission[0], options.writePermission[1]);
+export interface CreateScopedCandidateMaterialsRouterOptions {
+  readMiddleware?: MiddlewareHandler<Env>;
+  resolveScope: (c: CandidateMaterialsScopeContext) => Promise<{
+    actorId: string;
+    scope: CandidateMaterialOwnerScope;
+  }>;
+  writeMiddleware?: MiddlewareHandler<Env>;
+}
+
+const passthroughMiddleware: MiddlewareHandler<Env> = async (_c, next) => {
+  await next();
+};
+
+export function createScopedCandidateMaterialsRouter(
+  options: CreateScopedCandidateMaterialsRouterOptions,
+) {
+  const { resolveScope } = options;
+  const readGuard = options.readMiddleware ?? passthroughMiddleware;
+  const writeGuard = options.writeMiddleware ?? passthroughMiddleware;
 
   return (
     factory
@@ -127,7 +121,7 @@ export function createCandidateMaterialsRouter<
         return c.json({ error: "资料操作失败，请稍后重试" }, 500);
       })
       .get("/", readGuard, async (c) => {
-        const { scope } = await resolveOwnerScope(c);
+        const { scope } = await resolveScope(c);
         const items = await listCandidateMaterials(scope);
         return c.json(items, 200);
       })
@@ -140,7 +134,7 @@ export function createCandidateMaterialsRouter<
           jsonValidatorError("资料链接参数无效。"),
         ),
         async (c) => {
-          const { actorId, scope } = await resolveOwnerScope(c);
+          const { actorId, scope } = await resolveScope(c);
           const item = await createCandidateMaterialLink(scope, c.req.valid("json"), actorId, db);
           return c.json(item, 201);
         },
@@ -153,7 +147,7 @@ export function createCandidateMaterialsRouter<
           onError: (c) => c.json({ error: "单个文件不能超过 100 MB。" }, 413),
         }),
         async (c) => {
-          const { actorId, scope } = await resolveOwnerScope(c);
+          const { actorId, scope } = await resolveScope(c);
           const body = await c.req.parseBody({ all: true });
           const { file } = body;
           if (!(file instanceof File)) {
@@ -233,7 +227,7 @@ export function createCandidateMaterialsRouter<
         writeGuard,
         zValidator("json", updateCandidateMaterialSchema, jsonValidatorError("资料更新参数无效。")),
         async (c) => {
-          const { scope } = await resolveOwnerScope(c);
+          const { scope } = await resolveScope(c);
           const updated = await updateCandidateMaterial(
             scope,
             c.req.param("materialId"),
@@ -247,7 +241,7 @@ export function createCandidateMaterialsRouter<
         },
       )
       .delete("/:materialId", writeGuard, async (c) => {
-        const { scope } = await resolveOwnerScope(c);
+        const { scope } = await resolveScope(c);
         const result = await deleteCandidateMaterial(scope, c.req.param("materialId"), db);
         if (!result) {
           return c.json({ error: "资料不存在或无权访问" }, 404);
@@ -265,7 +259,7 @@ export function createCandidateMaterialsRouter<
         return c.json({ success: true }, 200);
       })
       .get("/:materialId/file", readGuard, async (c) => {
-        const { scope } = await resolveOwnerScope(c);
+        const { scope } = await resolveScope(c);
         const row = await findCandidateMaterial(scope, c.req.param("materialId"), db);
         if (!row || row.kind !== "file" || !row.storageKey || !row.fileName) {
           return c.json({ error: "资料文件不存在或无权访问" }, 404);
@@ -284,4 +278,34 @@ export function createCandidateMaterialsRouter<
         });
       })
   );
+}
+
+export function createCandidateMaterialsRouter<
+  RRead extends WorkspaceResource,
+  RWrite extends WorkspaceResource,
+>(options: CreateCandidateMaterialsRouterOptions<RRead, RWrite>) {
+  return createScopedCandidateMaterialsRouter({
+    readMiddleware: requirePermission(options.readPermission[0], options.readPermission[1]),
+    resolveScope: async (c) => {
+      const { member, organization, user } = getWorkspaceRequestContext(c);
+      const ownerId = c.req.param("id");
+      if (!ownerId) {
+        throw new CandidateMaterialError("记录不存在或无权访问", 404);
+      }
+      const allowed = await options.resolveOwnerAccess({
+        memberRole: member.role,
+        organizationId: organization.id,
+        ownerId,
+        userId: user.id,
+      });
+      if (!allowed) {
+        throw new CandidateMaterialError("记录不存在或无权访问", 404);
+      }
+      return {
+        actorId: user.id,
+        scope: buildOwnerScope(options.ownerType, organization.id, ownerId),
+      };
+    },
+    writeMiddleware: requirePermission(options.writePermission[0], options.writePermission[1]),
+  });
 }

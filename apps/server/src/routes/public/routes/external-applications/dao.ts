@@ -3,7 +3,11 @@ import {
   jobDescription,
   member,
   organization,
+  recruitingUploadBatch,
+  recruitingUploadBatchItem,
+  resumePoolItem,
 } from "@app/db-schema/schema";
+import { resumeUploadRequestId } from "@app/resume-processing/ingest";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../../../infrastructure/db/index";
 
@@ -40,4 +44,46 @@ export async function resolveExternalApplicationActor(organizationId: string) {
     .orderBy(asc(member.createdAt), asc(member.id))
     .limit(1);
   return owner?.userId;
+}
+
+export async function resolveExternalApplicationSubmission(token: string, requestId: string) {
+  const link = await resolveExternalApplicationLink(token);
+  if (!link) {
+    return null;
+  }
+  const actorId = await resolveExternalApplicationActor(link.organizationId);
+  if (!actorId) {
+    return null;
+  }
+  const batchId = resumeUploadRequestId(
+    "batch",
+    link.organizationId,
+    actorId,
+    `external-application:${requestId}`,
+  );
+  const [row] = await db
+    .select({ poolItemId: resumePoolItem.id })
+    .from(recruitingUploadBatchItem)
+    .innerJoin(
+      recruitingUploadBatch,
+      eq(recruitingUploadBatchItem.batchId, recruitingUploadBatch.id),
+    )
+    .innerJoin(resumePoolItem, eq(recruitingUploadBatchItem.poolItemId, resumePoolItem.id))
+    .where(
+      and(
+        eq(recruitingUploadBatch.id, batchId),
+        eq(recruitingUploadBatch.organizationId, link.organizationId),
+        eq(resumePoolItem.organizationId, link.organizationId),
+        eq(resumePoolItem.sourceChannel, "external_application"),
+      ),
+    )
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  return {
+    actorId,
+    organizationId: link.organizationId,
+    poolItemId: row.poolItemId,
+  };
 }

@@ -1,3 +1,8 @@
+import {
+  createCandidateMaterialLink,
+  listCandidateMaterials,
+} from "@app/recruiting/candidate-materials";
+import type { ExternalApplicationDetails } from "@app/shared/external-applications";
 import { ResumeUploadRequestConflictError } from "@app/resume-processing/ingest";
 import { RecruitingJobNotAcceptingCandidatesError } from "@app/recruiting/records";
 import { storeResumeObjectOnly } from "../../../interview/utils";
@@ -7,13 +12,59 @@ import {
 } from "../../../studio/routes/resume-upload-batches/dao/batches";
 import { resolveExternalApplicationActor, resolveExternalApplicationLink } from "./dao";
 
+export interface SubmitExternalResumeApplicationInput {
+  applicationDetails: ExternalApplicationDetails;
+  candidateEmail: string | null;
+  candidateName: string;
+  candidatePhone: string | null;
+  portfolioUrl: string;
+  targetRole: string | null;
+}
+
+async function ensurePortfolioLinkMaterial({
+  actorId,
+  organizationId,
+  poolItemId,
+  portfolioUrl,
+}: {
+  actorId: string;
+  organizationId: string;
+  poolItemId: string | null;
+  portfolioUrl: string;
+}) {
+  if (!portfolioUrl || !poolItemId) {
+    return;
+  }
+  const scope = {
+    organizationId,
+    ownerId: poolItemId,
+    ownerType: "resume_pool_item" as const,
+  };
+  const existing = await listCandidateMaterials(scope);
+  if (existing.some((item) => item.kind === "link" && item.url === portfolioUrl)) {
+    return;
+  }
+  await createCandidateMaterialLink(
+    scope,
+    {
+      category: "portfolio",
+      notes: "",
+      title: "作品集链接",
+      url: portfolioUrl,
+    },
+    actorId,
+  );
+}
+
 export async function submitExternalResume({
+  externalApplication,
   file,
   jobDescriptionId,
   organizationId,
   requestId,
   token,
 }: {
+  externalApplication: SubmitExternalResumeApplicationInput;
   file: File;
   jobDescriptionId: string | null;
   organizationId: string;
@@ -40,6 +91,13 @@ export async function submitExternalResume({
     }
     batchId = await insertBatchWithItems({
       dedupPolicy: "create",
+      externalApplication: {
+        applicationDetails: externalApplication.applicationDetails,
+        candidateEmail: externalApplication.candidateEmail,
+        candidateName: externalApplication.candidateName,
+        candidatePhone: externalApplication.candidatePhone,
+        targetRole: externalApplication.targetRole,
+      },
       files: [
         {
           contentHash: stored.contentHash,
@@ -74,6 +132,12 @@ export async function submitExternalResume({
   if (!detail || detail.batch.status === "cancelled") {
     return { body: { error: "该投递已取消，请重新选择文件。" }, status: 422 as const };
   }
+  await ensurePortfolioLinkMaterial({
+    actorId: userId,
+    organizationId,
+    poolItemId: detail.items[0]?.poolItemId ?? null,
+    portfolioUrl: externalApplication.portfolioUrl,
+  });
   try {
     await enqueueResumeParseJobs(
       detail.items

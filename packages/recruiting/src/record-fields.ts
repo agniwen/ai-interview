@@ -38,6 +38,7 @@ export type RecruitingRecordFields = Pick<
   RecordRow,
   | "id"
   | "organizationId"
+  | "applicationDetails"
   | "createdAt"
   | "createdBy"
   | "updatedAt"
