@@ -48,6 +48,7 @@ import {
   queryResumePoolItems as defaultQueryResumePoolItems,
 } from "@app/resume-processing/review/support/resume-pool-dao";
 import { resumePoolAvatarRouter } from "./routes/avatar/route";
+import { resumePoolMaterialsRouter } from "./routes/materials/route";
 import { resumePoolProfileRouter } from "./routes/profile/route";
 import { resumePoolRecommendationsRouter as defaultResumePoolRecommendationsRouter } from "./routes/recommendations/route";
 import { retryFailedResumeParse as defaultRetryFailedResumeParse } from "../resume-upload-batches/utils/retry";
@@ -786,6 +787,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
         return c.json(result, 200);
       })
       .route("/:id/avatar", resumePoolAvatarRouter)
+      .route("/:id/materials", resumePoolMaterialsRouter)
       .route("/:id/profile", resumePoolProfileRouter)
       .route("/:id/recommendations", resumePoolRecommendationsRouter)
   );

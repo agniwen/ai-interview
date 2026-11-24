@@ -1,5 +1,10 @@
 import type { HumanInterviewEvaluationReviewFinding } from "./human-interview-evaluation-review";
 import type { HumanTranscriptionEventRecord } from "./human-transcription-types";
+import type {
+  CandidateMaterialCategory,
+  CandidateMaterialKind,
+  CandidateMaterialOwnerType,
+} from "./candidate-materials";
 import type { IncomeProofType } from "./recruiting-materials";
 import type {
   OfferApprovalSnapshot,
@@ -7562,5 +7567,83 @@ export const recruitingOfferApprovalReceipt = pgTable(
   },
   (t): PgTableExtraConfigValue[] => [
     uniqueIndex("offer_approval_receipt_key_uq").on(t.organizationId, t.actorId, t.requestId),
+  ],
+);
+
+// 候选人补充资料（作品集压缩包/链接、视频、图片、文档等）：支持人才库与招聘台独立维护，
+// 导入招聘台时仅复制数据库指针行，物理文件按内容哈希共享存储。
+export const candidateMaterial = pgTable(
+  "candidate_material",
+  {
+    category: text("category").$type<CandidateMaterialCategory>().notNull().default("other"),
+    contentHash: text("content_hash"),
+    contentType: text("content_type"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by"),
+    fileName: text("file_name"),
+    id: text("id").primaryKey(),
+    kind: text("kind").$type<CandidateMaterialKind>().notNull(),
+    notes: text("notes").notNull().default(""),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    ownerType: text("owner_type").$type<CandidateMaterialOwnerType>().notNull(),
+    recruitingRecordId: text("recruiting_record_id"),
+    resumePoolItemId: text("resume_pool_item_id").references(() => resumePoolItem.id, {
+      onDelete: "cascade",
+    }),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    storageKey: text("storage_key"),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+    url: text("url"),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [user.id],
+      name: "candidate_material_created_by_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [recruitingRecord.id, recruitingRecord.organizationId],
+      name: "candidate_material_recruiting_record_org_fk",
+    }).onDelete("cascade"),
+    index("candidate_material_pool_item_idx").on(
+      table.organizationId,
+      table.resumePoolItemId,
+      table.createdAt,
+    ),
+    index("candidate_material_recruiting_record_idx").on(
+      table.organizationId,
+      table.recruitingRecordId,
+      table.createdAt,
+    ),
+    index("candidate_material_storage_key_idx").on(table.storageKey),
+    check(
+      "candidate_material_owner_check",
+      sql`(
+        (${table.ownerType} = 'resume_pool_item' AND ${table.resumePoolItemId} IS NOT NULL AND ${table.recruitingRecordId} IS NULL)
+        OR (${table.ownerType} = 'recruiting_record' AND ${table.recruitingRecordId} IS NOT NULL AND ${table.resumePoolItemId} IS NULL)
+      )`,
+    ),
+    check(
+      "candidate_material_kind_payload_check",
+      sql`(
+        (${table.kind} = 'file' AND ${table.url} IS NULL AND ${table.storageKey} IS NOT NULL AND ${table.fileName} IS NOT NULL AND ${table.contentType} IS NOT NULL AND ${table.sizeBytes} IS NOT NULL AND ${table.contentHash} IS NOT NULL)
+        OR (${table.kind} = 'link' AND ${table.url} IS NOT NULL AND ${table.storageKey} IS NULL AND ${table.fileName} IS NULL AND ${table.contentType} IS NULL AND ${table.sizeBytes} IS NULL AND ${table.contentHash} IS NULL)
+      )`,
+    ),
+    check(
+      "candidate_material_category_check",
+      sql`${table.category} IN ('portfolio', 'video', 'image', 'archive', 'document', 'other')`,
+    ),
+    check(
+      "candidate_material_size_check",
+      sql`${table.sizeBytes} IS NULL OR (${table.sizeBytes} >= 0 AND ${table.sizeBytes} <= 9007199254740991)`,
+    ),
   ],
 );

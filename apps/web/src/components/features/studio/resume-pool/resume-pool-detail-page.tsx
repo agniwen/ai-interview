@@ -9,6 +9,7 @@ import { formatResumeRecordDisplayId } from "@/components/features/resume/resume
 import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { CandidateAvatar } from "@/components/features/studio/candidate-avatar-image";
+import { CandidateMaterialsPanel } from "@/components/features/studio/candidate-materials/candidate-materials-panel";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -341,6 +342,12 @@ export function ResumePoolDetailPage({
               }
               resumeProfile={detail.resumeProfile}
               showCandidateSummary={false}
+              slug={slug}
+            />
+            <CandidateMaterialsPanel
+              canEdit={canCreateResumePool}
+              ownerId={detail.id}
+              ownerType="resume_pool_item"
               slug={slug}
             />
             <ResumePoolStructuredInfoPanel

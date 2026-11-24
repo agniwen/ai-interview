@@ -1,3 +1,7 @@
+import {
+  copyCandidateMaterialsToPoolItemTx,
+  copyCandidateMaterialsToRecruitingRecordTx,
+} from "@app/recruiting/candidate-materials";
 import { advanceScreeningRecruitingNodeTx } from "@app/recruiting/pipeline";
 import { updateRecruitingRecords } from "@app/recruiting/records";
 import { recruitingRecordReadModel } from "@app/recruiting/read-model";
@@ -908,6 +912,11 @@ export async function publishPrivatePoolItem(
       targetRole: privateItem.targetRole,
       updatedAt: now,
     });
+    await copyCandidateMaterialsToPoolItemTx(tx, {
+      organizationId: input.organizationId,
+      sourcePoolItemId: privateItem.id,
+      targetPoolItemId: publicId,
+    });
     await writeResumePoolEvent(tx, {
       actorId: input.userId,
       organizationId: input.organizationId,
@@ -1033,6 +1042,11 @@ export async function importPoolItemToResumeLibrary(
           },
           tx,
         );
+        await copyCandidateMaterialsToRecruitingRecordTx(tx, {
+          organizationId: admission.organizationId,
+          poolItemId: source.id,
+          recruitingRecordId: resumeRecordId,
+        });
         // 与招聘台的直接推进使用相同命令，保留筛选通过及跳过 AI 的事实和活动记录。
         if (
           admission.initialRecruitmentStage === "ai_interview" ||

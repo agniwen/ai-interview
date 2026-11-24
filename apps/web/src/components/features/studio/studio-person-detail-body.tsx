@@ -11,6 +11,7 @@ import {
 } from "@/components/features/studio/resumes/resume-overview-panel";
 import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import { QualitativeResumeEvaluationPanel } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
+import { CandidateMaterialsPanel } from "@/components/features/studio/candidate-materials/candidate-materials-panel";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -113,6 +114,14 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                   onViewAiScore={() => setActiveTab("ai-analysis")}
                   slug={model.slug}
                 />
+                {!model.isPublic && !model.isReview ? (
+                  <CandidateMaterialsPanel
+                    canEdit={Boolean(model.canUpdateResumeLibrary)}
+                    ownerId={resumeRecord.id}
+                    ownerType="recruiting_record"
+                    slug={model.slug}
+                  />
+                ) : null}
               </>
             ) : (
               <InterviewResultTabContent

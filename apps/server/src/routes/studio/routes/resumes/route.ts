@@ -68,6 +68,7 @@ import {
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
 } from "./utils/resume-assessment-invalidation";
 import { structuredResumeEvaluationRouter as defaultStructuredResumeEvaluationRouter } from "./routes/structured-evaluation/route";
+import { resumeMaterialsRouter } from "./routes/materials/route";
 import { recruitingRecordMeetingsRouter as defaultRecruitingRecordMeetingsRouter } from "./routes/meetings/route";
 import { initialInterviewsRouter } from "./routes/initial-interviews/route";
 import { resumeEvaluationHistoryRouter as defaultResumeEvaluationHistoryRouter } from "./routes/evaluation-history/route";
@@ -326,6 +327,7 @@ export function createResumeLibraryRouter(
       .route("/ledger", dependencies.recruitingLedgerRouter)
       .route("/", resumeLibraryReadRouter)
       .route("/:id/evaluation-history", defaultResumeEvaluationHistoryRouter)
+      .route("/:id/materials", resumeMaterialsRouter)
       .route("/:id/meetings", recruitingRecordMeetingsRouter)
       .route("/:id/initial-interviews", initialInterviewsRouter)
       .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)

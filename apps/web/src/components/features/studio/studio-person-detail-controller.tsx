@@ -434,6 +434,7 @@ function useStudioPersonDetailController({
     isReportsLoading,
     isResumeAssessmentInProgress,
     isResumeInterviewResultLoading,
+    isReview,
     isRoundCompleted,
     isRoundsLoading,
     isSelectedReportLoading: shouldFetchSelectedReport && isSelectedReportFetching,

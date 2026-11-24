@@ -8,6 +8,7 @@
     "./access/workspace-permission-snapshot": "./src/access/workspace-permission-snapshot.ts",
     "./access/workspace-roles": "./src/access/workspace-roles.ts",
     "./ai-review": "./src/ai-review.ts",
+    "./candidate-materials": "./src/candidate-materials.ts",
     "./forms/queries": "./src/forms/queries.ts",
     "./forms/submissions": "./src/forms/submissions.ts",
     "./forms/versions": "./src/forms/versions.ts",

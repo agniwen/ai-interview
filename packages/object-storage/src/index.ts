@@ -711,3 +711,26 @@ export async function deleteRecruitingMaterialObject(storageKey: string): Promis
   }
   await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }));
 }
+
+// 基于内容哈希命名的候选人补充资料 S3 key——同一组织内相同文件只存一份对象，
+// 人才库与招聘台记录通过数据库指针行共享同一 storageKey。
+export async function buildCandidateMaterialKeyByHash(
+  organizationId: string,
+  contentHash: string,
+): Promise<string> {
+  const { config } = await getClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  return `${prefix}candidate-materials/${encodeURIComponent(organizationId)}/${encodeURIComponent(contentHash)}`;
+}
+
+export async function deleteCandidateMaterialObject(storageKey: string): Promise<void> {
+  const [{ DeleteObjectCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getClient(),
+  ]);
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  if (!storageKey.startsWith(`${prefix}candidate-materials/`)) {
+    throw new Error("Not a candidate material object");
+  }
+  await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }));
+}
